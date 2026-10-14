@@ -3,7 +3,7 @@ use eframe::egui;
 use crate::colors::Colors;
 use crate::gates::Amp;
 
-pub(super) const CIRCLE: f32 = 32.0;
+pub(super) const CIRCLE: f32 = crate::tailwind::SPACING_8;
 pub(super) const CIRCLE_GAP: f32 = 8.0;
 
 /// Render a 2-amplitude row (one `[Amp; 2]`) at the given top-left
@@ -17,7 +17,7 @@ pub(super) fn draw_tooltip_amps(
     amps: &[Amp; 2],
     colors: &Colors,
 ) {
-    // 32 × 32 px — same size as qni's `qubit-circle` (h-8 w-8).
+    // Same size as qni's `qubit-circle`.
     for (basis, amp) in amps.iter().enumerate() {
         let center = egui::pos2(
             left_x + CIRCLE / 2.0 + basis as f32 * (CIRCLE + CIRCLE_GAP),

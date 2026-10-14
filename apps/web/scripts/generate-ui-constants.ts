@@ -55,7 +55,7 @@ const parseRustConstants = (source: string): Map<string, string> => {
   const matcher = /pub\(crate\) const ([A-Z0-9_]+): [^=]+ = ([\s\S]*?);/g
   let match: RegExpExecArray | null
   while ((match = matcher.exec(source)) !== null) {
-    constants.set(match[1], stripComments(match[2]).trim())
+    constants.set(match[1], stripComments(match[2]).replace(/\bcrate::tailwind::/g, '').trim())
   }
   return constants
 }
@@ -99,7 +99,9 @@ const render = (values: Record<ConstantName, number>): string => {
 }
 
 const main = (): void => {
-  const values = evaluateConstants(parseRustConstants(fs.readFileSync(rustConstantsPath, 'utf8')))
+  const source = fs.readFileSync(path.join(repoRoot, 'src/tailwind.rs'), 'utf8')
+    + '\n' + fs.readFileSync(rustConstantsPath, 'utf8')
+  const values = evaluateConstants(parseRustConstants(source))
   const missing = EXPORT_NAMES.filter((name) => !(name in values))
   if (missing.length > 0) {
     throw new Error(`missing Rust constants: ${missing.join(', ')}`)

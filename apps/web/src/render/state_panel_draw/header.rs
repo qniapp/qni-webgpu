@@ -48,9 +48,9 @@ fn paint_header_text(
     // breathing). Keeps "16 qubits" / "256 × 256 = …" from touching the
     // curved handle marks at the top corners.
     let strip_padding_x = STATE_PANEL_CORNER_RADIUS + 6.0;
-    // text-sm (14px) — Tailwind default. Matches the popup header so both
+    // Matches the popup header so both
     // blue-on-paper "card chrome" text sits at the same step on the type scale.
-    let strip_font = egui::FontId::monospace(14.0);
+    let strip_font = egui::FontId::monospace(crate::tailwind::TEXT_SM);
     let qubits_label = if layout.qubits == 1 {
         "qubit"
     } else {
@@ -78,8 +78,10 @@ fn paint_header_text(
                 .size()
                 .x
     });
-    // spacing-4 = 16px gap. Narrow opt-in embeds prioritize states + restart.
-    if labels_width + strip_padding_x * 2.0 + layout.restart_space() + 16.0 <= handle_rect.width() {
+    // 16px gap. Narrow opt-in embeds prioritize states + restart.
+    if labels_width + strip_padding_x * 2.0 + layout.restart_space() + crate::tailwind::SPACING_4
+        <= handle_rect.width()
+    {
         painter.text(
             handle_rect.left_center() + egui::vec2(strip_padding_x, 0.0),
             egui::Align2::LEFT_CENTER,

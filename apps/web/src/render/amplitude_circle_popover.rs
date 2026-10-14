@@ -1,7 +1,7 @@
 //! Shared geometry for amplitude-circle hover popovers.
 //!
 //! State-vector cells and Amplitude Display cells share the same popover body:
-//! a 296 px paper card, text-sm header, and three text-xs metric rows. Numeric
+//! a 296 px paper card, 14px header, and three 12px metric rows. Numeric
 //! values are still rendered by the caller's GPU callback; this module only owns
 //! fixed chrome/layout geometry.
 
@@ -12,14 +12,14 @@ use crate::gpu::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};
 use super::popover;
 
 pub(crate) const WIDTH: f32 = 296.0;
-pub(crate) const PAD_X: f32 = 16.0; // spacing-4 = 16px.
-pub(crate) const PAD_Y: f32 = 12.0; // spacing-3 = 12px.
-pub(crate) const HEADER_H: f32 = 20.0; // text-sm line-height = 20px.
-pub(crate) const HEADER_GAP: f32 = 8.0; // spacing-2 = 8px.
-pub(crate) const ROW_H: f32 = 20.0; // text-sm line-height = 20px.
-pub(crate) const BODY_TEXT_H: f32 = 16.0; // text-xs line-height = 16px.
-pub(crate) const ICON_SIZE: f32 = 16.0; // spacing-4 = 16px.
-pub(crate) const ICON_TEXT_GAP: f32 = 8.0; // spacing-2 = 8px.
+pub(crate) const PAD_X: f32 = crate::tailwind::SPACING_4;
+pub(crate) const PAD_Y: f32 = crate::tailwind::SPACING_3;
+pub(crate) const HEADER_H: f32 = crate::tailwind::LEADING_5;
+pub(crate) const HEADER_GAP: f32 = crate::tailwind::SPACING_2;
+pub(crate) const ROW_H: f32 = crate::tailwind::LEADING_5;
+pub(crate) const BODY_TEXT_H: f32 = crate::tailwind::LEADING_4;
+pub(crate) const ICON_SIZE: f32 = crate::tailwind::SPACING_4;
+pub(crate) const ICON_TEXT_GAP: f32 = crate::tailwind::SPACING_2;
 pub(crate) const LABEL_W: f32 = 88.0; // 22 × 4px; fixed label column from the spec.
 pub(crate) const VALUE_CHARS: f32 = 17.0;
 pub(crate) const ROWS: usize = 3;

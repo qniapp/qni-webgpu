@@ -110,16 +110,14 @@ impl QniApp {
                     egui::pos2(graph_rect.left() + 3.0, graph_rect.top() + 1.0),
                     egui::Align2::LEFT_TOP,
                     format!("{:.0}", y_max),
-                    // text-xs (12px) — Tailwind's smallest size step.
-                    egui::FontId::monospace(12.0),
+                    egui::FontId::monospace(crate::tailwind::TEXT_XS),
                     label_color,
                 );
                 painter.text(
                     egui::pos2(graph_rect.left() + 3.0, graph_rect.bottom() - 1.0),
                     egui::Align2::LEFT_BOTTOM,
                     "0",
-                    // text-xs (12px) — Tailwind's smallest size step.
-                    egui::FontId::monospace(12.0),
+                    egui::FontId::monospace(crate::tailwind::TEXT_XS),
                     label_color,
                 );
                 let ms_color = colors.fps_total;

@@ -30,10 +30,10 @@ pub(crate) struct StatePanelLayout {
 }
 
 impl StatePanelLayout {
-    /// spacing-8 = 32px: a spacing-6 button and spacing-2 label gap.
+    /// 32px: a 24px button and 8px label gap.
     pub(crate) fn restart_space(&self) -> f32 {
         if self.show_restart_button {
-            32.0
+            crate::tailwind::SPACING_8
         } else {
             0.0
         }
@@ -47,7 +47,7 @@ impl StatePanelLayout {
                 state_rect.right() - padding - 12.0,
                 state_rect.top() + self.handle_height / 2.0,
             ),
-            egui::vec2(24.0, 24.0), // spacing-6.
+            egui::vec2(crate::tailwind::SPACING_6, crate::tailwind::SPACING_6),
         )
     }
 

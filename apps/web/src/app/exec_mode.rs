@@ -109,14 +109,14 @@ struct ExecModeToggle<'a> {
 impl egui::Widget for ExecModeToggle<'_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         let id = ui.make_persistent_id("exec_mode_toggle");
-        let font = egui::FontId::monospace(14.0); // text-sm = 14px.
+        let font = egui::FontId::monospace(crate::tailwind::TEXT_SM);
         let local = ui
             .painter()
             .layout_no_wrap("Local".to_owned(), font.clone(), self.colors.text);
         let gpu = ui
             .painter()
             .layout_no_wrap("GPU".to_owned(), font.clone(), self.colors.text);
-        let segment_padding = egui::vec2(12.0, 4.0); // px-3 / py-1 per side — match mock.
+        let segment_padding = egui::vec2(crate::tailwind::SPACING_3, crate::tailwind::SPACING_1); // Per-side padding matches the mock.
         let local_size = local.size() + segment_padding * 2.0;
         let gpu_size = gpu.size() + segment_padding * 2.0;
         let segment_height = local_size.y.max(gpu_size.y);

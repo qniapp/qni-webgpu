@@ -58,9 +58,9 @@ impl CircuitGpuBatch {
 // Font-rasterisation baseline correction for the GPU atlas: keep the visible
 // digit's vertical centre on the wire, matching qni's flex-centred value layer.
 const MEASUREMENT_DIGIT_CENTER_Y_OFFSET: f32 = 1.0;
-// Tailwind spacing-1 = 4px: qni shortens the measurement dropzone wires
+// 4px: qni shortens the measurement dropzone wires
 // around the meter body, so the wire never touches or runs through the arc.
-const MEASUREMENT_WIRE_CLEARANCE: f32 = 4.0;
+const MEASUREMENT_WIRE_CLEARANCE: f32 = crate::tailwind::SPACING_1;
 // 3px keeps the anti-control ring open without biting into the 3px stroke.
 // The mask is painted after the glyph so the qubit wire never remains in the
 // hollow center.
@@ -850,10 +850,10 @@ impl QniApp {
         );
 
         // docs/design-system/bloch-display-popover.html: title uses Geist regular
-        // text-sm; labels are Geist Mono text-xs; values are rendered by GPU from
+        // 14px; labels are Geist Mono 12px; values are rendered by GPU from
         // `bloch_output_buffer` to avoid production GPU→CPU readback.
-        let title_font = egui::FontId::proportional(14.0); // text-sm = 14px.
-        let label_font = egui::FontId::monospace(12.0); // text-xs = 12px.
+        let title_font = egui::FontId::proportional(crate::tailwind::TEXT_SM);
+        let label_font = egui::FontId::monospace(crate::tailwind::TEXT_XS);
         let title_galley = painter.layout_no_wrap(
             bloch_hover_popup_title().to_owned(),
             title_font,
@@ -862,16 +862,16 @@ impl QniApp {
         let label_galleys = ["r", "φ", "θ", "x", "y", "z"]
             .map(|label| painter.layout_no_wrap(label.to_owned(), label_font.clone(), colors.text));
 
-        let pad_x = 16.0; // spacing-4.
-        let pad_y = 12.0; // spacing-3.
-        let divider_gap = 12.0; // spacing-3.
-        let label_gap = 8.0; // spacing-2.
-        let col_gap = 12.0; // spacing-3.
+        let pad_x = crate::tailwind::SPACING_4;
+        let pad_y = crate::tailwind::SPACING_3;
+        let divider_gap = crate::tailwind::SPACING_3;
+        let label_gap = crate::tailwind::SPACING_2;
+        let col_gap = crate::tailwind::SPACING_3;
         let label_w = 12.0; // min-width 12px for r / φ / θ / x / y / z.
         let value_chars = 8.0; // Matches WGSL VALUE_CHARS.
         let value_w = POPUP_GLYPH_CELL_W as f32 * value_chars;
         let value_h = POPUP_GLYPH_CELL_H as f32;
-        let value_pitch = 20.0; // text-sm default line-height = 20px.
+        let value_pitch = crate::tailwind::LEADING_5;
         let cell_w = label_w + label_gap + value_w;
         let col_pitch = cell_w + col_gap;
         let content_w = title_galley.size().x.max(cell_w * 3.0 + col_gap * 2.0);
@@ -971,8 +971,8 @@ impl QniApp {
         // labels, and icons; all numeric values are rendered by WebGPU from the
         // Amplitude Display storage buffers without production readback.
         let header = amplitude_hover_popup_header(outcome, span);
-        let header_font = egui::FontId::monospace(14.0); // text-sm = 14px.
-        let body_font = egui::FontId::monospace(12.0); // text-xs = 12px.
+        let header_font = egui::FontId::monospace(crate::tailwind::TEXT_SM);
+        let body_font = egui::FontId::monospace(crate::tailwind::TEXT_XS);
         let height = amplitude_popover::height();
         let placement = amplitude_hover_popup_placement(
             circle_center,
@@ -1068,26 +1068,26 @@ impl QniApp {
             return;
         };
 
-        // Popup typography follows docs/design-system/probability-display.html §10: text-sm ket,
-        // text-xs subtitle/labels, spacing on the Tailwind 4px scale.
-        let ket_font = egui::FontId::monospace(14.0); // text-sm = 14px.
-        let subtitle_font = egui::FontId::proportional(12.0); // text-xs = 12px.
-        let label_font = egui::FontId::monospace(12.0); // text-xs = 12px.
+        // Popup typography follows docs/design-system/probability-display.html §10: 14px ket,
+        // 12px subtitle/labels, spacing on the 4px scale.
+        let ket_font = egui::FontId::monospace(crate::tailwind::TEXT_SM);
+        let subtitle_font = egui::FontId::proportional(crate::tailwind::TEXT_XS);
+        let label_font = egui::FontId::monospace(crate::tailwind::TEXT_XS);
         let ket_galley = painter.layout_no_wrap(ket, ket_font, colors.text_strong);
         let subtitle_galley = painter.layout_no_wrap(subtitle, subtitle_font, colors.text);
         let raw_label_galley =
             painter.layout_no_wrap("RAW".to_owned(), label_font.clone(), colors.text);
         let log_label_galley = painter.layout_no_wrap("LOG".to_owned(), label_font, colors.text);
 
-        let pad_x = 16.0; // spacing-4.
-        let pad_y = 12.0; // spacing-3.
-        let subtitle_gap = 4.0; // spacing-1.
-        let divider_gap = 12.0; // spacing-3.
-        let row_gap = 16.0; // spacing-4.
+        let pad_x = crate::tailwind::SPACING_4;
+        let pad_y = crate::tailwind::SPACING_3;
+        let subtitle_gap = crate::tailwind::SPACING_1;
+        let divider_gap = crate::tailwind::SPACING_3;
+        let row_gap = crate::tailwind::SPACING_4;
         let value_chars = 12.0; // Must match WGSL VALUE_CHARS; fits raw percent and compact log dB rows.
         let value_w = POPUP_GLYPH_CELL_W as f32 * value_chars;
         let value_h = POPUP_GLYPH_CELL_H as f32;
-        let value_pitch = 20.0; // text-sm default line-height = 20px.
+        let value_pitch = crate::tailwind::LEADING_5;
         let label_w = 32.0_f32.max(raw_label_galley.size().x.max(log_label_galley.size().x));
         let row_w = label_w + row_gap + value_w;
         let content_w = ket_galley.size().x.max(subtitle_galley.size().x).max(row_w);

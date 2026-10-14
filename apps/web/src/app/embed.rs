@@ -109,10 +109,10 @@ impl super::QniApp {
             EMBED_STATE_PANEL_CIRCUIT_GAP, GATE_SIZE, LINE_GAP, LINE_Y, STATE_CIRCLE_BOTTOM_MARGIN,
             STATE_HANDLE_HEIGHT, STEP_OUTSET_Y,
         };
-        // egui CentralPanel's default margin is spacing-2 (8px) on each side.
+        // egui CentralPanel's default margin is 8px on each side.
         let rect = eframe::egui::Rect::from_min_size(
-            eframe::egui::pos2(8.0, 8.0),
-            eframe::egui::vec2((width - 16.0).max(1.0), 1.0),
+            eframe::egui::pos2(crate::tailwind::SPACING_2, crate::tailwind::SPACING_2),
+            eframe::egui::vec2((width - 2.0 * crate::tailwind::SPACING_2).max(1.0), 1.0),
         );
         let wires = self.qubit_count + usize::from(self.qubit_count < self.wire_capacity().get());
         let last_line =
@@ -127,7 +127,7 @@ impl super::QniApp {
                 + self.state_panel.viewport_size.y
                 + STATE_CIRCLE_BOTTOM_MARGIN
         } else {
-            bottom + 16.0 // spacing-4
+            bottom + crate::tailwind::SPACING_4
         };
         (content.max(panel) + 8.0).ceil()
     }

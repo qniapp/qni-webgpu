@@ -12,10 +12,10 @@ use super::constants::{
 
 pub(super) fn popover_frame(colors: &Colors) -> egui::Frame {
     egui::Frame {
-        inner_margin: egui::Margin::same(6),             // p-1.5 = 6px.
+        inner_margin: egui::Margin::same(crate::tailwind::SPACING_1_5 as i8),
         fill: colors.surface,                            // Flexoki bg / paper.
         stroke: egui::Stroke::new(1.0_f32, colors.line), // Flexoki ui-2.
-        corner_radius: egui::CornerRadius::same(12),     // rounded-xl = 12px.
+        corner_radius: egui::CornerRadius::same(crate::tailwind::ROUNDED_XL),
         outer_margin: egui::Margin::ZERO,
         shadow: egui::epaint::Shadow {
             offset: [0, 12],
@@ -194,10 +194,13 @@ pub(super) fn paint_picker_item_text(
     active: bool,
     alpha: u8,
 ) {
-    let font = egui::FontId::new(14.0, egui::FontFamily::Proportional); // text-sm = 14px.
+    let font = egui::FontId::new(crate::tailwind::TEXT_SM, egui::FontFamily::Proportional);
     let name_rect = egui::Rect::from_min_max(
-        egui::pos2(rect.left() + ROW_TEXT_OFFSET, rect.top()), // px-2.5 + 14px icon + gap-2.
-        egui::pos2(kebab_rect.left() - 8.0, rect.bottom()),    // spacing-2.
+        egui::pos2(rect.left() + ROW_TEXT_OFFSET, rect.top()), // Padding + icon + gap.
+        egui::pos2(
+            kebab_rect.left() - crate::tailwind::SPACING_2,
+            rect.bottom(),
+        ),
     );
     let color = with_alpha(colors.text_strong, alpha);
     if entry.locked() {
@@ -239,7 +242,7 @@ pub(super) fn paint_section_header(
     top_margin: bool,
 ) -> egui::Rect {
     if top_margin {
-        ui.add_space(SECTION_HEADER_TOP_MARGIN); // mt-1.5 = 6px.
+        ui.add_space(SECTION_HEADER_TOP_MARGIN);
     }
     let (rect, _) = ui.allocate_exact_size(
         egui::vec2(ui.available_width(), SECTION_HEADER_HEIGHT),
@@ -248,7 +251,7 @@ pub(super) fn paint_section_header(
     let color = colors.toolbar_icon_disabled; // Flexoki tx-3.
     let galley = ui.painter().layout_no_wrap(
         label.to_owned(),
-        egui::FontId::new(12.0, egui::FontFamily::Proportional), // text-xs = 12px.
+        egui::FontId::new(crate::tailwind::TEXT_XS, egui::FontFamily::Proportional),
         color,
     );
     let text_pos = egui::pos2(
@@ -289,7 +292,7 @@ pub(super) fn footer(ui: &mut egui::Ui, colors: &Colors) -> (egui::Response, egu
     let color = colors.text_strong; // Flexoki tx, matching circuit item labels.
     let galley = ui.painter().layout_no_wrap(
         "Create new circuit".to_owned(),
-        egui::FontId::new(14.0, egui::FontFamily::Proportional), // text-sm = 14px.
+        egui::FontId::new(crate::tailwind::TEXT_SM, egui::FontFamily::Proportional),
         color,
     );
     ui.painter().galley(
@@ -330,8 +333,8 @@ pub(super) fn paint_resize_separator(
     let y = rect.center().y;
     ui.painter().line_segment(
         [
-            egui::pos2(rect.left() + RESIZE_HANDLE_LINE_INSET_X, y), // spacing-1 = 4px.
-            egui::pos2(rect.right() - RESIZE_HANDLE_LINE_INSET_X, y), // spacing-1 = 4px.
+            egui::pos2(rect.left() + RESIZE_HANDLE_LINE_INSET_X, y),
+            egui::pos2(rect.right() - RESIZE_HANDLE_LINE_INSET_X, y),
         ],
         egui::Stroke::new(stroke_width, color),
     );
@@ -371,11 +374,14 @@ pub(super) fn submenu_item(
     };
     let galley = ui.painter().layout_no_wrap(
         label.to_owned(),
-        egui::FontId::new(14.0, egui::FontFamily::Proportional), // text-sm = 14px.
+        egui::FontId::new(crate::tailwind::TEXT_SM, egui::FontFamily::Proportional),
         color,
     );
     ui.painter().galley(
-        egui::pos2(rect.left() + 12.0, rect.center().y - galley.size().y / 2.0), // px-3 = 12px.
+        egui::pos2(
+            rect.left() + crate::tailwind::SPACING_3,
+            rect.center().y - galley.size().y / 2.0,
+        ),
         galley,
         color,
     );

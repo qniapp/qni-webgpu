@@ -20,26 +20,29 @@ pub fn gpu_status_pill(ui: &mut egui::Ui, status: &ExternalGpuStatus) -> Option<
     }
 
     let inner = egui::Frame::NONE
-        .inner_margin(egui::Margin::symmetric(8, 2)) // px-2 / py-0.5 = 8px / 2px.
+        .inner_margin(egui::Margin::symmetric(
+            crate::tailwind::SPACING_2 as i8,
+            crate::tailwind::SPACING_0_5 as i8,
+        ))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing = egui::vec2(8.0, 0.0); // gap-2 = 8px.
+                ui.spacing_mut().item_spacing = egui::vec2(crate::tailwind::SPACING_2, 0.0);
                 paint_dot(ui, parts.color, parts.running);
                 ui.label(
                     egui::RichText::new(parts.label)
-                        .size(14.0) // text-sm = 14px.
+                        .size(crate::tailwind::TEXT_SM)
                         .color(parts.color),
                 );
                 if let Some(detail) = parts.detail {
                     ui.label(
                         egui::RichText::new("·")
-                            .size(14.0) // text-sm = 14px.
+                            .size(crate::tailwind::TEXT_SM)
                             .color(colors.gpu_status_separator), // Flexoki tx-3.
                     );
                     ui.label(
                         egui::RichText::new(detail)
                             .monospace()
-                            .size(14.0) // text-sm = 14px.
+                            .size(crate::tailwind::TEXT_SM)
                             .color(parts.color),
                     );
                 }

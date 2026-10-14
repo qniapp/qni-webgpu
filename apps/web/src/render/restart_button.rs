@@ -27,24 +27,24 @@ pub(crate) fn paint(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) 
     if hovered || focused {
         painter.rect_stroke(
             rect,
-            egui::CornerRadius::same(4),
+            egui::CornerRadius::same(crate::tailwind::ROUNDED),
             egui::Stroke::new(1.0, colors.surface),
             egui::StrokeKind::Inside,
-        ); // Flexoki bg; rounded = 4px.
+        ); // Flexoki bg.
     }
     paint_icon(painter, rect.center(), colors.surface); // Flexoki bg.
 }
 
 fn paint_icon(painter: &egui::Painter, center: egui::Pos2, color: egui::Color32) {
-    // spacing-4 = 16px icon, stroke-2 like the toolbar's vector icons.
+    // 16px icon, 2px stroke like the toolbar's vector icons.
     // A nearly full clockwise circle, not the toolbar's bent redo arrow.
     let points = (0..=40)
         .map(|i| {
             let angle = 0.1 + i as f32 / 40.0 * (std::f32::consts::TAU - 0.6);
-            center + egui::vec2(angle.cos(), angle.sin()) * 8.0
+            center + egui::vec2(angle.cos(), angle.sin()) * (crate::tailwind::SPACING_4 / 2.0)
         })
         .collect();
-    let stroke = egui::Stroke::new(2.0, color);
+    let stroke = egui::Stroke::new(crate::tailwind::STROKE_2, color);
     painter.add(egui::Shape::line(points, stroke));
     painter.add(egui::Shape::line(
         vec![

@@ -36,9 +36,9 @@ impl QniApp {
         );
         let strip_padding_x = STATE_PANEL_CORNER_RADIUS + 6.0;
         // Must mirror the strip_font in state_panel_draw.rs — both must
-        // sit at Tailwind text-sm (14px) for the hit-test rect to line
+        // sit at 14px for the hit-test rect to line
         // up with what the user actually sees.
-        let font = egui::FontId::monospace(14.0);
+        let font = egui::FontId::monospace(crate::tailwind::TEXT_SM);
         let text = Self::dims_text(layout);
         let measure_color = Colors::new().aspect_text_current;
         let size = ctx.fonts_mut(|f| f.layout_no_wrap(text, font, measure_color).size());

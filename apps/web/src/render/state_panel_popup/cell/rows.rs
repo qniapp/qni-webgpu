@@ -31,7 +31,7 @@ fn paint_header(
     // the displayed numbers stay consistent with the cell the user points at.
     let ket_binary = format!("{:0width$b}", display_index, width = qubits as usize);
     let header = format!("|{}⟩ decimal {}", ket_binary, display_index);
-    let header_font = egui::FontId::monospace(14.0); // text-sm = 14px
+    let header_font = egui::FontId::monospace(crate::tailwind::TEXT_SM);
     painter.text(
         popup.header_pos(),
         egui::Align2::LEFT_TOP,
@@ -45,7 +45,7 @@ fn paint_metric_rows(painter: &egui::Painter, colors: &Colors, popup: &PopupGeom
     // Body text uses tx (near-black) for full readability; labels share the
     // same colour so the row doesn't fade. Icons use tx-2 (a half-step lighter)
     // to read as chrome rather than data.
-    let body_font = egui::FontId::monospace(12.0); // text-xs = 12px
+    let body_font = egui::FontId::monospace(crate::tailwind::TEXT_XS);
     let label_color = colors.state_outline;
 
     // Each icon is two-tone: chrome (tx-3 light gray) for the supporting frame,

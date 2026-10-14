@@ -3,10 +3,10 @@ pub(crate) const STATE_CIRCLE_BOTTOM_MARGIN: f32 = 2.0 * REM;
 
 /// Height of the state panel's header strip (the blue-600 bar at the top
 /// showing "N qubits" / "C × R = N states", and that hosts the top resize
-/// handles). Tailwind h-8 (32px), giving text-sm (14px / 20px LH) ~6 px
+/// handles). At 32px, giving 14px text with 20px line height ~6 px
 /// of breathing room above and below — a comfortable "header" feel
 /// without crowding the strip's 10×10 corner resize handles.
-pub(crate) const STATE_HANDLE_HEIGHT: f32 = 32.0;
+pub(crate) const STATE_HANDLE_HEIGHT: f32 = crate::tailwind::SPACING_8;
 
 /// Initial viewport size (the area below the header strip where circles
 /// render). The user can resize the panel by dragging the corner L
@@ -17,11 +17,11 @@ pub(crate) const STATE_VIEWPORT_MIN_WIDTH: f32 = 280.0;
 pub(crate) const STATE_VIEWPORT_MIN_HEIGHT: f32 = 80.0;
 pub(crate) const STATE_VIEWPORT_MAX_WIDTH: f32 = 1200.0;
 pub(crate) const STATE_VIEWPORT_MAX_HEIGHT: f32 = 600.0;
-/// Embeds keep the state panel this far below the circuit (spacing-4 = 16px).
-pub(crate) const EMBED_STATE_PANEL_CIRCUIT_GAP: f32 = 16.0;
+/// Embeds keep the state panel this far below the circuit (16px).
+pub(crate) const EMBED_STATE_PANEL_CIRCUIT_GAP: f32 = crate::tailwind::SPACING_4;
 /// Bottom / side margin of an embed state panel squeezed by a small canvas
-/// (spacing-4 = 16px).
-pub(crate) const EMBED_STATE_PANEL_TIGHT_BOTTOM_MARGIN: f32 = 16.0;
+/// (16px).
+pub(crate) const EMBED_STATE_PANEL_TIGHT_BOTTOM_MARGIN: f32 = crate::tailwind::SPACING_4;
 
 /// Panel rounded-corner radius (px). The top resize handles' outer arcs
 /// curve along this radius minus the handle padding so they sit flush
@@ -129,101 +129,100 @@ pub(crate) const MAX_QUBITS: usize = LOCAL_MAX_QUBITS;
 pub(crate) const MAX_STATE_COUNT: usize = 1 << MAX_QUBITS;
 
 /// Vertical gap between the gate palette panel's bottom edge and the
-/// first qubit wire's top-of-gate. Tailwind spacing-12 (48 px) — twice
+/// first qubit wire's top-of-gate. 48px — twice
 /// the toolbar→palette gap so the boundary between "input bank" and
 /// "circuit canvas" reads clearly even though both areas display
 /// visually identical cyan-400 gates.
-pub(crate) const PALETTE_CIRCUIT_GAP: f32 = 48.0;
+pub(crate) const PALETTE_CIRCUIT_GAP: f32 = crate::tailwind::SPACING_12;
 
 pub(crate) const LINE_Y: f32 = PALETTE_ROW_Y
     + (PALETTE_SIZE * 2.0 + PALETTE_ROW_GAP)
     + PALETTE_PADDING_Y
     + PALETTE_CIRCUIT_GAP
     + GATE_SIZE / 2.0;
-// spacing-14 = 56 px. With GATE_SIZE = 40 this preserves the previous
+// 56px. With GATE_SIZE = 40 this preserves the previous
 // 16 px visual gap between gates on neighbouring wires (48 - 32 = 56 - 40).
-pub(crate) const LINE_GAP: f32 = 56.0;
-// qni circuit-step sm:py-8: 32px above/below the outermost 40px gate.
-// spacing-8 = 32px; GATE_SIZE / 2 is the gate's half-height.
-pub(crate) const STEP_OUTSET_Y: f32 = GATE_SIZE / 2.0 + 32.0;
-pub(crate) const CIRCUIT_PADDING: f32 = 2.0 * REM; // spacing-16 = 64px circuit side padding.
-pub(crate) const QUBIT_LABEL_WIDTH: f32 = 3.0 * 14.0; // "qN:" at font size 14
+pub(crate) const LINE_GAP: f32 = crate::tailwind::SPACING_14;
+// qni circuit-step: padding above/below the outermost gate;
+// GATE_SIZE / 2 accounts for the gate's half-height.
+pub(crate) const STEP_OUTSET_Y: f32 = GATE_SIZE / 2.0 + crate::tailwind::SPACING_8;
+pub(crate) const CIRCUIT_PADDING: f32 = crate::tailwind::SPACING_16; // circuit side padding.
+pub(crate) const QUBIT_LABEL_WIDTH: f32 = 3.0 * crate::tailwind::TEXT_SM; // "qN:"
 pub(crate) const QUBIT_LABEL_GAP: f32 = 0.5 * REM; // Gap between label and line (0.5rem)
 pub(crate) const LINE_LEFT_OFFSET: f32 = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP;
 pub(crate) const LINE_RIGHT_OFFSET: f32 = CIRCUIT_PADDING;
-/// Circuit areas narrower than Tailwind's `sm` breakpoint (640px) use
-/// compact gutters so a phone-width embed (a 354px canvas on a 390px
-/// tutorial page) still shows five columns.
-pub(crate) const COMPACT_CIRCUIT_MAX_WIDTH: f32 = 640.0;
+/// Narrower circuit areas use compact gutters so a phone-width embed (a 354px
+/// canvas on a 390px tutorial page) still shows five columns.
+pub(crate) const COMPACT_CIRCUIT_MAX_WIDTH: f32 = crate::tailwind::SCREEN_SM;
 /// Compact x where the wires start, relative to the circuit area
-/// (spacing-10 = 40px): a spacing-2 margin, a "q0:" label (3 GeistMono
-/// text-sm glyphs ≈ 25px), and a spacing-2 gap before the wire. With the
-/// central panel's 8px margin the label starts ~spacing-4 from the canvas
+/// (40px): an 8px margin, a "q0:" label (3 GeistMono
+/// 14px glyphs ≈ 25px), and an 8px gap before the wire. With the
+/// central panel's 8px margin the label starts ~16px from the canvas
 /// edge.
-pub(crate) const COMPACT_LINE_LEFT_OFFSET: f32 = 40.0;
-/// Compact gap between a right-aligned qubit label and its wire (spacing-2).
-pub(crate) const COMPACT_QUBIT_LABEL_GAP: f32 = 8.0;
-/// Compact right gutter past the last wire end (spacing-4 = 16px).
-pub(crate) const COMPACT_CIRCUIT_PADDING: f32 = 16.0;
+pub(crate) const COMPACT_LINE_LEFT_OFFSET: f32 = crate::tailwind::SPACING_10;
+/// Compact gap between a right-aligned qubit label and its wire (8px).
+pub(crate) const COMPACT_QUBIT_LABEL_GAP: f32 = crate::tailwind::SPACING_2;
+/// Compact right gutter past the last wire end (16px).
+pub(crate) const COMPACT_CIRCUIT_PADDING: f32 = crate::tailwind::SPACING_4;
 
 // qni circuit-block geometry, from the `min-width: 768px` rules in
 // `packages/elements/src/circuit-block-element.ts` (qniapp/qni@acf87bf):
 // `#body { margin: 1.5rem 0; padding: 2rem 0; border-width: 2px 0 }`.
 // The body wraps the step-preview bars (half a wire gap above the first
 // wire / below the last) and each label sits in the margin outside a rule.
-// spacing-8 = 32 px between a rule and the step-preview bar end.
-pub(crate) const CIRCUIT_BLOCK_PADDING_Y: f32 = 32.0;
+// 32px between a rule and the step-preview bar end.
+pub(crate) const CIRCUIT_BLOCK_PADDING_Y: f32 = crate::tailwind::SPACING_8;
 // 2 px top / bottom rules, as qni's `border-top-width: 2px`.
 pub(crate) const CIRCUIT_BLOCK_BORDER_WIDTH: f32 = 2.0;
-// spacing-6 = 24 px label band outside each rule.
-pub(crate) const CIRCUIT_BLOCK_MARGIN_Y: f32 = 24.0;
-// text-base = 16 px monospace label, as qni's block comment.
-pub(crate) const CIRCUIT_BLOCK_LABEL_FONT_SIZE: f32 = 16.0;
-// leading-7 = 28 px label line box, the line height qni's label inherits.
+// 24px label band outside each rule.
+pub(crate) const CIRCUIT_BLOCK_MARGIN_Y: f32 = crate::tailwind::SPACING_6;
+// 16px monospace label, as qni's block comment.
+pub(crate) const CIRCUIT_BLOCK_LABEL_FONT_SIZE: f32 = crate::tailwind::TEXT_BASE;
+// 28px label line box, the line height qni's label inherits.
 // It is anchored to the outer edge of the margin, so it overlaps the
 // rule by 28 - 24 = 4 px.
-pub(crate) const CIRCUIT_BLOCK_LABEL_LINE_HEIGHT: f32 = 28.0;
+pub(crate) const CIRCUIT_BLOCK_LABEL_LINE_HEIGHT: f32 = crate::tailwind::LEADING_7;
 /// How far a block reaches past the step-preview bar ends, label band
 /// included (32 + 2 + 24 = 58 px). Blocks push the circuit down by this,
 /// as qni's block box pushes its steps down.
 pub(crate) const CIRCUIT_BLOCK_OUTSET_Y: f32 =
     CIRCUIT_BLOCK_PADDING_Y + CIRCUIT_BLOCK_BORDER_WIDTH + CIRCUIT_BLOCK_MARGIN_Y;
 
-// spacing-10 = 40 px, matching Quirk's operation base size.
-pub(crate) const GATE_SIZE: f32 = 40.0;
-// spacing-14 = 56 px. Kept equal to LINE_GAP for a square visual rhythm.
-pub(crate) const SLOT_SPACING: f32 = 56.0;
-// spacing-10 = 40 px, matching the 40 px gate body for Qni-style sticky snap.
-pub(crate) const SNAP_DISTANCE: f32 = 40.0;
+// 40px, matching Quirk's operation base size.
+pub(crate) const GATE_SIZE: f32 = crate::tailwind::SPACING_10;
+// 56px. Kept equal to LINE_GAP for a square visual rhythm.
+pub(crate) const SLOT_SPACING: f32 = crate::tailwind::SPACING_14;
+// 40px, matching the 40 px gate body for Qni-style sticky snap.
+pub(crate) const SNAP_DISTANCE: f32 = crate::tailwind::SPACING_10;
 pub(crate) const DRAG_REPAINT_BASE_SECS: f64 = 0.01;
 pub(crate) const DRAG_REPAINT_MIN_SECS: f64 = 0.004;
 pub(crate) const DRAG_REPAINT_MAX_SECS: f64 = 1.0 / 30.0;
 pub(crate) const DRAG_REPAINT_PUMP_FACTOR: f64 = 0.1;
 pub(crate) const PALETTE_SIZE: f32 = GATE_SIZE;
 // qni reference (apps/www/app/views/application/_palette_md.html.erb):
-//   space-x-2 / space-y-2 → 0.5rem (8px) inter-gate gap
-//   px-4 / py-5           → 1rem (16px) horizontal / 1.25rem (20px) vertical padding
-//   rounded-xl            → 0.75rem (12px) border radius
-pub(crate) const PALETTE_GAP: f32 = 8.0;
-pub(crate) const PALETTE_ROW_GAP: f32 = 8.0;
-// spacing-2 = 8px on both sides of the Display-section separator.
-pub(crate) const PALETTE_SECTION_GAP: f32 = 8.0;
+//   8px inter-gate gap
+//   16px horizontal / 20px vertical padding
+//   12px border radius
+pub(crate) const PALETTE_GAP: f32 = crate::tailwind::SPACING_2;
+pub(crate) const PALETTE_ROW_GAP: f32 = crate::tailwind::SPACING_2;
+// 8px on both sides of the Display-section separator.
+pub(crate) const PALETTE_SECTION_GAP: f32 = crate::tailwind::SPACING_2;
 // 2px Flexoki ui-2 vertical divider used by UI section separators.
 pub(crate) const SECTION_DIVIDER_WIDTH: f32 = 2.0;
 // Palette separator spans the full two-row palette height.
 pub(crate) const PALETTE_SEPARATOR_WIDTH: f32 = SECTION_DIVIDER_WIDTH;
 pub(crate) const PALETTE_DISPLAY_COLUMNS: usize = 2;
 pub(crate) const PALETTE_DISPLAY_ROWS: usize = 2;
-pub(crate) const PALETTE_PADDING_X: f32 = 16.0;
-pub(crate) const PALETTE_PADDING_Y: f32 = 20.0;
+pub(crate) const PALETTE_PADDING_X: f32 = crate::tailwind::SPACING_4;
+pub(crate) const PALETTE_PADDING_Y: f32 = crate::tailwind::SPACING_5;
 /// Smallest gap between the palette panel and the canvas side edges
-/// (spacing-4 = 16px). A restricted palette wraps into more rows rather
+/// (16px). A restricted palette wraps into more rows rather
 /// than cross it.
-pub(crate) const PALETTE_MARGIN_X: f32 = 16.0;
-pub(crate) const PALETTE_CORNER_RADIUS: u8 = 12;
+pub(crate) const PALETTE_MARGIN_X: f32 = crate::tailwind::SPACING_4;
+pub(crate) const PALETTE_CORNER_RADIUS: u8 = crate::tailwind::ROUNDED_XL;
 /// Palette first-row top aligned after the full-width toolbar strip.
-/// Toolbar strip height is 44px (32px content row + py-1.5), and egui's
+/// Toolbar strip height is 44px (32px content row + 12px padding), and egui's
 /// central panel adds an 8px top margin. Palette panel top is
-/// `8 + PALETTE_ROW_Y - py-5`, so `8 + 80 - 20 - 44 = 24px`, matching
-/// Tailwind spacing-6 between sibling panels.
+/// `8 + PALETTE_ROW_Y - 20`, so `8 + 80 - 20 - 44 = 24px`, matching
+/// 24px between sibling panels.
 pub(crate) const PALETTE_ROW_Y: f32 = 2.5 * REM;

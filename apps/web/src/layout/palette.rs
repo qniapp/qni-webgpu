@@ -150,7 +150,7 @@ impl Palette {
 }
 
 /// Entries per row of a restricted palette: everything in one row when the
-/// panel fits between the spacing-4 canvas margins, otherwise the fewest
+/// panel fits between the 16px canvas margins, otherwise the fewest
 /// rows that fit, filled evenly (9 entries on a 354 px canvas → 5 + 4).
 fn restricted_columns(count: usize, canvas_width: f32) -> usize {
     if count == 0 {

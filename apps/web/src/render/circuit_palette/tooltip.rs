@@ -17,10 +17,6 @@ impl QniApp {
     /// amplitudes). Anchored below the hovered palette button, clamped
     /// to the screen rect. No-op when nothing is hovered or while a
     /// gate drag is in progress.
-    ///
-    /// Chrome matches the shared popover primitive (paper bg + tx-3 1 px border +
-    /// outlined tail + soft shadow). Typography follows the Tailwind scale: title
-    /// text-sm (14 px) in tx, description text-xs (12 px) in tx-2.
     pub(crate) fn draw_palette_tooltip(
         &self,
         painter: &egui::Painter,

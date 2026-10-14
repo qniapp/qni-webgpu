@@ -6,7 +6,7 @@ use crate::colors::Colors;
 use crate::gates::{GateInfo, GateKind};
 use crate::icons::draw_gate_body;
 
-const SECTION_GAP: f32 = 8.0;
+const SECTION_GAP: f32 = crate::tailwind::SPACING_2;
 const WIRE: f32 = 12.0;
 const ARROWHEAD: f32 = 6.0;
 const GATE_BODY: f32 = 24.0;
@@ -24,10 +24,10 @@ pub(super) struct DiagramMetrics {
 impl DiagramMetrics {
     pub(super) fn for_transition_count(transition_count: usize) -> Self {
         // Diagram geometry. Sizes match qni's `QubitTransitionComponent`:
-        // * QubitCircle = `h-8 w-8`     → 32 × 32 px
+        // * QubitCircle                → 32 × 32 px
         // * qpu-operation-sm = `1.5rem` → 24 × 24 px gate body
         // * arrow_start / arrow_end SVG → 12 × 24 px each side
-        // * space-x-2 between groups    → 8 px
+        // * 8 px between groups
         let amps_width = CIRCLE * 2.0 + CIRCLE_GAP;
         // The arrowhead chevron is drawn over the last 6 px of the right wire
         // (matches qni's arrow_end SVG where the chevron tip ends at x=11.6

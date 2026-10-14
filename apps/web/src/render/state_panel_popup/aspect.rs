@@ -2,21 +2,20 @@ use eframe::egui;
 
 use crate::colors::{with_alpha, Colors};
 
-const PANEL_RADIUS: u8 = 12; // rounded-xl = 12px.
+const PANEL_RADIUS: u8 = crate::tailwind::ROUNDED_XL;
 #[cfg(all(target_arch = "wasm32", debug_assertions))]
-const PANEL_PADDING: f32 = 6.0; // p-1.5 = 6px.
+const PANEL_PADDING: f32 = crate::tailwind::SPACING_1_5;
 #[cfg(all(target_arch = "wasm32", debug_assertions))]
-const ITEM_HEIGHT: f32 = 36.0; // h-9 = 36px.
-const ITEM_RADIUS: u8 = 6; // rounded-md = 6px.
-const ITEM_PAD_X: f32 = 10.0; // px-2.5 = 10px.
+const ITEM_HEIGHT: f32 = crate::tailwind::SPACING_9;
+const ITEM_RADIUS: u8 = crate::tailwind::ROUNDED_MD;
+const ITEM_PAD_X: f32 = crate::tailwind::SPACING_2_5;
 const THUMB_SLOT_W: f32 = 50.0;
 const THUMB_SLOT_H: f32 = 16.0;
-const THUMB_TEXT_GAP: f32 = 12.0; // spacing-3 = 12px.
-const TEXT_SM: f32 = 14.0; // text-sm = 14px.
+const THUMB_TEXT_GAP: f32 = crate::tailwind::SPACING_3;
 
 /// Draw the aspect popover (background + rows). Chrome and row rhythm mirror
-/// the Circuit picker dropdown: paper bg, ui-2 1px border, rounded-xl,
-/// p-1.5, shadow-popover, and 36px proportional rows.
+/// the Circuit picker dropdown: paper bg, ui-2 1px border, 12px radius,
+/// 6px padding, shadow-popover, and 36px proportional rows.
 pub(crate) fn draw_aspect_popover(
     painter: &egui::Painter,
     colors: &Colors,
@@ -98,8 +97,11 @@ fn paint_aspect_row_text(
     layout_rows: usize,
     is_current: bool,
 ) {
-    let regular_font = egui::FontId::new(TEXT_SM, egui::FontFamily::Proportional);
-    let medium_font = egui::FontId::new(TEXT_SM, egui::FontFamily::Name("geist-medium".into()));
+    let regular_font = egui::FontId::new(crate::tailwind::TEXT_SM, egui::FontFamily::Proportional);
+    let medium_font = egui::FontId::new(
+        crate::tailwind::TEXT_SM,
+        egui::FontFamily::Name("geist-medium".into()),
+    );
     let font = if is_current {
         medium_font.clone() // Geist Medium 500 for active / "(now)" identifier.
     } else {
