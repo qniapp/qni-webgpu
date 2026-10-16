@@ -40,7 +40,10 @@ pub(super) fn draw_control_connectors(
             let center = circuit_origin
                 + crate::render::circuit::gate_draw_pos(gate, app.dragging).to_vec2()
                 + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
-            if gate.kind == GateKind::Control || gate.kind == GateKind::AntiControl {
+            if matches!(
+                gate.kind,
+                GateKind::Control | GateKind::AntiControl | GateKind::ZDetectControlReset
+            ) {
                 controls.push(center);
                 if gate.kind == GateKind::AntiControl {
                     anti_control_gaps.push(center.y);
@@ -114,4 +117,28 @@ fn connector_segments(min_y: f32, max_y: f32, anti_control_centers: &[f32]) -> V
         segments.push((cursor, max_y));
     }
     segments
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn z_detect_control_reset_connector_snapshot() {
+        let ctx = egui::Context::default();
+        let mut app = QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));
+        app.load_circuit_json_into_editor(r#"{"cols":[["ZDetectControlReset","X"]]}"#, &ctx);
+        let metrics = crate::layout::layout_metrics(800.0, 2, 6);
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            draw_control_connectors(
+                &app,
+                ui.painter(),
+                &metrics,
+                &app.colors(),
+                egui::Pos2::ZERO,
+                None,
+            );
+        });
+        insta::assert_debug_snapshot!(output.shapes);
+    }
 }

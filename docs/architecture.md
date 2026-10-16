@@ -9,7 +9,7 @@
 - 外部 GPU 実行 API は `apps/qiskit-backend` に置き、Web UI の `Run GPU` から利用する。
 - Web UI は Rust（egui/eframe）で構築し、Wasm として動く。
 - Web PoC は起動時 2 量子ビットから始まるが、ドラッグ操作に応じて空のワイヤを追加し、最大 16 量子ビットまで扱う。
-- Web のゲートパレットは `H/CTRL/X/Y/Z/√X/S/S†/T/T†/P/Rx/Ry/Rz/SWAP` を扱う。
+- Web のゲートパレットは単量子ビットゲート、制御、測定、リセット、表示ブロックなどを扱う。対応ゲートは [Web アプリ](web.md) を参照する。
 
 ```mermaid
 flowchart LR

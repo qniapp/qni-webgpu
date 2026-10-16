@@ -367,6 +367,15 @@ impl GateKind {
                     },
                 ],
             },
+            GateKind::ZDetectControlReset => GateInfo {
+                name: "Z Detect-Control-Reset",
+                paragraphs: &[
+                    "Samples Z at the start of the column.",
+                    "Controls operations in this column when the result is 1, then resets to |0⟩ at the end.",
+                    "Measurement gates ignore controls. Display blocks show conditional results.",
+                ],
+                transitions: &[],
+            },
             GateKind::Measurement => GateInfo {
                 name: "Measurement Gate",
                 paragraphs: &["Measures whether a qubit is ON or OFF."],

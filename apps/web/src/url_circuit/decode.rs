@@ -634,6 +634,12 @@ mod tests {
             .collect()
     }
 
+    #[test]
+    fn z_detect_control_reset_round_trips() {
+        let json = r#"{"cols":[["H"],["ZDetectControlReset","X"]]}"#;
+        assert_eq!(round_trip(json), json);
+    }
+
     fn round_trip(json: &str) -> String {
         let circuit = parse_circuit_json(json);
         let qubits = qubit_count_from_gates(&circuit.gates).max(1);

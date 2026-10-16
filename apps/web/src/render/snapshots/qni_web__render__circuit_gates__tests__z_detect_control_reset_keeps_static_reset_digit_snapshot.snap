@@ -1,0 +1,8 @@
+---
+source: src/render/circuit_gates.rs
+expression: "(app.gpu_plan.has_measurement_slot(detector.id), overlays.len(),)"
+---
+(
+    true,
+    0,
+)

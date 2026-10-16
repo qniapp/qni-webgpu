@@ -37,6 +37,7 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
         | GateKind::Write1
         | GateKind::BlochDisplay
         | GateKind::Measurement
+        | GateKind::ZDetectControlReset
         | GateKind::ProbabilityDisplay
         | GateKind::AmplitudeDisplay
         | GateKind::DensityMatrixDisplay

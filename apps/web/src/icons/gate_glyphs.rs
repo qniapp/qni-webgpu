@@ -72,6 +72,44 @@ pub(super) fn draw_gate_icon(
             draw_bloch_sphere(painter, rect, color);
             true
         }
+        GateKind::ZDetectControlReset => {
+            let half = rect.width() / 2.0;
+            let left = egui::Rect::from_center_size(
+                rect.center() - egui::vec2(half / 2.0, 0.0),
+                egui::Vec2::splat(half),
+            );
+            let right = left.translate(egui::vec2(half, 0.0));
+            let radius = half - crate::tailwind::SPACING_0_5;
+            let origin = egui::pos2(left.left() + crate::tailwind::SPACING_0_5, rect.center().y);
+            let points = (0..=24)
+                .map(|step| {
+                    let angle =
+                        -std::f32::consts::FRAC_PI_2 + step as f32 / 24.0 * std::f32::consts::PI;
+                    origin + egui::vec2(angle.cos(), angle.sin()) * radius
+                })
+                .collect();
+            painter.add(egui::Shape::convex_polygon(
+                points,
+                colors.semantic_intermediate,
+                egui::Stroke::new(crate::tailwind::STROKE_2, colors.semantic_disabled),
+            ));
+            painter.text(
+                left.center(),
+                egui::Align2::CENTER_CENTER,
+                "Z",
+                egui::FontId::proportional(crate::tailwind::TEXT_XS),
+                colors.label,
+            );
+            draw_gate_icon(
+                painter,
+                right,
+                GateKind::Write0,
+                colors.semantic_disabled,
+                colors,
+            );
+            painter.circle_filled(rect.center(), CONTROL_RADIUS * scale, color);
+            true
+        }
         GateKind::Measurement => {
             // qni reference: packages/elements/icon/measurement-gate.svg
             draw_meter_icon(painter, rect, color);
