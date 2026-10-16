@@ -41,6 +41,31 @@ fn validation_failure(
 }
 
 #[test]
+fn sample_and_parity_are_rejected_before_backend_start() {
+    let results: Vec<_> = [
+        GateKind::SampleDisplay,
+        GateKind::ZParityControl,
+        GateKind::XParityControl,
+    ]
+    .into_iter()
+    .map(|kind| {
+        let (mut app, ctx) = app();
+        app.placed_gates = vec![gate(kind, 1, 0, 0)];
+        with_times(&[], || app.start_external_gpu_run(&ctx));
+        state(&app).status
+    })
+    .collect();
+    assert_eq!(
+        results,
+        vec![
+            StatusState::Failed(GpuFailure::UnsupportedGate("Sample".into())),
+            StatusState::Failed(GpuFailure::UnsupportedGate("Zpar".into())),
+            StatusState::Failed(GpuFailure::UnsupportedGate("Xpar".into())),
+        ]
+    );
+}
+
+#[test]
 fn qubit_capacity_validation_failure_preserves_previous_presentation_and_uploads() {
     let (mut app, ctx) = app();
     app.placed_gates.push(gate(GateKind::H, 1, 0, 32));

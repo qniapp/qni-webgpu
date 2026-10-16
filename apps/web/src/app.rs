@@ -442,6 +442,7 @@ impl QniApp {
                     gate.kind,
                     GateKind::AmplitudeDisplay
                         | GateKind::BlochDisplay
+                        | GateKind::SampleDisplay
                         | GateKind::ProbabilityDisplay
                         | GateKind::DensityMatrixDisplay
                 )

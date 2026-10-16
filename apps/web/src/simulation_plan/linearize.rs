@@ -60,7 +60,7 @@ pub(crate) fn linearize_ops(
             next_snapshot_slot += 1;
         }
         let column_gates = column.gates();
-        let controls = column.controls();
+        let mut controls = column.controls();
         let detector_targets = column.displays(GateKind::ZDetectControlReset);
         for detector in &detector_targets {
             push_measurement(&mut ops, detector, qubits, &mut measurement_slots);
@@ -72,24 +72,72 @@ pub(crate) fn linearize_ops(
         let mut amplitude_targets: Vec<&PlacedGate> = Vec::new();
         let mut density_targets: Vec<&PlacedGate> = Vec::new();
         let mut swap_targets: Vec<&PlacedGate> = Vec::new();
+        let mut parity_targets: Vec<&PlacedGate> = Vec::new();
 
         let mut qft_gates: Vec<&PlacedGate> = Vec::new();
         for gate in column_gates {
             match gate.kind {
                 GateKind::Control | GateKind::AntiControl | GateKind::ZDetectControlReset => {}
+                GateKind::ZParityControl | GateKind::XParityControl => parity_targets.push(gate),
                 GateKind::Swap => swap_targets.push(gate),
                 GateKind::Spacer => {
                     // Non-mutating decoration.
                 }
                 GateKind::Measurement => measurement_targets.push(gate),
                 GateKind::BlochDisplay => bloch_targets.push(gate),
-                GateKind::ProbabilityDisplay => probability_targets.push(gate),
+                GateKind::ProbabilityDisplay | GateKind::SampleDisplay => {
+                    probability_targets.push(gate)
+                }
                 GateKind::AmplitudeDisplay => amplitude_targets.push(gate),
                 GateKind::DensityMatrixDisplay => density_targets.push(gate),
                 GateKind::QftGate | GateKind::QftDaggerGate => qft_gates.push(gate),
                 _ => targets.push(gate),
             }
         }
+
+        parity_targets.retain(|parity| {
+            !column_gates.iter().any(|gate| {
+                gate.kind.is_resizable_span()
+                    && gate.wire.as_usize() <= parity.wire.as_usize()
+                    && parity.wire.as_usize()
+                        < gate.wire.as_usize()
+                            + gate
+                                .span
+                                .clamped_for(gate.kind, n - gate.wire.as_usize())
+                                .get()
+            })
+        });
+        parity_targets.sort_by_key(|gate| gate.wire);
+        let mut parity_setup = Vec::new();
+        for gate in &parity_targets {
+            if gate.kind == GateKind::XParityControl {
+                let bit = gate
+                    .wire
+                    .to_qubit_bit(qubits)
+                    .expect("column gates are within the register");
+                parity_setup.push(gate_params(GateKind::H, bit, state_count));
+            }
+        }
+        if let Some(anchor) = parity_targets.first() {
+            let anchor_bit = anchor
+                .wire
+                .to_qubit_bit(qubits)
+                .expect("column gates are within the register");
+            controls.add_control(anchor_bit);
+            for gate in parity_targets.iter().skip(1) {
+                let bit = gate
+                    .wire
+                    .to_qubit_bit(qubits)
+                    .expect("column gates are within the register");
+                parity_setup.push(gate_params_controlled(
+                    GateKind::X,
+                    anchor_bit,
+                    ColumnControls::NONE.with_control(bit),
+                    state_count,
+                ));
+            }
+        }
+        ops.extend(parity_setup.iter().copied().map(SimulationOp::ApplyGate));
 
         // Swap step → `push_swap_3cnot` (the 3-CNOT decomposition qni uses,
         // mirroring `simulator.ts::swap`). Column-level controls (Fredkin /
@@ -182,6 +230,7 @@ pub(crate) fn linearize_ops(
         // physically symmetric so the choice only affects the GateParams
         // shape, not the resulting state.
         if detector_targets.is_empty()
+            && parity_targets.is_empty()
             && targets.is_empty()
             && qft_gates.is_empty()
             && measurement_targets.is_empty()
@@ -328,6 +377,13 @@ pub(crate) fn linearize_ops(
                 state_count,
             )));
         }
+        ops.extend(
+            parity_setup
+                .iter()
+                .rev()
+                .copied()
+                .map(SimulationOp::ApplyGate),
+        );
 
         if next_snapshot_slot == column.slot && next_snapshot_slot < snapshot_slot_count {
             ops.push(SimulationOp::SnapshotState {
@@ -652,6 +708,256 @@ mod tests {
             SimulationOp::ApplyGate(params) => *params,
             _ => panic!("expected apply-gate op"),
         }
+    }
+
+    #[test]
+    fn parity_inside_qft_span_does_not_conjugate_the_transform() {
+        let overlapping =
+            crate::url_circuit::parse_circuit_json(r#"{"cols":[["QFT3","zpar","xpar"]]}"#);
+        let reference = crate::url_circuit::parse_circuit_json(r#"{"cols":[["QFT3"]]}"#);
+        assert_eq!(
+            format!("{:?}", linearize_ops(&overlapping.gates, qubit_count(3), 1)),
+            format!("{:?}", linearize_ops(&reference.gates, qubit_count(3), 1))
+        );
+    }
+
+    #[test]
+    fn parity_inside_sample_span_does_not_permute_display_outcomes() {
+        let overlapping =
+            crate::url_circuit::parse_circuit_json(r#"{"cols":[["Sample3","zpar","xpar"]]}"#);
+        let reference = crate::url_circuit::parse_circuit_json(r#"{"cols":[["Sample3"]]}"#);
+        assert_eq!(
+            format!("{:?}", linearize_ops(&overlapping.gates, qubit_count(3), 1)),
+            format!("{:?}", linearize_ops(&reference.gates, qubit_count(3), 1))
+        );
+    }
+
+    #[derive(Debug, PartialEq)]
+    enum ParityStep {
+        Gate(u32, u32, u32, [[f32; 2]; 4]),
+        Probability(u32, u32),
+        Bloch(u32, u32, u32),
+        Amplitude(u32, u32),
+        Density(u32, u32),
+        Snapshot,
+    }
+
+    fn parity_step(kind: GateKind, bit: u32, mask: u32, value: u32) -> ParityStep {
+        ParityStep::Gate(
+            bit,
+            mask,
+            value,
+            gate_params(kind, QubitBit::new(bit), 64).matrix(),
+        )
+    }
+
+    fn parity_stream(kinds: &[(GateKind, usize)], snapshots: usize) -> Vec<ParityStep> {
+        let gates: Vec<_> = kinds
+            .iter()
+            .enumerate()
+            .map(|(id, &(kind, wire))| {
+                PlacedGate::new(
+                    GateId::from_u32(id as u32),
+                    kind,
+                    crate::app::CircuitColumnIndex::new(0),
+                    crate::app::WireIndex::new(wire),
+                    crate::gates::GateSpan::SINGLE,
+                    None,
+                )
+            })
+            .collect();
+        linearize_ops(&gates, qubit_count(6), snapshots)
+            .into_iter()
+            .map(|op| match op {
+                SimulationOp::ApplyGate(p) => {
+                    ParityStep::Gate(p.bit(), p.control_mask(), p.control_value(), p.matrix())
+                }
+                SimulationOp::CaptureProbability { controls, .. } => {
+                    ParityStep::Probability(controls.mask(), controls.value())
+                }
+                SimulationOp::CaptureBloch {
+                    qubit_bit,
+                    controls,
+                    ..
+                } => ParityStep::Bloch(qubit_bit.as_u32(), controls.mask(), controls.value()),
+                SimulationOp::CaptureAmplitude { controls, .. } => {
+                    ParityStep::Amplitude(controls.mask(), controls.value())
+                }
+                SimulationOp::CaptureDensity { controls, .. } => {
+                    ParityStep::Density(controls.mask(), controls.value())
+                }
+                SimulationOp::SnapshotState { .. } => ParityStep::Snapshot,
+                _ => panic!("unexpected parity operation"),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn parity_z_gathers_and_scatters_before_snapshot() {
+        use GateKind::*;
+        assert_eq!(
+            parity_stream(&[(ZParityControl, 0), (ZParityControl, 1), (X, 2)], 1),
+            vec![
+                parity_step(X, 0, 2, 2),
+                parity_step(X, 2, 1, 1),
+                parity_step(X, 0, 2, 2),
+                ParityStep::Snapshot
+            ]
+        );
+    }
+
+    #[test]
+    fn parity_x_rotates_all_wires_before_gather_and_after_scatter() {
+        use GateKind::*;
+        assert_eq!(
+            parity_stream(&[(XParityControl, 0), (XParityControl, 1), (X, 2)], 1),
+            vec![
+                parity_step(H, 0, 0, 0),
+                parity_step(H, 1, 0, 0),
+                parity_step(X, 0, 2, 2),
+                parity_step(X, 2, 1, 1),
+                parity_step(X, 0, 2, 2),
+                parity_step(H, 1, 0, 0),
+                parity_step(H, 0, 0, 0),
+                ParityStep::Snapshot
+            ]
+        );
+    }
+
+    #[test]
+    fn parity_mixed_axes_choose_top_wire_independent_of_gate_order() {
+        use GateKind::*;
+        assert_eq!(
+            parity_stream(&[(XParityControl, 2), (ZParityControl, 0), (X, 3)], 0),
+            vec![
+                parity_step(H, 2, 0, 0),
+                parity_step(X, 0, 4, 4),
+                parity_step(X, 3, 1, 1),
+                parity_step(X, 0, 4, 4),
+                parity_step(H, 2, 0, 0)
+            ]
+        );
+    }
+
+    #[test]
+    fn parity_is_anded_with_ordinary_and_anti_controls() {
+        use GateKind::*;
+        assert_eq!(
+            parity_stream(
+                &[
+                    (ZParityControl, 0),
+                    (ZParityControl, 1),
+                    (Control, 2),
+                    (AntiControl, 3),
+                    (X, 4)
+                ],
+                0
+            ),
+            vec![
+                parity_step(X, 0, 2, 2),
+                parity_step(X, 4, 13, 5),
+                parity_step(X, 0, 2, 2)
+            ]
+        );
+    }
+
+    #[test]
+    fn parity_three_wires_condition_on_odd_not_all_set() {
+        use GateKind::*;
+        assert_eq!(
+            parity_stream(
+                &[
+                    (ZParityControl, 0),
+                    (ZParityControl, 1),
+                    (ZParityControl, 2),
+                    (X, 3)
+                ],
+                0
+            ),
+            vec![
+                parity_step(X, 0, 2, 2),
+                parity_step(X, 0, 4, 4),
+                parity_step(X, 3, 1, 1),
+                parity_step(X, 0, 4, 4),
+                parity_step(X, 0, 2, 2)
+            ]
+        );
+    }
+
+    #[test]
+    fn parity_markers_without_targets_do_not_create_controlled_z() {
+        use GateKind::*;
+        assert_eq!(
+            parity_stream(
+                &[
+                    (ZParityControl, 0),
+                    (ZParityControl, 1),
+                    (Control, 2),
+                    (Control, 3)
+                ],
+                0
+            ),
+            vec![parity_step(X, 0, 2, 2), parity_step(X, 0, 2, 2)]
+        );
+    }
+
+    #[test]
+    fn parity_single_z_marker_is_only_a_control() {
+        use GateKind::*;
+        assert_eq!(
+            parity_stream(&[(ZParityControl, 0), (X, 1)], 0),
+            vec![parity_step(X, 1, 1, 1)]
+        );
+    }
+
+    #[test]
+    fn parity_sample_captures_gathered_condition_before_cleanup() {
+        use GateKind::*;
+        assert_eq!(
+            parity_stream(
+                &[
+                    (XParityControl, 0),
+                    (ZParityControl, 1),
+                    (Control, 2),
+                    (SampleDisplay, 3)
+                ],
+                1
+            ),
+            vec![
+                parity_step(H, 0, 0, 0),
+                parity_step(X, 0, 2, 2),
+                ParityStep::Probability(5, 5),
+                parity_step(X, 0, 2, 2),
+                parity_step(H, 0, 0, 0),
+                ParityStep::Snapshot
+            ]
+        );
+    }
+
+    #[test]
+    fn parity_read_only_displays_capture_before_scatter() {
+        use GateKind::*;
+        assert_eq!(
+            parity_stream(
+                &[
+                    (ZParityControl, 0),
+                    (ZParityControl, 1),
+                    (BlochDisplay, 2),
+                    (ProbabilityDisplay, 3),
+                    (AmplitudeDisplay, 4),
+                    (DensityMatrixDisplay, 5)
+                ],
+                0
+            ),
+            vec![
+                parity_step(X, 0, 2, 2),
+                ParityStep::Bloch(2, 1, 1),
+                ParityStep::Probability(1, 1),
+                ParityStep::Amplitude(1, 1),
+                ParityStep::Density(1, 1),
+                parity_step(X, 0, 2, 2)
+            ]
+        );
     }
 
     #[test]

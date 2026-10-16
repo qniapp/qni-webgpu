@@ -84,6 +84,19 @@ impl egui_wgpu::CallbackTrait for ProbabilityDisplayCallback {
             return Vec::new();
         }
         self.upload_external_probabilities(device, queue, resources);
+        #[cfg(target_arch = "wasm32")]
+        super::super::readback::SAMPLE_DISPLAY_SPANS.with(|cell| {
+            let mut spans = cell.borrow_mut();
+            spans.clear();
+            spans.extend(
+                self.instances
+                    .iter()
+                    .filter(|instance| {
+                        instance.render_mode == ProbabilityInstance::SAMPLED_BITSTRING
+                    })
+                    .map(|instance| (instance.seed, instance.span)),
+            );
+        });
         let params = ProbabilityRenderParams {
             viewport_min: self.viewport_min,
             viewport_size: self.viewport_size,

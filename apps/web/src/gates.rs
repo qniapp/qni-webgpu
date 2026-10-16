@@ -3,6 +3,9 @@ pub(crate) enum GateKind {
     H,
     Control,
     AntiControl,
+    ZParityControl,
+    XParityControl,
+    SampleDisplay,
     BlochDisplay,
     Measurement,
     ZDetectControlReset,
@@ -66,7 +69,25 @@ pub(crate) struct GateSpec {
     pub(crate) resizable_span: bool,
 }
 
-const GATE_SPECS: [GateSpec; 27] = [
+const GATE_SPECS: [GateSpec; 30] = [
+    GateSpec {
+        kind: GateKind::ZParityControl,
+        label: "Zpar",
+        url_token: "zpar",
+        resizable_span: false,
+    },
+    GateSpec {
+        kind: GateKind::XParityControl,
+        label: "Xpar",
+        url_token: "xpar",
+        resizable_span: false,
+    },
+    GateSpec {
+        kind: GateKind::SampleDisplay,
+        label: "Sample",
+        url_token: "Sample",
+        resizable_span: true,
+    },
     GateSpec {
         kind: GateKind::H,
         label: "H",
@@ -231,10 +252,6 @@ const GATE_SPECS: [GateSpec; 27] = [
     },
 ];
 
-// Split palette layout. The left Gates section keeps draggable operations and
-// placeholders; the right Display section is a 2×2 grid for visualization
-// widgets. Flat indices intentionally keep the pre-split IDs so hover, drag,
-// tooltip tests, and serialized UI helpers can keep addressing the same gate.
 pub(crate) const PALETTE_GATES_ROW1: [GateKind; 13] = [
     GateKind::H,
     GateKind::X,
@@ -250,10 +267,12 @@ pub(crate) const PALETTE_GATES_ROW1: [GateKind; 13] = [
     GateKind::Ry,
     GateKind::Rz,
 ];
-pub(crate) const PALETTE_GATES_ROW2: [GateKind; 10] = [
+pub(crate) const PALETTE_GATES_ROW2: [GateKind; 12] = [
     GateKind::Swap,
     GateKind::Control,
     GateKind::AntiControl,
+    GateKind::ZParityControl,
+    GateKind::XParityControl,
     GateKind::Write0,
     GateKind::Write1,
     GateKind::Measurement,
@@ -262,17 +281,19 @@ pub(crate) const PALETTE_GATES_ROW2: [GateKind; 10] = [
     GateKind::QftDaggerGate,
     GateKind::Spacer,
 ];
-pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 4] = [
+pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 5] = [
     GateKind::BlochDisplay,
     GateKind::ProbabilityDisplay,
+    GateKind::SampleDisplay,
     GateKind::AmplitudeDisplay,
     GateKind::DensityMatrixDisplay,
 ];
 pub(crate) const PALETTE_GATE_COUNT: usize =
     PALETTE_GATES_ROW1.len() + PALETTE_GATES_ROW2.len() + PALETTE_DISPLAY_GATES.len();
 pub(crate) const PALETTE_ROW1_COUNT: usize = PALETTE_GATES_ROW1.len();
-pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 10] = [13, 14, 15, 17, 18, 19, 26, 22, 23, 21];
-pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 4] = [16, 20, 24, 25];
+pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 12] =
+    [13, 14, 15, 27, 28, 17, 18, 19, 26, 22, 23, 21];
+pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 5] = [16, 20, 29, 24, 25];
 
 pub(crate) fn default_palette_angle(kind: GateKind) -> Option<ParametricAngle> {
     match kind {
@@ -332,6 +353,7 @@ impl GateKind {
         match self {
             GateKind::ProbabilityDisplay | GateKind::AmplitudeDisplay => qubit_capacity.min(16),
             GateKind::DensityMatrixDisplay => qubit_capacity.min(8),
+            GateKind::SampleDisplay => qubit_capacity.min(3),
             _ => qubit_capacity,
         }
         .max(1)
@@ -341,6 +363,33 @@ impl GateKind {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sample_info_explicitly_describes_no_collapse() {
+        assert!(GateKind::SampleDisplay
+            .info()
+            .paragraphs
+            .iter()
+            .any(|text| text.contains("without changing or collapsing")));
+    }
+
+    #[test]
+    fn sample_span_is_limited_to_three_wires() {
+        assert_eq!(GateKind::SampleDisplay.max_resizable_span(16), 3);
+    }
+
+    #[test]
+    fn new_palette_entries_have_stable_indices() {
+        assert_eq!(
+            [26, 27, 28, 29].map(palette_gate_kind),
+            [
+                Some(GateKind::ZDetectControlReset),
+                Some(GateKind::ZParityControl),
+                Some(GateKind::XParityControl),
+                Some(GateKind::SampleDisplay),
+            ]
+        );
+    }
 
     #[test]
     fn phase_palette_default_angle_is_pi_over_two() {

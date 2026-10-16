@@ -16,7 +16,7 @@ export {}
 test('Display block host hover frames use zero-radius corners', async () => {
   const source = await fs.readFile(hoverFramePath, 'utf8')
 
-  assert.match(source, /matches!\(\s*kind,\s*GateKind::ProbabilityDisplay\s*\|\s*GateKind::AmplitudeDisplay\s*\|\s*GateKind::DensityMatrixDisplay\s*\)[\s\S]*egui::CornerRadius::ZERO/)
+  assert.match(source, /matches!\(\s*kind,\s*GateKind::SampleDisplay\s*\|\s*GateKind::ProbabilityDisplay\s*\|\s*GateKind::AmplitudeDisplay\s*\|\s*GateKind::DensityMatrixDisplay\s*\)[\s\S]*egui::CornerRadius::ZERO/)
 })
 
 test('Circuit gate hover rendering uses the shared hover frame radius', async () => {

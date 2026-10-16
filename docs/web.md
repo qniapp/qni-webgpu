@@ -1,6 +1,7 @@
 # web app (Rust)
 
 外部ページへの埋め込みは [WebGPU アプリの埋め込み](web-embed.md) を参照する。
+サンプル表示ブロックとパリティ制御の使い方、および外部 GPU 実行の制限は[サンプル表示ブロックとパリティ制御](sample-parity.md)を参照する。
 
 ## Prerequisites
 

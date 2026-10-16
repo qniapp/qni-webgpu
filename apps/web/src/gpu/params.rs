@@ -418,8 +418,13 @@ pub(crate) struct ProbabilityInstance {
     pub(crate) slot: u32,
     pub(crate) span: u32,
     pub(crate) hovered_outcome: i32,
-    /// 0 = sample probability buffer, 1 = pre-run placeholder.
     pub(crate) render_mode: u32,
+    pub(crate) seed: u32,
+    pub(crate) _pad: u32,
+}
+
+impl ProbabilityInstance {
+    pub(crate) const SAMPLED_BITSTRING: u32 = 2;
 }
 
 /// Uniform for the Probability hover popup value text shader. The shader reads
@@ -582,4 +587,14 @@ pub(crate) struct PopupValueParams {
     pub(crate) hovered_display_index: u32,
     pub(crate) qubits: u32,
     pub(crate) _pad: [u32; 2],
+}
+
+#[cfg(test)]
+mod sample_display_tests {
+    use super::ProbabilityInstance;
+
+    #[test]
+    fn probability_instance_matches_storage_stride() {
+        assert_eq!(std::mem::size_of::<ProbabilityInstance>(), 40);
+    }
 }

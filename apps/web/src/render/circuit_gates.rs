@@ -475,7 +475,10 @@ impl QniApp {
             .placed_gates
             .iter()
             .filter_map(|gate| {
-                if gate.kind != GateKind::ProbabilityDisplay {
+                if !matches!(
+                    gate.kind,
+                    GateKind::ProbabilityDisplay | GateKind::SampleDisplay
+                ) {
                     return None;
                 }
                 if dragging_gate_id == Some(gate.id) {
@@ -484,7 +487,14 @@ impl QniApp {
                 let span = gate.span.get().clamp(1, 16) as u32;
                 let (slot, render_mode) = if let Some(slot) = self.probability_display_slot(gate.id)
                 {
-                    (slot, PROBABILITY_RENDER_MODE_SAMPLE)
+                    (
+                        slot,
+                        if gate.kind == GateKind::SampleDisplay {
+                            ProbabilityInstance::SAMPLED_BITSTRING
+                        } else {
+                            PROBABILITY_RENDER_MODE_SAMPLE
+                        },
+                    )
                 } else if self.external_gpu_display_placeholders_active()
                     && (next_probability_placeholder_slot as usize)
                         < crate::gpu::MAX_PROBABILITY_SLOTS
@@ -517,6 +527,8 @@ impl QniApp {
                         hovered_outcome
                     },
                     render_mode,
+                    seed: gate.id.as_u32(),
+                    _pad: 0,
                 })
             })
             .collect();

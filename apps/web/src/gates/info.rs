@@ -334,6 +334,24 @@ impl GateKind {
                 ],
                 transitions: &[],
             },
+            GateKind::ZParityControl | GateKind::XParityControl => GateInfo {
+                name: if self == GateKind::ZParityControl { "Z Parity Control" } else { "X Parity Control" },
+                paragraphs: &[
+                    "Applies the column when an odd number of parity controls are satisfied.",
+                    "Zpar uses the Z basis; Xpar uses the X basis. Ordinary controls are combined by AND.",
+                    "Available in local WebGPU mode only; the external Qiskit API does not support parity controls.",
+                ],
+                transitions: &[],
+            },
+            GateKind::SampleDisplay => GateInfo {
+                name: "Sample Display",
+                paragraphs: &[
+                    "Shows one sampled bit string without changing or collapsing the state.",
+                    "Use controls to see conditional samples. Resize to cover one to three wires.",
+                    "Available in local WebGPU mode only; the external Qiskit API does not support sampling displays.",
+                ],
+                transitions: &[],
+            },
             GateKind::BlochDisplay => GateInfo {
                 name: "Bloch Sphere Display",
                 paragraphs: &["Shows a wire's local state as a point on the Bloch sphere."],

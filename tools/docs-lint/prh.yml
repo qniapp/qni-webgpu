@@ -32,6 +32,22 @@ rules:
       - /Amplitude display/
       - /amplitude display/
 
+  - expected: サンプル表示ブロック
+    patterns:
+      - /Sample Display/
+      - /Sample display/
+      - /sample display/
+      - /サンプル表示ゲート/
+
+  # ── パリティ制御 (Parity controls) 用語統一 ──
+  - expected: パリティ制御
+    patterns:
+      - /Parity Control/
+      - /Parity control/
+      - /parity control/
+      - /パリティコントロール/
+      - /パリティ制御ゲート/
+
   - expected: 表示ブロック
     patterns:
       - /display gate/

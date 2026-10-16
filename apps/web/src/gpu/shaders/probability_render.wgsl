@@ -24,6 +24,13 @@ const MAX_PROBABILITY_AGGREGATE_ROWS: u32 = 1024u;
 const PROBABILITY_AGGREGATE_MIN_SPAN: u32 = 13u;
 const PROBABILITY_RENDER_MODE_SAMPLE: u32 = 0u;
 const PROBABILITY_RENDER_MODE_PLACEHOLDER: u32 = 1u;
+const SAMPLE_RENDER_MODE: u32 = 2u;
+const SAMPLE_MAX_SPAN: u32 = 3u;
+const SAMPLE_INVALID: u32 = 0xFFFFFFFFu;
+const SAMPLE_DIGIT_W: f32 = 12.0;
+const SAMPLE_DIGIT_H: f32 = 16.0;
+const SAMPLE_WIRE_PITCH: f32 = 56.0;
+const SAMPLE_HIGHLIGHT_INSET: f32 = 4.0;
 const GLYPH_COUNT: u32 = 20u;
 const GLYPH_DOT: u32 = 10u;
 const GLYPH_PERCENT: u32 = 14u;
@@ -43,6 +50,7 @@ struct VsIn {
   @location(4) span: u32,
   @location(5) hovered_outcome: i32,
   @location(6) render_mode: u32,
+  @location(7) seed: u32,
 };
 
 struct VsOut {
@@ -54,6 +62,7 @@ struct VsOut {
   @location(4) @interpolate(flat) hovered_outcome: i32,
   @location(5) @interpolate(flat) render_mode: u32,
   @location(6) @interpolate(flat) rect_min: vec2<f32>,
+  @location(7) @interpolate(flat) seed: u32,
 };
 
 @vertex
@@ -74,6 +83,7 @@ fn vs_main(input: VsIn) -> VsOut {
   out.hovered_outcome = input.hovered_outcome;
   out.render_mode = input.render_mode;
   out.rect_min = input.rect_min;
+  out.seed = input.seed;
   return out;
 }
 
@@ -229,6 +239,57 @@ fn on_hover_highlight(local: vec2<f32>, rect_size: vec2<f32>, row_h: f32, hovere
   return local.y >= raw_row_top - half_stroke && local.y <= raw_row_bottom + half_stroke;
 }
 
+fn sample_unit(seed: u32) -> f32 {
+  var s = seed * 0x9E3779B9u + 0x85EBCA6Bu;
+  s = s ^ (s >> 13u);
+  s = s * 0xC2B2AE35u;
+  s = s ^ (s >> 16u);
+  return f32(s >> 8u) / 16777216.0;
+}
+
+fn sampled_outcome(slot: u32, span: u32, seed: u32) -> u32 {
+  if (span == 0u || span > SAMPLE_MAX_SPAN) { return SAMPLE_INVALID; }
+  let outcomes = 1u << span;
+  var total = 0.0;
+  for (var i = 0u; i < outcomes; i = i + 1u) {
+    total = total + probability_prob(slot, i);
+  }
+  if (total <= 0.000000000001) { return SAMPLE_INVALID; }
+  let threshold = sample_unit(seed) * total;
+  var cdf = 0.0;
+  var last_possible = SAMPLE_INVALID;
+  for (var i = 0u; i < outcomes; i = i + 1u) {
+    let probability = probability_prob(slot, i);
+    if (probability > 0.0) { last_possible = i; }
+    cdf = cdf + probability;
+    if (threshold < cdf) { return i; }
+  }
+  return last_possible;
+}
+
+fn sample_color(input: VsOut, local_y: f32) -> vec4<f32> {
+  let outcome = sampled_outcome(input.slot, input.span, input.seed);
+  let wire = u32(clamp(floor((local_y - input.rect_size.y * 0.5 + f32(input.span) * SAMPLE_WIRE_PITCH * 0.5) / SAMPLE_WIRE_PITCH), 0.0, f32(input.span - 1u)));
+  let center_y = input.rect_size.y * 0.5 + (f32(wire) - f32(input.span - 1u) * 0.5) * SAMPLE_WIRE_PITCH;
+  let bit = (outcome >> wire) & 1u;
+  var color = params.background;
+  if (outcome == SAMPLE_INVALID) {
+    color = params.placeholder_background;
+  } else if (bit != 0u && abs(local_y - center_y) < SAMPLE_WIRE_PITCH * 0.5 - SAMPLE_HIGHLIGHT_INSET) {
+    color = params.bar;
+  }
+  if (input.local.x < 1.0 || local_y < 1.0 || input.local.x >= input.rect_size.x - 1.0 || local_y >= input.rect_size.y - 1.0) {
+    return params.border;
+  }
+  let p = vec2<f32>(input.local.x - (input.rect_size.x - SAMPLE_DIGIT_W) * 0.5, local_y - center_y + SAMPLE_DIGIT_H * 0.5);
+  if (outcome != SAMPLE_INVALID && all(p >= vec2<f32>(0.0)) && p.x < SAMPLE_DIGIT_W && p.y < SAMPLE_DIGIT_H) {
+    let uv = vec2<f32>((f32(bit) + p.x / SAMPLE_DIGIT_W) / f32(GLYPH_COUNT), p.y / SAMPLE_DIGIT_H);
+    let alpha = textureSampleLevel(atlas, atlas_sampler, uv, 0.0).r;
+    return over(vec4<f32>(params.text_color.rgb * alpha, alpha), color);
+  }
+  return color;
+}
+
 @fragment
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let row_count = 1u << input.span;
@@ -272,6 +333,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let viewport_top_px = floor(params.viewport_min.y * dpr + 0.5);
   let row_local_y =
     params.viewport_min.y - input.rect_min.y + (input.clip.y - viewport_top_px) / dpr;
+  if (input.render_mode == SAMPLE_RENDER_MODE) { return sample_color(input, row_local_y); }
   let raw_row = u32(clamp(floor(row_local_y / max(row_h, 1.0e-6)), 0.0, f32(row_count - 1u)));
   let border_px = 1.0;
   if (input.render_mode == PROBABILITY_RENDER_MODE_PLACEHOLDER) {
@@ -330,4 +392,19 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   }
 
   return probability_text_color(input.local, input.rect_size, raw_row, row_count, row_h, prob, color);
+}
+
+struct SampleReadbackParams {
+  slot: u32,
+  span: u32,
+  seed: u32,
+  pad: u32,
+};
+
+@group(0) @binding(5) var<uniform> sample_readback_params: SampleReadbackParams;
+@group(0) @binding(6) var<storage, read_write> sample_readback_result: array<u32>;
+
+@compute @workgroup_size(1)
+fn sample_readback() {
+  sample_readback_result[0] = sampled_outcome(sample_readback_params.slot, sample_readback_params.span, sample_readback_params.seed);
 }

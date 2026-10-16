@@ -114,18 +114,19 @@ export type AggregateInstance = {
   slot: number
   span: number
   hovered_outcome: number
+  seed: number
   render_mode: number
 }
 
 export const aggregateInstances: AggregateInstance[] = [
-  { rect_min: [0, 0], rect_size: [20, 99.5], slot: 2, span: 13, hovered_outcome: -1, render_mode: 0 },
-  { rect_min: [0, 0], rect_size: [20, 512], slot: 4, span: 12, hovered_outcome: -1, render_mode: 0 },
-  { rect_min: [0, 0], rect_size: [20, 880], slot: 6, span: 16, hovered_outcome: -1, render_mode: 1 },
-  { rect_min: [0, 0], rect_size: [20, 512], slot: 8, span: 16, hovered_outcome: -1, render_mode: 0 },
+  { rect_min: [0, 0], rect_size: [20, 99.5], slot: 2, span: 13, hovered_outcome: -1, seed: 0, render_mode: 0 },
+  { rect_min: [0, 0], rect_size: [20, 512], slot: 4, span: 12, hovered_outcome: -1, seed: 0, render_mode: 0 },
+  { rect_min: [0, 0], rect_size: [20, 880], slot: 6, span: 16, hovered_outcome: -1, seed: 0, render_mode: 1 },
+  { rect_min: [0, 0], rect_size: [20, 512], slot: 8, span: 16, hovered_outcome: -1, seed: 0, render_mode: 0 },
   // 879.5 puts the end of pixel row 298 (y=299) within 1e-3 of a probability-row boundary; 879.512 avoids that ambiguity.
-  { rect_min: [0, 0], rect_size: [20, 879.512], slot: 10, span: 13, hovered_outcome: -1, render_mode: 0 },
-  { rect_min: [0, 0], rect_size: [20, 1024], slot: 12, span: 16, hovered_outcome: -1, render_mode: 0 },
-  { rect_min: [0, 0], rect_size: [20, 0.5], slot: 14, span: 13, hovered_outcome: -1, render_mode: 0 },
+  { rect_min: [0, 0], rect_size: [20, 879.512], slot: 10, span: 13, hovered_outcome: -1, seed: 0, render_mode: 0 },
+  { rect_min: [0, 0], rect_size: [20, 1024], slot: 12, span: 16, hovered_outcome: -1, seed: 0, render_mode: 0 },
+  { rect_min: [0, 0], rect_size: [20, 0.5], slot: 14, span: 13, hovered_outcome: -1, seed: 0, render_mode: 0 },
 ]
 
 export const aggregateInput = Array.from({ length: 1 << 16 }, (_, i) =>
