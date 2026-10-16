@@ -281,11 +281,6 @@ impl QniApp {
                 // through the brackets. Mask just the wire under the gate.
                 painter.rect_filled(gate_rect, egui::CornerRadius::ZERO, colors.background);
             }
-            if gate.kind == GateKind::ZDetectControlReset {
-                let mut mask = gate_rect;
-                mask.min.x = gate_rect.center().x + crate::tailwind::SPACING_1;
-                painter.rect_filled(mask, egui::CornerRadius::ZERO, circuit_fill);
-            }
             if measurement_has_slot {
                 // Repaint the meter in the same neutral tone as the wire after
                 // masking the wire gap. Draw it once (instead of purple then

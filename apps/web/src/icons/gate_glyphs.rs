@@ -12,6 +12,8 @@ use super::VIEWBOX;
 const CONTROL_RADIUS: f32 = 8.0;
 const ANTI_CONTROL_STROKE_WIDTH: f32 = 3.0;
 const ANTI_CONTROL_RADIUS: f32 = CONTROL_RADIUS - ANTI_CONTROL_STROKE_WIDTH;
+const DETECTOR_CONTROL_RADIUS: f32 = 5.0;
+const DETECTOR_DIGIT_SCALE: f32 = 0.7;
 
 /// Draws the qni meter icon (half-arc + needle + pivot dot) in `color`. Used
 /// both by the un-fired gate body and the fired overlay (different color).
@@ -20,24 +22,33 @@ pub(crate) fn draw_meter_icon(painter: &egui::Painter, rect: egui::Rect, color: 
     let scale = rect.width() / viewbox;
     let stroke = egui::Stroke::new(2.0 * scale, color);
     let p = |x: f32, y: f32| map_svg_point_in_rect(rect, SvgPoint::new(x, y), viewbox);
-    let arc_points: Vec<egui::Pos2> = (0..=24)
-        .map(|i| {
-            let t = i as f32 / 24.0;
-            let angle = std::f32::consts::PI * (1.0 - t);
-            let cx = 24.0;
-            let cy = 36.0;
-            let r = 20.0;
-            egui::Pos2::new(cx + r * angle.cos(), cy - r * angle.sin())
-        })
-        .map(|pos| map_svg_point_in_rect(rect, SvgPoint::new(pos.x, pos.y), viewbox))
-        .collect();
-    painter.add(egui::Shape::Path(egui::epaint::PathShape::line(
-        arc_points, stroke,
-    )));
+    draw_meter_arc(painter, rect, SvgPoint::new(24.0, 36.0), 20.0, stroke);
     painter.line_segment([p(24.625, 33.5), p(37.75, 11.0)], stroke);
     // qni's SVG pivot is a 1.875-radius circle with stroke-width=3 outset
     // (≈ 3.4 in viewbox units). Use 3.5*scale to match its visual weight.
     painter.circle_filled(p(24.625, 33.5), 3.5 * scale, color);
+}
+
+fn draw_meter_arc(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    center: SvgPoint,
+    radius: f32,
+    stroke: egui::Stroke,
+) {
+    let points = (0..=24)
+        .map(|i| {
+            let angle = std::f32::consts::PI * (1.0 - i as f32 / 24.0);
+            SvgPoint::new(
+                center.x + radius * angle.cos(),
+                center.y - radius * angle.sin(),
+            )
+        })
+        .map(|point| map_svg_point_in_rect(rect, point, VIEWBOX))
+        .collect();
+    painter.add(egui::Shape::Path(egui::epaint::PathShape::line(
+        points, stroke,
+    )));
 }
 
 pub(super) fn draw_gate_icon(
@@ -73,41 +84,22 @@ pub(super) fn draw_gate_icon(
             true
         }
         GateKind::ZDetectControlReset => {
-            let half = rect.width() / 2.0;
-            let left = egui::Rect::from_center_size(
-                rect.center() - egui::vec2(half / 2.0, 0.0),
-                egui::Vec2::splat(half),
-            );
-            let right = left.translate(egui::vec2(half, 0.0));
-            let radius = half - crate::tailwind::SPACING_0_5;
-            let origin = egui::pos2(left.left() + crate::tailwind::SPACING_0_5, rect.center().y);
-            let points = (0..=24)
-                .map(|step| {
-                    let angle =
-                        -std::f32::consts::FRAC_PI_2 + step as f32 / 24.0 * std::f32::consts::PI;
-                    origin + egui::vec2(angle.cos(), angle.sin()) * radius
-                })
-                .collect();
-            painter.add(egui::Shape::convex_polygon(
-                points,
-                colors.semantic_intermediate,
-                egui::Stroke::new(crate::tailwind::STROKE_2, colors.semantic_disabled),
-            ));
-            painter.text(
-                left.center(),
-                egui::Align2::CENTER_CENTER,
-                "Z",
-                egui::FontId::proportional(crate::tailwind::TEXT_XS),
-                colors.label,
-            );
-            draw_gate_icon(
+            let meter_stroke = egui::Stroke::new(stroke.width, colors.semantic_intermediate);
+            let ket_stroke = egui::Stroke::new(stroke.width, colors.semantic_disabled);
+            draw_meter_arc(painter, rect, SvgPoint::new(24.0, 24.0), 18.0, meter_stroke);
+            painter.line_segment([p(24.0, 24.0), p(35.8, 3.75)], meter_stroke);
+            painter.line_segment([p(24.0, 24.0), p(24.0, 45.0)], stroke);
+            painter.line_segment([p(40.0, 28.0), p(43.5, 36.5)], ket_stroke);
+            painter.line_segment([p(43.5, 36.5), p(40.0, 45.0)], ket_stroke);
+            let digit_rect =
+                egui::Rect::from_center_size(p(33.0, 36.5), rect.size() * DETECTOR_DIGIT_SCALE);
+            super::svg_icon::draw_glyph(
                 painter,
-                right,
-                GateKind::Write0,
-                colors.semantic_disabled,
-                colors,
+                digit_rect,
+                colors.semantic_off,
+                super::svg_icon::GateGlyph::Digit0,
             );
-            painter.circle_filled(rect.center(), CONTROL_RADIUS * scale, color);
+            painter.circle_filled(p(24.0, 24.0), DETECTOR_CONTROL_RADIUS * scale, color);
             true
         }
         GateKind::Measurement => {
