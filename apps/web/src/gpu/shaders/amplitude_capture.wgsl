@@ -151,5 +151,5 @@ fn main() {
     if (unity > 0.000000000001 && incoherent_unity > 0.000000000001) {
         quality = denormalized_quality / (unity * incoherent_unity);
     }
-    amplitude_meta[params.output_slot] = vec4<f32>(clamp(quality, 0.0, 1.0), phase_index, f32(params.span), 0.0);
+    amplitude_meta[params.output_slot] = vec4<f32>(clamp(quality, 0.0, 1.0), phase_index, f32(params.span), select(-1.0, 0.0, incoherent_unity > 0.000000000001));
 }

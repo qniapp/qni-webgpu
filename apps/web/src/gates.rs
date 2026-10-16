@@ -19,6 +19,10 @@ pub(crate) enum GateKind {
     Spacer,
     Write0,
     Write1,
+    PostSelectOff,
+    PostSelectOn,
+    PostSelectAntiX,
+    PostSelectX,
     X,
     Y,
     Z,
@@ -66,7 +70,7 @@ pub(crate) struct GateSpec {
     pub(crate) resizable_span: bool,
 }
 
-const GATE_SPECS: [GateSpec; 27] = [
+const GATE_SPECS: [GateSpec; 31] = [
     GateSpec {
         kind: GateKind::H,
         label: "H",
@@ -229,6 +233,30 @@ const GATE_SPECS: [GateSpec; 27] = [
         url_token: "QFT†",
         resizable_span: true,
     },
+    GateSpec {
+        kind: GateKind::PostSelectOff,
+        label: "|0⟩⟨0|",
+        url_token: "|0⟩⟨0|",
+        resizable_span: false,
+    },
+    GateSpec {
+        kind: GateKind::PostSelectOn,
+        label: "|1⟩⟨1|",
+        url_token: "|1⟩⟨1|",
+        resizable_span: false,
+    },
+    GateSpec {
+        kind: GateKind::PostSelectAntiX,
+        label: "|+⟩⟨+|",
+        url_token: "|+⟩⟨+|",
+        resizable_span: false,
+    },
+    GateSpec {
+        kind: GateKind::PostSelectX,
+        label: "|−⟩⟨−|",
+        url_token: "|-⟩⟨-|",
+        resizable_span: false,
+    },
 ];
 
 // Split palette layout. The left Gates section keeps draggable operations and
@@ -250,7 +278,7 @@ pub(crate) const PALETTE_GATES_ROW1: [GateKind; 13] = [
     GateKind::Ry,
     GateKind::Rz,
 ];
-pub(crate) const PALETTE_GATES_ROW2: [GateKind; 10] = [
+pub(crate) const PALETTE_GATES_ROW2: [GateKind; 14] = [
     GateKind::Swap,
     GateKind::Control,
     GateKind::AntiControl,
@@ -261,6 +289,10 @@ pub(crate) const PALETTE_GATES_ROW2: [GateKind; 10] = [
     GateKind::QftGate,
     GateKind::QftDaggerGate,
     GateKind::Spacer,
+    GateKind::PostSelectOff,
+    GateKind::PostSelectOn,
+    GateKind::PostSelectAntiX,
+    GateKind::PostSelectX,
 ];
 pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 4] = [
     GateKind::BlochDisplay,
@@ -271,7 +303,8 @@ pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 4] = [
 pub(crate) const PALETTE_GATE_COUNT: usize =
     PALETTE_GATES_ROW1.len() + PALETTE_GATES_ROW2.len() + PALETTE_DISPLAY_GATES.len();
 pub(crate) const PALETTE_ROW1_COUNT: usize = PALETTE_GATES_ROW1.len();
-pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 10] = [13, 14, 15, 17, 18, 19, 26, 22, 23, 21];
+pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 14] =
+    [13, 14, 15, 17, 18, 19, 26, 22, 23, 21, 27, 28, 29, 30];
 pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 4] = [16, 20, 24, 25];
 
 pub(crate) fn default_palette_angle(kind: GateKind) -> Option<ParametricAngle> {
@@ -300,6 +333,13 @@ pub(crate) fn palette_gate_kind(index: usize) -> Option<GateKind> {
 }
 
 impl GateKind {
+    pub(crate) fn is_postselection(self) -> bool {
+        matches!(
+            self,
+            Self::PostSelectOff | Self::PostSelectOn | Self::PostSelectAntiX | Self::PostSelectX
+        )
+    }
+
     pub(crate) fn spec(self) -> &'static GateSpec {
         GATE_SPECS
             .iter()
@@ -341,6 +381,61 @@ impl GateKind {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn postselection_url_round_trip_preserves_exact_projector_tokens() {
+        let json = r#"{"cols":[["|0⟩⟨0|"],["|1⟩⟨1|"],["|+⟩⟨+|"],["|-⟩⟨-|"]]}"#;
+        let circuit = crate::url_circuit::parse_circuit_json(json);
+        assert_eq!(
+            crate::url_circuit::circuit_to_json(
+                &circuit.gates,
+                &circuit.blocks,
+                &circuit.title,
+                crate::qubit_count::QubitCount::try_new(1).unwrap()
+            ),
+            json
+        );
+    }
+
+    #[test]
+    fn postselection_titles_name_the_kept_state() {
+        assert_eq!(
+            [
+                GateKind::PostSelectOff,
+                GateKind::PostSelectOn,
+                GateKind::PostSelectAntiX,
+                GateKind::PostSelectX
+            ]
+            .map(|kind| kind.info().name),
+            [
+                "Postselect |0⟩",
+                "Postselect |1⟩",
+                "Postselect |+⟩",
+                "Postselect |−⟩"
+            ]
+        );
+    }
+
+    #[test]
+    fn postselection_does_not_accept_classical_flags() {
+        assert_eq!(
+            ["|0⟩⟨0|<a", "|1⟩⟨1|<a", "|+⟩⟨+|<a", "|-⟩⟨-|<a"].map(GateFlag::split_token),
+            [None, None, None, None]
+        );
+    }
+
+    #[test]
+    fn postselection_tokens_have_appended_palette_ids() {
+        let tokens = ["|0⟩⟨0|", "|1⟩⟨1|", "|+⟩⟨+|", "|-⟩⟨-|"];
+        assert_eq!(
+            tokens.map(|token| {
+                GateKind::from_url_token(token).and_then(|kind| {
+                    (0..PALETTE_GATE_COUNT).find(|&id| palette_gate_kind(id) == Some(kind))
+                })
+            }),
+            [Some(27), Some(28), Some(29), Some(30)]
+        );
+    }
 
     #[test]
     fn phase_palette_default_angle_is_pi_over_two() {

@@ -70,6 +70,9 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 
 ドキュメント内で使う日本語表記とコード識別子の対応をここで一元管理する。新しい用語の方針が決まったら必ずここに追記し、`docs/*` 側もこの表に従って統一する。
 
+- **事後選択** — 指定した量子状態への射影によって、その条件を満たす試行だけを残す操作。コード識別子は `PostSelectOff` / `PostSelectOn` / `PostSelectAntiX` / `PostSelectX`。
+- **生存率** — 回路のある位置までのすべての事後選択を通過する累積確率。条件付き状態の正規化とは区別する。
+
 - **表示ブロック** — 量子状態を可視化するが状態を変えない回路要素の総称 (Quirk が `Display` と呼ぶカテゴリに対応)。ユニタリ変換を行わないため厳密にはゲートではない。
   - 個別名: `ブロッホ球表示ブロック` / `確率表示ブロック` / `振幅表示ブロック`
   - コード識別子: `GateKind::BlochDisplay` / `GateKind::ProbabilityDisplay` / `GateKind::AmplitudeDisplay` (`Display` サフィックス) はそのまま維持。Quirk 互換のシリアライズ ID (`"Bloch"` / `"Probability"` / `"Amps"` ほか) もそのまま。

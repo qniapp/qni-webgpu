@@ -6,6 +6,7 @@ pub(crate) struct SimulationPlanLimits {
     pub(crate) max_step_snapshot_slots: usize,
     pub(crate) max_bloch_slots: usize,
     pub(crate) max_measurement_slots: usize,
+    pub(crate) max_postselection_slots: usize,
     pub(crate) max_probability_slots: usize,
     pub(crate) max_amplitude_slots: usize,
     pub(crate) max_density_slots: usize,
@@ -34,6 +35,7 @@ pub(crate) fn validate_simulation_plan_capacity(
     ops: &[SimulationOp],
     limits: SimulationPlanLimits,
 ) -> Result<(), SimulationPlanCapacityError> {
+    let mut postselection_ops = 0usize;
     let mut gate_ops = 0usize;
     let mut bloch_ops = 0usize;
     let mut measure_reduce_ops = 0usize;
@@ -53,6 +55,16 @@ pub(crate) fn validate_simulation_plan_capacity(
                 }
             }
             SimulationOp::ApplyGate(_) => gate_ops += 1,
+            SimulationOp::Postselect { output_slot, .. } => {
+                postselection_ops += 1;
+                let slot = output_slot.as_u32() as usize;
+                if slot >= limits.max_postselection_slots {
+                    return Err(SimulationPlanCapacityError::new(format!(
+                        "postselection slot {slot} exceeds MAX_POSTSELECTION_SLOTS={}",
+                        limits.max_postselection_slots
+                    )));
+                }
+            }
             SimulationOp::CaptureBloch { output_slot, .. } => {
                 bloch_ops += 1;
                 let slot = output_slot.as_u32() as usize;
@@ -117,6 +129,7 @@ pub(crate) fn validate_simulation_plan_capacity(
     }
     for (label, count) in [
         ("gate", gate_ops),
+        ("postselection", postselection_ops),
         ("bloch", bloch_ops),
         ("measure_reduce", measure_reduce_ops),
         ("measure_collapse", measure_collapse_ops),
@@ -149,6 +162,7 @@ mod tests {
             max_step_snapshot_slots: 1,
             max_bloch_slots: 1,
             max_measurement_slots: 1,
+            max_postselection_slots: 1,
             max_probability_slots: 1,
             max_amplitude_slots: 1,
             max_density_slots: 1,
@@ -241,5 +255,29 @@ mod tests {
             error.to_string(),
             "Density slot 1 exceeds MAX_DENSITY_SLOTS=1; reduce Density displays or grow the GPU buffer",
         );
+    }
+    #[test]
+    fn postselection_slot_limit_is_checked() {
+        let ops = [SimulationOp::Postselect {
+            gate_id: GateId::from_u32(1),
+            output_slot: SlotIndex::new(1),
+        }];
+        assert!(validate_simulation_plan_capacity(&ops, tiny_limits()).is_err());
+    }
+    #[test]
+    fn postselection_staging_limit_is_checked() {
+        let op = SimulationOp::Postselect {
+            gate_id: GateId::from_u32(1),
+            output_slot: SlotIndex::new(0),
+        };
+        assert!(validate_simulation_plan_capacity(&[op, op], tiny_limits()).is_err());
+    }
+    #[test]
+    fn postselection_exact_capacity_is_accepted() {
+        let op = SimulationOp::Postselect {
+            gate_id: GateId::from_u32(1),
+            output_slot: SlotIndex::new(0),
+        };
+        assert!(validate_simulation_plan_capacity(&[op], tiny_limits()).is_ok());
     }
 }

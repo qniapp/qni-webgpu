@@ -42,7 +42,7 @@ const DEFAULT_PALETTE_ROW_GAP = UI_CONSTANTS.PALETTE_ROW_GAP
 const DEFAULT_PALETTE_SECTION_GAP = UI_CONSTANTS.PALETTE_SECTION_GAP
 const DEFAULT_PALETTE_SEPARATOR_WIDTH = UI_CONSTANTS.PALETTE_SEPARATOR_WIDTH
 const DEFAULT_PALETTE_DISPLAY_COLUMNS = UI_CONSTANTS.PALETTE_DISPLAY_COLUMNS
-const DEFAULT_PALETTE_GATES_ROW2_INDICES = [13, 14, 15, 17, 18, 19, 26, 22, 23, 21]
+const DEFAULT_PALETTE_GATES_ROW2_INDICES = [13, 14, 15, 17, 18, 19, 26, 22, 23, 21, 27, 28, 29, 30]
 const DEFAULT_PALETTE_DISPLAY_INDICES = [16, 20, 24, 25]
 const DEFAULT_CIRCUIT_PADDING = UI_CONSTANTS.CIRCUIT_PADDING
 const DEFAULT_QUBIT_LABEL_WIDTH = UI_CONSTANTS.QUBIT_LABEL_WIDTH
@@ -138,6 +138,17 @@ const GATE_ALIASES = new Map([
   ['density-matrix-display', 25],
   ['densitymatrixdisplay', 25],
   ['density_matrix_display', 25],
+  ['zdetectcontrolreset', 26],
+  ['postselect0', 27],
+  ['postselect-0', 27],
+  ['|0⟩⟨0|', 27],
+  ['postselect1', 28],
+  ['postselect-1', 28],
+  ['|1⟩⟨1|', 28],
+  ['postselect-plus', 29],
+  ['|+⟩⟨+|', 29],
+  ['postselect-minus', 30],
+  ['|-⟩⟨-|', 30],
 ])
 
 const normalizeGateName = (gate: unknown): string => String(gate || '').trim().toLowerCase()

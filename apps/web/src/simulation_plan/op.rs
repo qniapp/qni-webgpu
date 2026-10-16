@@ -27,6 +27,10 @@ pub(crate) enum SimulationOp {
         output_slot: SlotIndex<Snapshot>,
     },
     ApplyGate(GateParams),
+    Postselect {
+        gate_id: GateId,
+        output_slot: SlotIndex<crate::gpu::Postselection>,
+    },
     CaptureBloch {
         gate_id: GateId,
         qubit_bit: QubitBit,

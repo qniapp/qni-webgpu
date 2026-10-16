@@ -5,7 +5,7 @@ export type Op =
   | { kind: 'gate'; bit: number; m: C[]; mode?: 0 | 1 | 2; controls?: Control; condition?: number }
   | { kind: 'measure'; bit: number; gateId: number; slot: number }
   | { kind: 'collapse'; bit: number; auxSlot: number }
-  | { kind: 'bloch'; bit: number; slot: number; controls?: Control }
+  | { kind: 'bloch'; bit: number; slot: number; controls?: Control; expectedStatus?: 0 | -1 }
   | {
       kind: 'probability' | 'amplitude' | 'density'
       baseBit: number
@@ -308,7 +308,7 @@ export const cases: RecomputeCase[] = [
     name: 'bloch empty slice',
     qubits: 2,
     init: 'ground',
-    ops: [{ kind: 'bloch', bit: 0, slot: 7, controls: { mask: 2, value: 2 } }],
+    ops: [{ kind: 'bloch', bit: 0, slot: 7, controls: { mask: 2, value: 2 }, expectedStatus: -1 }],
   },
   ...[1, 3, 4, 8].map((span) => ({
     name: `density span${span}`,

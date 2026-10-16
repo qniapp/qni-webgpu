@@ -293,6 +293,12 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
     }
     return placeholder_color;
   }
+  if (probability_data[input.slot * MAX_PROBABILITY_OUTCOMES] < 0.0) {
+    let on_border = input.local.x < border_px || row_local_y < border_px ||
+      input.local.x >= input.rect_size.x - border_px || row_local_y >= input.rect_size.y - border_px;
+    let hatch = fract((input.local.x + row_local_y) / 8.0) < 0.125;
+    return select(params.background, params.border, on_border || hatch);
+  }
   let prob = probability_prob(input.slot, raw_row);
   let draw_prob = probability_aggregate_prob_for_pixel(input.slot, input.span, row_local_y, prob);
   let bar_right = draw_prob * input.rect_size.x;

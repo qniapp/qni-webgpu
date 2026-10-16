@@ -583,3 +583,12 @@ pub(crate) struct PopupValueParams {
     pub(crate) qubits: u32,
     pub(crate) _pad: [u32; 2],
 }
+
+pub(crate) const MAX_POSTSELECTION_SLOTS: usize = 256;
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct PostselectionParams {
+    pub(crate) state_count: u32,
+    pub(crate) output_slot: u32,
+    pub(crate) _pad: [u32; 2],
+}

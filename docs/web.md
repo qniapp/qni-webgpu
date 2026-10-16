@@ -1,6 +1,7 @@
 # web app (Rust)
 
 外部ページへの埋め込みは [WebGPU アプリの埋め込み](web-embed.md) を参照する。
+事後選択ゲートの条件付き状態と生存率は [事後選択](postselection.md) を参照する。
 
 ## Prerequisites
 

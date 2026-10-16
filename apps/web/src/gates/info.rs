@@ -376,6 +376,26 @@ impl GateKind {
                 ],
                 transitions: &[],
             },
+            GateKind::PostSelectOff => GateInfo {
+                name: "Postselect |0⟩",
+                paragraphs: &["Keeps only the |0⟩ outcome and renormalizes the surviving state."],
+                transitions: &[],
+            },
+            GateKind::PostSelectOn => GateInfo {
+                name: "Postselect |1⟩",
+                paragraphs: &["Keeps only the |1⟩ outcome and renormalizes the surviving state."],
+                transitions: &[],
+            },
+            GateKind::PostSelectAntiX => GateInfo {
+                name: "Postselect |+⟩",
+                paragraphs: &["Keeps only the |+⟩ outcome and renormalizes the surviving state."],
+                transitions: &[],
+            },
+            GateKind::PostSelectX => GateInfo {
+                name: "Postselect |−⟩",
+                paragraphs: &["Keeps only the |−⟩ outcome and renormalizes the surviving state."],
+                transitions: &[],
+            },
             GateKind::Measurement => GateInfo {
                 name: "Measurement Gate",
                 paragraphs: &["Measures whether a qubit is ON or OFF."],

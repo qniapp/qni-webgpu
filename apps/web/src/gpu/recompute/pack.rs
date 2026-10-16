@@ -14,6 +14,7 @@ use super::super::resources::StateVectorResources;
 /// the tiny uniform buffer immediately before its dispatch.
 pub(super) struct PackedRecomputeParams {
     gate: Vec<GateParams>,
+    postselection: Vec<super::super::params::PostselectionParams>,
     bloch: Vec<BlochParams>,
     measure_reduce: Vec<MeasureReduceParams>,
     measure_collapse: Vec<MeasureCollapseParams>,
@@ -26,6 +27,7 @@ impl PackedRecomputeParams {
     pub(super) fn from_ops(sim_ops: &[SimulationOp], state_count: usize, pair_count: u32) -> Self {
         let mut packed = Self {
             gate: Vec::with_capacity(sim_ops.len()),
+            postselection: Vec::new(),
             bloch: Vec::with_capacity(sim_ops.len()),
             measure_reduce: Vec::with_capacity(sim_ops.len()),
             measure_collapse: Vec::with_capacity(sim_ops.len()),
@@ -36,6 +38,15 @@ impl PackedRecomputeParams {
 
         for op in sim_ops {
             match op {
+                SimulationOp::Postselect { output_slot, .. } => {
+                    packed
+                        .postselection
+                        .push(super::super::params::PostselectionParams {
+                            state_count: state_count as u32,
+                            output_slot: output_slot.as_u32(),
+                            _pad: [0; 2],
+                        })
+                }
                 SimulationOp::SnapshotState { .. } => {}
                 SimulationOp::ApplyGate(params) => packed.gate.push(*params),
                 SimulationOp::CaptureBloch {
@@ -140,6 +151,13 @@ impl PackedRecomputeParams {
     /// these staging slots via `copy_buffer_to_buffer`, so all dispatches can
     /// stay in one encoder + one submit.
     pub(super) fn upload(&self, queue: &wgpu::Queue, resources: &StateVectorResources) {
+        if !self.postselection.is_empty() {
+            queue.write_buffer(
+                &resources.postselection.params_staging_buffer,
+                0,
+                bytemuck::cast_slice(&self.postselection),
+            );
+        }
         if !self.gate.is_empty() {
             queue.write_buffer(
                 &resources.state.gate_params_staging_buffer,

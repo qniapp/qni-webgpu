@@ -817,6 +817,43 @@ impl QniApp {
             );
             shapes.push(egui::Shape::Callback(paint_callback));
         }
+        let postselection_instances: Vec<MeasurementDigitInstance> = self
+            .placed_gates
+            .iter()
+            .filter_map(|gate| {
+                if !gate.kind.is_postselection()
+                    || (dragging_gate_id == Some(gate.id) && !self.dragging_live_display_snap)
+                {
+                    return None;
+                }
+                let slot = self.gpu_plan.postselection_slot(gate.id)?.as_u32();
+                let pos = circuit_origin
+                    + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2();
+                Some(MeasurementDigitInstance {
+                    center: [
+                        pos.x + GATE_SIZE * 0.5,
+                        pos.y + GATE_SIZE + crate::tailwind::SPACING_2,
+                    ],
+                    half_extent: crate::tailwind::SPACING_14 * 0.5,
+                    slot,
+                })
+            })
+            .collect();
+        if !postselection_instances.is_empty() {
+            let callback = crate::gpu::PostselectionCallback {
+                instances: postselection_instances.into(),
+                viewport_min: [callback_rect.min.x, callback_rect.min.y],
+                viewport_size: [callback_rect.width(), callback_rect.height()],
+                zero_color: colors.text.to_normalized_gamma_f32(),
+                one_color: colors.text.to_normalized_gamma_f32(),
+            };
+            shapes.push(egui::Shape::Callback(
+                egui_wgpu::Callback::new_paint_callback(
+                    callback_rect,
+                    FrameCallback::new(callback),
+                ),
+            ));
+        }
         shapes
     }
 

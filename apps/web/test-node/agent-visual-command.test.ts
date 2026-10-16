@@ -20,6 +20,13 @@ test('agent visual command resolves palette gate aliases', () => {
   assert.deepEqual(aliases.map(getGateIndex), [0, 1, 4, 6, 8, 13, 14, 15, 15, 16, 16, 17, 17, 17, 18, 18, 19, 19, 20, 21, 21, 22, 23, 24, 25])
 })
 
+test('agent visual command preserves reset and postselection palette aliases', () => {
+  assert.deepEqual(
+    ['ZDetectControlReset', 'postselect0', 'postselect-0', '|0⟩⟨0|', 'postselect1', 'postselect-1', '|1⟩⟨1|', 'postselect-plus', '|+⟩⟨+|', 'postselect-minus', '|-⟩⟨-|'].map(getGateIndex),
+    [26, 27, 27, 27, 28, 28, 28, 29, 29, 30, 30],
+  )
+})
+
 test('agent visual command parses q-prefixed and numeric wires', () => {
   assert.deepEqual(['q0', '1'].map(parseWire), [0, 1])
 })
@@ -37,7 +44,7 @@ test('agent visual command builds drag coordinates from semantic gate placement'
     gateIndex: 1,
     wire: 1,
     slot: 2,
-    from: { x: 207, y: 100 },
+    from: { x: 183, y: 100 },
     to: { x: 274, y: 312 },
   })
 })
@@ -50,7 +57,7 @@ test('agent visual command builds row-two coordinates after display gates move o
     slot: 0,
   })
 
-  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 22, from: { x: 495, y: 148 } })
+  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 22, from: { x: 471, y: 148 } })
 })
 
 test('agent visual command builds Display section coordinates', () => {
@@ -61,7 +68,7 @@ test('agent visual command builds Display section coordinates', () => {
     slot: 0,
   })
 
-  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 20, from: { x: 841, y: 100 } })
+  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 20, from: { x: 865, y: 100 } })
 })
 
 
@@ -73,7 +80,7 @@ test('agent visual command builds Density Display section coordinates', () => {
     slot: 0,
   })
 
-  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 25, from: { x: 841, y: 148 } })
+  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 25, from: { x: 865, y: 148 } })
 })
 
 test('agent visual command supports egui content vertical offset', () => {

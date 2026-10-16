@@ -5,6 +5,7 @@ use eframe::egui;
 use crate::colors::Colors;
 use crate::constants::GATE_SIZE;
 use crate::gates::GateKind;
+use crate::tailwind::{ROUNDED, STROKE_2};
 
 use super::gate_glyphs::draw_gate_icon;
 
@@ -78,7 +79,16 @@ fn draw_gate_body_with_fill(
         draw_gate_icon(painter, gate_rect, kind, fill, colors);
         return;
     }
-    if kind == GateKind::X {
+    if kind.is_postselection() {
+        let background = if dragging { fill } else { colors.surface };
+        painter.rect_filled(gate_rect, egui::CornerRadius::same(ROUNDED), background);
+        painter.rect_stroke(
+            gate_rect,
+            egui::CornerRadius::same(ROUNDED),
+            egui::Stroke::new(STROKE_2, colors.semantic_disabled),
+            egui::StrokeKind::Inside,
+        );
+    } else if kind == GateKind::X {
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
         painter.circle_filled(gate_rect.center(), radius, fill);
     } else if kind == GateKind::ProbabilityDisplay {
