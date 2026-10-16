@@ -74,6 +74,10 @@ fn draw_gate_body_with_fill(
     fill: egui::Color32,
     dragging: bool,
 ) {
+    if kind == GateKind::ZDetectControlReset {
+        draw_gate_icon(painter, gate_rect, kind, fill, colors);
+        return;
+    }
     if kind == GateKind::X {
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
         painter.circle_filled(gate_rect.center(), radius, fill);
@@ -333,4 +337,23 @@ fn draw_probability_preview_body(painter: &egui::Painter, rect: egui::Rect, colo
         egui::Stroke::new(1.0_f32, colors.line),
         egui::StrokeKind::Inside,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn z_detect_control_reset_body_snapshot() {
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            draw_gate_body(
+                ui.painter(),
+                egui::Rect::from_min_size(egui::pos2(16.0, 16.0), egui::Vec2::splat(GATE_SIZE)),
+                GateKind::ZDetectControlReset,
+                &Colors::new(),
+            );
+        });
+        insta::assert_debug_snapshot!(output.shapes);
+    }
 }

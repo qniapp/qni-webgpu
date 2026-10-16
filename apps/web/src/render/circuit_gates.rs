@@ -1346,6 +1346,34 @@ mod tests {
     }
 
     #[test]
+    fn z_detect_control_reset_keeps_static_reset_digit_snapshot() {
+        let ctx = egui::Context::default();
+        let mut app = QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));
+        app.load_circuit_json_into_editor(r#"{"cols":[["H"],["ZDetectControlReset","X"]]}"#, &ctx);
+        let qubits = crate::qubit_count::QubitCount::try_new(2).unwrap();
+        let sources = crate::simulation_plan::FlagSources::from_columns(
+            &crate::simulation_plan::SimulationColumnAnalysis::from_gates(
+                &app.placed_gates,
+                qubits,
+            ),
+        );
+        let ops = crate::simulation_plan::linearize_ops(&app.placed_gates, qubits, 2);
+        app.gpu_plan.replace_ops(ops, 2, sources);
+        let detector = app
+            .placed_gates
+            .iter()
+            .find(|gate| gate.kind == GateKind::ZDetectControlReset)
+            .unwrap();
+        let viewport = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0));
+        let overlays =
+            app.build_circuit_gpu_overlays(viewport, egui::Pos2::ZERO, None, &app.colors());
+        insta::assert_debug_snapshot!((
+            app.gpu_plan.has_measurement_slot(detector.id),
+            overlays.len(),
+        ));
+    }
+
+    #[test]
     fn insert_preview_foreground_reuses_returned_batch_callbacks() {
         let ctx = egui::Context::default();
         let mut app = QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));

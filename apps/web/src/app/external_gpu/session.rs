@@ -102,6 +102,12 @@ fn supported_external_controlled_target(kind: GateKind) -> bool {
 }
 
 fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Option<String> {
+    if let Some(gate) = placed_gates
+        .iter()
+        .find(|gate| gate.kind == GateKind::ZDetectControlReset)
+    {
+        return Some(gate.kind.label().to_owned());
+    }
     // The Qiskit backend has no classical flags: qni measurement variables
     // (`Measure>a`) and conditional gates (`X<a`) run only on local WebGPU.
     if let Some((gate, flag)) = placed_gates
@@ -704,6 +710,23 @@ mod gate_tests {
         )];
 
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    #[test]
+    fn external_gpu_rejects_detect_control_reset_without_other_controls() {
+        let gates = [PlacedGate::new(
+            crate::app::GateId::from_u32(1),
+            GateKind::ZDetectControlReset,
+            crate::app::CircuitColumnIndex::new(0),
+            crate::app::WireIndex::new(0),
+            crate::gates::GateSpan::SINGLE,
+            None,
+        )];
+
+        assert_eq!(
+            unsupported_external_gpu_gate_for_gates(&gates),
+            Some("ZDetectControlReset".to_owned())
+        );
     }
 
     #[test]

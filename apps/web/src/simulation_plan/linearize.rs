@@ -61,6 +61,10 @@ pub(crate) fn linearize_ops(
         }
         let column_gates = column.gates();
         let controls = column.controls();
+        let detector_targets = column.displays(GateKind::ZDetectControlReset);
+        for detector in &detector_targets {
+            push_measurement(&mut ops, detector, qubits, &mut measurement_slots);
+        }
         let mut targets: Vec<&PlacedGate> = Vec::new();
         let mut bloch_targets: Vec<&PlacedGate> = Vec::new();
         let mut measurement_targets: Vec<&PlacedGate> = Vec::new();
@@ -72,7 +76,7 @@ pub(crate) fn linearize_ops(
         let mut qft_gates: Vec<&PlacedGate> = Vec::new();
         for gate in column_gates {
             match gate.kind {
-                GateKind::Control | GateKind::AntiControl => {}
+                GateKind::Control | GateKind::AntiControl | GateKind::ZDetectControlReset => {}
                 GateKind::Swap => swap_targets.push(gate),
                 GateKind::Spacer => {
                     // Non-mutating decoration.
@@ -177,7 +181,8 @@ pub(crate) fn linearize_ops(
         // runs 0..qubits-1 top→bottom with q0=LSB) as the Z target. CZ is
         // physically symmetric so the choice only affects the GateParams
         // shape, not the resulting state.
-        if targets.is_empty()
+        if detector_targets.is_empty()
+            && targets.is_empty()
             && qft_gates.is_empty()
             && measurement_targets.is_empty()
             && bloch_targets.is_empty()
@@ -221,21 +226,8 @@ pub(crate) fn linearize_ops(
         // then collapse. Each consumes one aux slot.
         measurement_targets.sort_by_key(|a| a.id);
         for measurement in &measurement_targets {
-            let qubit_bit = measurement
-                .wire
-                .to_qubit_bit(qubits)
-                .expect("column gates are within the register");
-            let slot = measurement_slots.allocate();
+            let slot = push_measurement(&mut ops, measurement, qubits, &mut measurement_slots);
             measurement_slot_by_gate.insert(measurement.id, slot);
-            ops.push(SimulationOp::MeasureReduceSample {
-                gate_id: measurement.id,
-                qubit_bit,
-                output_slot: slot,
-            });
-            ops.push(SimulationOp::MeasureCollapse {
-                qubit_bit,
-                aux_slot: slot,
-            });
         }
 
         // Bloch captures see the post-measurement state.
@@ -325,6 +317,18 @@ pub(crate) fn linearize_ops(
             });
         }
 
+        for detector in &detector_targets {
+            let bit = detector
+                .wire
+                .to_qubit_bit(qubits)
+                .expect("column gates are within the register");
+            ops.push(SimulationOp::ApplyGate(gate_params(
+                GateKind::Write0,
+                bit,
+                state_count,
+            )));
+        }
+
         if next_snapshot_slot == column.slot && next_snapshot_slot < snapshot_slot_count {
             ops.push(SimulationOp::SnapshotState {
                 output_slot: SlotIndex::new(next_snapshot_slot as u32),
@@ -339,6 +343,29 @@ pub(crate) fn linearize_ops(
         next_snapshot_slot += 1;
     }
     ops
+}
+
+fn push_measurement(
+    ops: &mut Vec<SimulationOp>,
+    gate: &PlacedGate,
+    qubits: QubitCount,
+    slots: &mut SlotAllocator<Measurement>,
+) -> SlotIndex<Measurement> {
+    let qubit_bit = gate
+        .wire
+        .to_qubit_bit(qubits)
+        .expect("column gates are within the register");
+    let slot = slots.allocate();
+    ops.push(SimulationOp::MeasureReduceSample {
+        gate_id: gate.id,
+        qubit_bit,
+        output_slot: slot,
+    });
+    ops.push(SimulationOp::MeasureCollapse {
+        qubit_bit,
+        aux_slot: slot,
+    });
+    slot
 }
 
 /// How a `P` gate takes part in its column's multi-controlled phase.
@@ -654,6 +681,74 @@ mod tests {
             (bare_parametric_matrix(GateKind::Rz)[0][1] + std::f32::consts::FRAC_1_SQRT_2).abs()
                 < EPSILON
         );
+    }
+
+    fn detector_gate(id: u32, kind: GateKind, column: usize, wire: usize) -> PlacedGate {
+        PlacedGate::new(
+            GateId::from_u32(id),
+            kind,
+            crate::app::CircuitColumnIndex::new(column),
+            crate::app::WireIndex::new(wire),
+            crate::gates::GateSpan::SINGLE,
+            None,
+        )
+    }
+
+    #[test]
+    fn detector_measures_before_controlled_ops_and_resets_before_snapshot() {
+        let gates = [
+            detector_gate(1, GateKind::ZDetectControlReset, 0, 0),
+            detector_gate(2, GateKind::X, 0, 1),
+        ];
+        let ops = linearize_ops(&gates, qubit_count(2), 1);
+        let expected_reset = gate_params(GateKind::Write0, QubitBit::new(0), 4);
+        assert!(matches!(
+            ops.as_slice(),
+            [SimulationOp::MeasureReduceSample { output_slot, .. },
+             SimulationOp::MeasureCollapse { aux_slot, .. },
+             SimulationOp::ApplyGate(target),
+             SimulationOp::ApplyGate(reset),
+             SimulationOp::SnapshotState { .. }]
+            if output_slot == aux_slot
+                && target.control_mask() == 1
+                && target.control_value() == 1
+                && bytemuck::bytes_of(reset) == bytemuck::bytes_of(&expected_reset)
+        ));
+    }
+
+    #[test]
+    fn detector_control_does_not_leak_to_later_column() {
+        let gates = [
+            detector_gate(1, GateKind::ZDetectControlReset, 0, 0),
+            detector_gate(2, GateKind::X, 0, 1),
+            detector_gate(3, GateKind::X, 1, 1),
+        ];
+        let ops = linearize_ops(&gates, qubit_count(2), 0);
+        let params = match ops.last().expect("later column op") {
+            SimulationOp::ApplyGate(params) => *params,
+            _ => panic!("expected later column gate"),
+        };
+        assert_eq!(
+            (params.control_mask(), params.condition_slot()),
+            (0, crate::gates::GATE_UNCONDITIONAL)
+        );
+    }
+
+    #[test]
+    fn detector_without_target_does_not_emit_controls_only_phase() {
+        let gates = [
+            detector_gate(1, GateKind::ZDetectControlReset, 0, 0),
+            detector_gate(2, GateKind::Control, 0, 1),
+        ];
+        let ops = linearize_ops(&gates, qubit_count(2), 0);
+        let expected_reset = gate_params(GateKind::Write0, QubitBit::new(0), 4);
+        assert!(matches!(
+            ops.as_slice(),
+            [SimulationOp::MeasureReduceSample { .. },
+             SimulationOp::MeasureCollapse { .. },
+             SimulationOp::ApplyGate(reset)]
+            if bytemuck::bytes_of(reset) == bytemuck::bytes_of(&expected_reset)
+        ));
     }
 
     #[test]

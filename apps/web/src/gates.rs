@@ -5,6 +5,7 @@ pub(crate) enum GateKind {
     AntiControl,
     BlochDisplay,
     Measurement,
+    ZDetectControlReset,
     /// Quirk-compatible probability display. It has no unitary effect;
     /// a GPU compute pass marginalizes the live state vector into outcome
     /// bars and a render shader paints them without CPU readback.
@@ -65,7 +66,7 @@ pub(crate) struct GateSpec {
     pub(crate) resizable_span: bool,
 }
 
-const GATE_SPECS: [GateSpec; 26] = [
+const GATE_SPECS: [GateSpec; 27] = [
     GateSpec {
         kind: GateKind::H,
         label: "H",
@@ -94,6 +95,12 @@ const GATE_SPECS: [GateSpec; 26] = [
         kind: GateKind::Measurement,
         label: "M",
         url_token: "Measure",
+        resizable_span: false,
+    },
+    GateSpec {
+        kind: GateKind::ZDetectControlReset,
+        label: "ZDetectControlReset",
+        url_token: "ZDetectControlReset",
         resizable_span: false,
     },
     GateSpec {
@@ -243,13 +250,14 @@ pub(crate) const PALETTE_GATES_ROW1: [GateKind; 13] = [
     GateKind::Ry,
     GateKind::Rz,
 ];
-pub(crate) const PALETTE_GATES_ROW2: [GateKind; 9] = [
+pub(crate) const PALETTE_GATES_ROW2: [GateKind; 10] = [
     GateKind::Swap,
     GateKind::Control,
     GateKind::AntiControl,
     GateKind::Write0,
     GateKind::Write1,
     GateKind::Measurement,
+    GateKind::ZDetectControlReset,
     GateKind::QftGate,
     GateKind::QftDaggerGate,
     GateKind::Spacer,
@@ -263,7 +271,7 @@ pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 4] = [
 pub(crate) const PALETTE_GATE_COUNT: usize =
     PALETTE_GATES_ROW1.len() + PALETTE_GATES_ROW2.len() + PALETTE_DISPLAY_GATES.len();
 pub(crate) const PALETTE_ROW1_COUNT: usize = PALETTE_GATES_ROW1.len();
-pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 9] = [13, 14, 15, 17, 18, 19, 22, 23, 21];
+pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 10] = [13, 14, 15, 17, 18, 19, 26, 22, 23, 21];
 pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 4] = [16, 20, 24, 25];
 
 pub(crate) fn default_palette_angle(kind: GateKind) -> Option<ParametricAngle> {

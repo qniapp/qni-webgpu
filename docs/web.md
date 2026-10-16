@@ -303,9 +303,10 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - 描画は GPU 完結: `BLOCH_OVERLAY_SHADER` (vertex+fragment) が `bloch_output_buffer` を直接 sample してアロー線・先端ドットを描く (`BlochOverlayCallback`)。`MEASUREMENT_DIGIT_SHADER` も同様に `measurement_aux_buffer.z` (outcome) を sample し、起動時に rasterize した Geist Mono Regular の `0` / `1` atlas から outcome 桁を描画する。本番経路で GPU → CPU リードバックは発生しない。
 - `read_bloch_vectors()` / `read_measurement_outcomes()` (wasm_bindgen) は **テスト専用の async on-demand readback**: 呼ばれた時に staging buffer + map_async で `[gateId, x, y, z, …]` / `[gateId, outcome, …]` を返す。本番のレンダーには影響しない。Playwright は `readBlochVectors` / `readMeasurementOutcomes` ヘルパー経由で await して使う。
 - Spacer ゲートは qni `packages/elements/icon/spacer-gate.svg` を踏襲した装飾専用 NOP。viewbox 上の (9,21)–(15,27)、(21,21)–(27,27)、(33,21)–(39,27) に塗りつぶし矩形 3 つで `…` を描く。色は `text-neutral-900` (#171717)。`simulation_plan::linearize_ops` では Swap と同じく状態変更 op を出さない。
-- パレットは 2 段。1 段目は単量子ビットのユニタリ (H, X, Y, Z, √X, S, S†, T, T†, P, Rx, Ry, Rz)、2 段目は特殊ゲート (SWAP, •, ◦, |0⟩, |1⟩)。両段とも左寄せで揃える（qni の `flex flex-row` レイアウトに合わせる）。
+- パレットは 2 段。1 段目は単量子ビットのユニタリ (H, X, Y, Z, √X, S, S†, T, T†, P, Rx, Ry, Rz)、2 段目は特殊ゲート (SWAP, •, ◦, |0⟩, |1⟩, Measurement, Z Detect-Control-Reset, QFT, QFT†, Spacer)。両段とも左寄せで揃える（qni の `flex flex-row` レイアウトに合わせる）。
 - パレットの寸法は qni `apps/www/app/views/application/_palette_md.html.erb` に合わせる: ゲート間 8px (`space-x-2`)、行間 8px (`space-y-2`)、横パディング 16px (`px-4`)、縦パディング 20px (`py-5`)、角丸 12px (`rounded-xl`)。
 - |0⟩ の桁は `semantic_off`、|1⟩ の桁は `semantic_on` で描画する。Flexoki Light では red-600 / blue-600。桁のフォントは Geist Mono Regular で、スラッシュ付きの `0` により `O` と見間違えにくくする。
+- Z Detect-Control-Reset は、列の先頭で Z 基底で測定し、結果が 1 のとき Control と同じく同列の操作を制御する。Measurement は制御を無視し、表示ブロックは条件付き表示になる。列の末尾で対象量子ビットを `|0⟩` にリセットする。左半分に検出器、右半分に固定の `|0⟩`、中央に制御点を描く。右側の数字は測定結果ではなくリセット先を示す。測定変数や条件は付けられない。ローカル WebGPU 専用で、外部 GPU 実行には未対応。
 - CNOT は Control ゲート (C) と X ゲートを同じ列に置いて表す。
 - Control / Anti Control は、同じ列の単量子ビットゲート、書き込みゲート、Swap、QFT / QFT† を条件付きで実行する。Bloch / Probability / Amplitude / Density Matrix 表示ブロックでは条件付き表示として使う。Measurement は制御を無視する。
 - Probability / QFT / QFT† は span 分だけ縦に伸び、回路上の長いゲートをドラッグ中も同じ span の preview を描く。span リサイズハンドルは 3 種とも同じ仕様で、上下 2 個の purple pill (24×6 px) をゲートホバーで表示し、上ハンドルは span を上方向へ、下ハンドルは下方向へ伸縮する。

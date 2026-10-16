@@ -95,7 +95,9 @@ impl<'a> SimulationColumnAnalysis<'a> {
                         .to_qubit_bit(qubits)
                         .expect("simulation column wires are within the register");
                     match gate.kind {
-                        GateKind::Control => controls.add_control(bit),
+                        GateKind::Control | GateKind::ZDetectControlReset => {
+                            controls.add_control(bit);
+                        }
                         GateKind::AntiControl => controls.add_anti_control(bit),
                         _ => {}
                     }

@@ -50,7 +50,7 @@ test('agent visual command builds row-two coordinates after display gates move o
     slot: 0,
   })
 
-  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 22, from: { x: 447, y: 148 } })
+  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 22, from: { x: 495, y: 148 } })
 })
 
 test('agent visual command builds Display section coordinates', () => {

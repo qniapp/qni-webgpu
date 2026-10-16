@@ -489,7 +489,12 @@ fn control_connection_sides(column: &AnalyzedColumn<'_>, gate: &PlacedGate) -> C
     let controls = column
         .gates()
         .iter()
-        .filter(|other| matches!(other.kind, GateKind::Control | GateKind::AntiControl))
+        .filter(|other| {
+            matches!(
+                other.kind,
+                GateKind::Control | GateKind::AntiControl | GateKind::ZDetectControlReset
+            )
+        })
         .count();
     if controls == 0 {
         return ConnectionSides::default();
@@ -500,7 +505,10 @@ fn control_connection_sides(column: &AnalyzedColumn<'_>, gate: &PlacedGate) -> C
         .filter(|other| {
             !matches!(
                 other.kind,
-                GateKind::Control | GateKind::AntiControl | GateKind::Swap
+                GateKind::Control
+                    | GateKind::AntiControl
+                    | GateKind::ZDetectControlReset
+                    | GateKind::Swap
             )
         })
         .count();

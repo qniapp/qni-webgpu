@@ -1,0 +1,30 @@
+---
+source: src/render/circuit_connectors/control.rs
+expression: output.shapes
+---
+[
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Rect(
+            RectShape {
+                rect: [[160.0 256.0] - [164.0 312.0]],
+                corner_radius: CornerRadius {
+                    nw: 0,
+                    ne: 0,
+                    sw: 0,
+                    se: 0,
+                },
+                fill: #3A_A9_9F_FF,
+                stroke: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+                stroke_kind: Outside,
+                round_to_pixels: None,
+                blur_width: 0.0,
+                brush: None,
+                angle: 0.0,
+            },
+        ),
+    },
+]
