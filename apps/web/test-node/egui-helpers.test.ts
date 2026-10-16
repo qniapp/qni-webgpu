@@ -4,6 +4,7 @@ const { EventEmitter } = require('node:events')
 
 const {
   dragPointer,
+  getPaletteGateCenter,
   evaluateWithRetry,
   getDragPreviewAboveStatePanelProbe,
   releasePointer,
@@ -439,3 +440,9 @@ test('getDragPreviewAboveStatePanelProbe preserves the current drag target contr
 })
 
 export {}
+
+for (const [gateIndex, x] of [[13, 159], [14, 207], [15, 255], [17, 303], [18, 351], [19, 399], [26, 447], [27, 495], [28, 543], [22, 591], [23, 639], [21, 687]] as const) {
+  test(`palette helper locates gate ${gateIndex} in the second row`, () => {
+    assert.deepEqual(getPaletteGateCenter(1000, gateIndex), { x, y: 148 })
+  })
+}

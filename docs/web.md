@@ -1,6 +1,7 @@
 # web app (Rust)
 
 外部ページへの埋め込みは [WebGPU アプリの埋め込み](web-embed.md) を参照する。
+X 軸・Y 軸の標本測定は [X 軸検出器・Y 軸検出器](axis-detectors.md) を参照する。
 
 ## Prerequisites
 
@@ -308,7 +309,7 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - |0⟩ の桁は `semantic_off`、|1⟩ の桁は `semantic_on` で描画する。Flexoki Light では red-600 / blue-600。桁のフォントは Geist Mono Regular で、スラッシュ付きの `0` により `O` と見間違えにくくする。
 - Z Detect-Control-Reset は、列の先頭で Z 基底で測定し、結果が 1 のとき Control と同じく同列の操作を制御する。Measurement は制御を無視し、表示ブロックは条件付き表示になる。列の末尾で対象量子ビットを `|0⟩` にリセットする。左半分に検出器、右半分に固定の `|0⟩`、中央に制御点を描く。右側の数字は測定結果ではなくリセット先を示す。測定変数や条件は付けられない。ローカル WebGPU 専用で、外部 GPU 実行には未対応。
 - CNOT は Control ゲート (C) と X ゲートを同じ列に置いて表す。
-- Control / Anti Control は、同じ列の単量子ビットゲート、書き込みゲート、Swap、QFT / QFT† を条件付きで実行する。Bloch / Probability / Amplitude / Density Matrix 表示ブロックでは条件付き表示として使う。Measurement は制御を無視する。
+- Control / Anti Control は、同じ列の単量子ビットゲート、書き込みゲート、Swap、QFT / QFT† を条件付きで実行する。Bloch / Probability / Amplitude / Density Matrix 表示ブロックでは条件付き表示として使う。Measurement は制御を無視する。X 軸検出器・Y 軸検出器は制御条件と対象の負の固有状態を合わせた部分空間を測定する。
 - Probability / QFT / QFT† は span 分だけ縦に伸び、回路上の長いゲートをドラッグ中も同じ span の preview を描く。span リサイズハンドルは 3 種とも同じ仕様で、上下 2 個の purple pill (24×6 px) をゲートホバーで表示し、上ハンドルは span を上方向へ、下ハンドルは下方向へ伸縮する。
 - ゲートをドラッグ中、既存列の手前 / 列間 / 直後に qni-style の一時 insertion dropzone を作る。drop すると `addShadowStepAfter` 相当で新しい semantic column を挿入し、後続列を右へ送る。
 - ドラッグ中は未スナップの移動だけでは `needs_recompute` を立てず、ゲートが回路スロットまたは挿入ドロップゾーンへスナップした時点で GPU 計算計画を作り直す。これにより、ドロップ前でも既存のブロッホ球表示ブロック / 確率表示ブロック / 振幅表示ブロック / 密度行列表示ブロック / 状態ベクトルパネルが仮配置を反映する。

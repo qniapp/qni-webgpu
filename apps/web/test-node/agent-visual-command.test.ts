@@ -50,7 +50,7 @@ test('agent visual command builds row-two coordinates after display gates move o
     slot: 0,
   })
 
-  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 22, from: { x: 495, y: 148 } })
+  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 22, from: { x: 591, y: 148 } })
 })
 
 test('agent visual command builds Display section coordinates', () => {
@@ -130,3 +130,16 @@ test('agent visual CLI uses a generic name without a compatibility wrapper', asy
 })
 
 export {}
+
+for (const [gate, gateIndex, x] of [['ZDetectControlReset', 26, 447], ['XDetector', 27, 495], ['YDetector', 28, 543]] as const) {
+  test(`agent visual command builds ${gate} coordinates near measurement`, () => {
+    const operation = buildDragOperation({ cssWidth: 1000, gate, wire: 'q0', slot: 0 })
+    assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex, from: { x, y: 148 } })
+  })
+}
+
+for (const [gate, gateIndex] of [['z-detect-control-reset', 26], ['x-detector', 27], ['y-detector', 28]] as const) {
+  test(`agent visual command resolves ${gate}`, () => {
+    assert.equal(getGateIndex(gate), gateIndex)
+  })
+}

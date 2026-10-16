@@ -19,7 +19,7 @@ pub(crate) use gate_body::{
     conditional_gate_body_shape, draw_density_palette_icon, draw_drag_gate_body, draw_gate_body,
     draw_gate_body_filled, draw_gate_glyph,
 };
-pub(crate) use gate_glyphs::draw_meter_icon;
+pub(crate) use gate_glyphs::draw_sampled_measurement_icon;
 pub(crate) use sdf_icon::set_target_format as set_sdf_target_format;
 pub(crate) use span_resize::draw_span_resize_handle;
 pub(crate) use svg_icon::{digit_sdf_rle, DIGIT_SDF_PX_RANGE, DIGIT_SDF_SIZE};

@@ -128,7 +128,7 @@ fn draw_gate_body_with_fill(
     } else if kind != GateKind::Control
         && kind != GateKind::AntiControl
         && kind != GateKind::Swap
-        && kind != GateKind::Measurement
+        && !kind.is_sampled_measurement()
         && kind != GateKind::Spacer
         && kind != GateKind::Write0
         && kind != GateKind::Write1
@@ -154,7 +154,7 @@ fn draw_gate_icon_with_fallback(
             fill
         } else if kind == GateKind::BlochDisplay {
             colors.bloch_sphere_lines
-        } else if kind == GateKind::Measurement {
+        } else if kind.is_sampled_measurement() {
             // qni `measurement_gate.css`: icon color is semantic-color-intermediate (purple).
             colors.semantic_intermediate
         } else if kind == GateKind::Spacer {

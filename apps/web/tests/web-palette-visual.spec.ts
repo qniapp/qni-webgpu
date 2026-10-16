@@ -678,7 +678,7 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
   const PALETTE_PADDING_X = UI_CONSTANTS.PALETTE_PADDING_X
   const PALETTE_PADDING_Y = UI_CONSTANTS.PALETTE_PADDING_Y
   const PALETTE_ROW1_COUNT = 13
-  const PALETTE_ROW2_COUNT = 9
+  const PALETTE_ROW2_COUNT = 11
   const row1Width = PALETTE_ROW1_COUNT * PALETTE_SIZE + (PALETTE_ROW1_COUNT - 1) * PALETTE_GAP
   const row2Width = PALETTE_ROW2_COUNT * PALETTE_SIZE + (PALETTE_ROW2_COUNT - 1) * PALETTE_GAP
   const gatesWidth = Math.max(row1Width, row2Width)
