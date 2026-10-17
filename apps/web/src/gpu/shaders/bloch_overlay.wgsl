@@ -73,6 +73,10 @@ fn line_distance(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
 
 @fragment
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
+  if (bloch_data[input.slot].w < 0.0) {
+    if (abs(input.local.y) > 0.75 || abs(input.local.x) > input.radius * 0.3) { discard; }
+    return vec4<f32>(params.zero_color.rgb, 1.0);
+  }
   let bloch = bloch_data[input.slot].xyz;
   let mag2 = dot(bloch, bloch);
   let mag = sqrt(mag2);

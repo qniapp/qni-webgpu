@@ -92,7 +92,7 @@ export function probability(state: C[], base: number, span: number, mask = 0, va
 }
 export function normalize(p: number[]) {
   const sum = p.reduce((a, b) => a + b, 0)
-  return p.map((x) => (sum > 1e-12 ? x / sum : 0))
+  return p.map((x) => (sum > 1e-12 ? x / sum : -1))
 }
 export function density(state: C[], base: number, span: number, mask = 0, value = 0) {
   const dim = 1 << span
@@ -203,7 +203,7 @@ export function amplitude(state: C[], base: number, span: number, mask = 0, valu
       Math.max(0, Math.min(unity > 1e-12 && incUnity > 1e-12 ? qr / (unity * incUnity) : 0, 1)),
       phase,
       span,
-      0,
+      incUnity > 1e-12 ? 0 : -1,
     ],
   }
 }

@@ -24,6 +24,10 @@ pub(crate) enum GateKind {
     Spacer,
     Write0,
     Write1,
+    PostSelectOff,
+    PostSelectOn,
+    PostSelectAntiX,
+    PostSelectX,
     X,
     Y,
     Z,
@@ -71,7 +75,7 @@ pub(crate) struct GateSpec {
     pub(crate) resizable_span: bool,
 }
 
-const GATE_SPECS: [GateSpec; 32] = [
+const GATE_SPECS: [GateSpec; 36] = [
     GateSpec {
         kind: GateKind::ZParityControl,
         label: "Zpar",
@@ -253,6 +257,30 @@ const GATE_SPECS: [GateSpec; 32] = [
         resizable_span: true,
     },
     GateSpec {
+        kind: GateKind::PostSelectOff,
+        label: "|0⟩⟨0|",
+        url_token: "|0⟩⟨0|",
+        resizable_span: false,
+    },
+    GateSpec {
+        kind: GateKind::PostSelectOn,
+        label: "|1⟩⟨1|",
+        url_token: "|1⟩⟨1|",
+        resizable_span: false,
+    },
+    GateSpec {
+        kind: GateKind::PostSelectAntiX,
+        label: "|+⟩⟨+|",
+        url_token: "|+⟩⟨+|",
+        resizable_span: false,
+    },
+    GateSpec {
+        kind: GateKind::PostSelectX,
+        label: "|−⟩⟨−|",
+        url_token: "|-⟩⟨-|",
+        resizable_span: false,
+    },
+    GateSpec {
         kind: GateKind::XDetector,
         label: "X Detector",
         url_token: "XDetector",
@@ -281,7 +309,7 @@ pub(crate) const PALETTE_GATES_ROW1: [GateKind; 13] = [
     GateKind::Ry,
     GateKind::Rz,
 ];
-pub(crate) const PALETTE_GATES_ROW2: [GateKind; 14] = [
+pub(crate) const PALETTE_GATES_ROW2: [GateKind; 18] = [
     GateKind::Swap,
     GateKind::Control,
     GateKind::AntiControl,
@@ -296,6 +324,10 @@ pub(crate) const PALETTE_GATES_ROW2: [GateKind; 14] = [
     GateKind::QftGate,
     GateKind::QftDaggerGate,
     GateKind::Spacer,
+    GateKind::PostSelectOff,
+    GateKind::PostSelectOn,
+    GateKind::PostSelectAntiX,
+    GateKind::PostSelectX,
 ];
 pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 5] = [
     GateKind::BlochDisplay,
@@ -307,9 +339,10 @@ pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 5] = [
 pub(crate) const PALETTE_GATE_COUNT: usize =
     PALETTE_GATES_ROW1.len() + PALETTE_GATES_ROW2.len() + PALETTE_DISPLAY_GATES.len();
 pub(crate) const PALETTE_ROW1_COUNT: usize = PALETTE_GATES_ROW1.len();
-pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 14] =
-    [13, 14, 15, 27, 28, 17, 18, 19, 26, 30, 31, 22, 23, 21];
-pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 5] = [16, 20, 29, 24, 25];
+pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 18] = [
+    13, 14, 15, 31, 32, 17, 18, 19, 26, 34, 35, 22, 23, 21, 27, 28, 29, 30,
+];
+pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 5] = [16, 20, 33, 24, 25];
 
 pub(crate) fn default_palette_angle(kind: GateKind) -> Option<ParametricAngle> {
     match kind {
@@ -337,6 +370,13 @@ pub(crate) fn palette_gate_kind(index: usize) -> Option<GateKind> {
 }
 
 impl GateKind {
+    pub(crate) fn is_postselection(self) -> bool {
+        matches!(
+            self,
+            Self::PostSelectOff | Self::PostSelectOn | Self::PostSelectAntiX | Self::PostSelectX
+        )
+    }
+
     pub(crate) fn is_sampled_measurement(self) -> bool {
         matches!(self, Self::Measurement | Self::XDetector | Self::YDetector)
     }
@@ -385,6 +425,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn postselection_url_round_trip_preserves_exact_projector_tokens() {
+        let json = r#"{"cols":[["|0⟩⟨0|"],["|1⟩⟨1|"],["|+⟩⟨+|"],["|-⟩⟨-|"]]}"#;
+        let circuit = crate::url_circuit::parse_circuit_json(json);
+        assert_eq!(
+            crate::url_circuit::circuit_to_json(
+                &circuit.gates,
+                &circuit.blocks,
+                &circuit.title,
+                crate::qubit_count::QubitCount::try_new(1).unwrap()
+            ),
+            json
+        );
+    }
+
+    #[test]
+    fn postselection_titles_name_the_kept_state() {
+        assert_eq!(
+            [
+                GateKind::PostSelectOff,
+                GateKind::PostSelectOn,
+                GateKind::PostSelectAntiX,
+                GateKind::PostSelectX
+            ]
+            .map(|kind| kind.info().name),
+            [
+                "Postselect |0⟩",
+                "Postselect |1⟩",
+                "Postselect |+⟩",
+                "Postselect |−⟩"
+            ]
+        );
+    }
+
+    #[test]
     fn sample_info_explicitly_describes_no_collapse() {
         assert!(GateKind::SampleDisplay
             .info()
@@ -401,13 +475,21 @@ mod tests {
     #[test]
     fn new_palette_entries_have_stable_indices() {
         assert_eq!(
-            [26, 27, 28, 29].map(palette_gate_kind),
+            [26, 31, 32, 33].map(palette_gate_kind),
             [
                 Some(GateKind::ZDetectControlReset),
                 Some(GateKind::ZParityControl),
                 Some(GateKind::XParityControl),
                 Some(GateKind::SampleDisplay),
             ]
+        );
+    }
+
+    #[test]
+    fn postselection_does_not_accept_classical_flags() {
+        assert_eq!(
+            ["|0⟩⟨0|<a", "|1⟩⟨1|<a", "|+⟩⟨+|<a", "|-⟩⟨-|<a"].map(GateFlag::split_token),
+            [None, None, None, None]
         );
     }
 
@@ -426,12 +508,25 @@ mod tests {
     }
 
     #[test]
+    fn postselection_tokens_have_appended_palette_ids() {
+        let tokens = ["|0⟩⟨0|", "|1⟩⟨1|", "|+⟩⟨+|", "|-⟩⟨-|"];
+        assert_eq!(
+            tokens.map(|token| {
+                GateKind::from_url_token(token).and_then(|kind| {
+                    (0..PALETTE_GATE_COUNT).find(|&id| palette_gate_kind(id) == Some(kind))
+                })
+            }),
+            [Some(27), Some(28), Some(29), Some(30)]
+        );
+    }
+
+    #[test]
     fn detector_palette_ids_follow_historical_gates() {
         assert_eq!(
             [
                 palette_gate_kind(26),
-                palette_gate_kind(30),
-                palette_gate_kind(31),
+                palette_gate_kind(34),
+                palette_gate_kind(35),
             ],
             [
                 Some(GateKind::ZDetectControlReset),
@@ -453,6 +548,17 @@ mod tests {
             .map(GateKind::is_sampled_measurement),
             [true, true, true, false]
         );
+    }
+
+    #[test]
+    fn palette_contains_every_gate_spec_exactly_once() {
+        let mut palette: Vec<_> = (0..PALETTE_GATE_COUNT)
+            .map(|index| palette_gate_kind(index).unwrap().spec().url_token)
+            .collect();
+        let mut specs: Vec<_> = GATE_SPECS.iter().map(|spec| spec.url_token).collect();
+        palette.sort_unstable();
+        specs.sort_unstable();
+        assert_eq!(palette, specs);
     }
 
     #[test]

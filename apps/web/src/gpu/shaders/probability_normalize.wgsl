@@ -42,7 +42,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
   loop {
     if (outcome >= outcomes) { break; }
     let index = base + outcome;
-    probability_data[index] = select(0.0, probability_data[index] / total, total > 0.000000000001);
+    probability_data[index] = select(-1.0, probability_data[index] / max(total, 0.000000000001), total > 0.000000000001);
     outcome = outcome + 64u;
   }
 }

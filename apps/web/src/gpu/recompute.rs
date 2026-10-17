@@ -54,6 +54,7 @@ pub(super) fn recompute_state_vector(
             max_step_snapshot_slots: MAX_STEP_SNAPSHOT_SLOTS,
             max_bloch_slots: MAX_BLOCH_SLOTS,
             max_measurement_slots: MAX_MEASUREMENT_SLOTS,
+            max_postselection_slots: super::params::MAX_POSTSELECTION_SLOTS,
             max_probability_slots: MAX_PROBABILITY_SLOTS,
             max_amplitude_slots: MAX_AMPLITUDE_SLOTS,
             max_density_slots: MAX_DENSITY_SLOTS,
@@ -81,6 +82,9 @@ pub(super) fn recompute_state_vector(
     // Production path never reads back. The slot mappings are stashed in
     // thread-locals so the test-only on-demand readback APIs can copy + map the
     // GPU buffers when JS asks for them.
+    super::readback::POSTSELECTION_SLOT_MAP.with(|cell| {
+        *cell.borrow_mut() = encoded.postselection_slot_to_gate_id;
+    });
     BLOCH_SLOT_MAP.with(|cell| {
         *cell.borrow_mut() = encoded.bloch_slot_to_gate_id;
     });

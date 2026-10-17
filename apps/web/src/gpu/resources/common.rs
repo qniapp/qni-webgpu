@@ -26,6 +26,7 @@ use wgpu::util::DeviceExt;
 use crate::constants::MAX_STATE_COUNT;
 
 pub(crate) struct Common {
+    pub selected_state_norm_buffer: wgpu::Buffer,
     pub state_buffers: [wgpu::Buffer; 2],
     pub state_preview_buffer: wgpu::Buffer,
     pub state_snapshot_cache_buffer: wgpu::Buffer,
@@ -94,7 +95,14 @@ impl Common {
             usage: wgpu::BufferUsages::INDEX,
         });
 
+        let selected_state_norm_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("selected_state_norm"),
+            size: 16,
+            usage: wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
         Self {
+            selected_state_norm_buffer,
             state_buffers,
             state_preview_buffer,
             state_snapshot_cache_buffer,

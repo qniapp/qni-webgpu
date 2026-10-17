@@ -33,3 +33,6 @@ pub(crate) use state_vector::{
     StateVectorCallback, StateVectorComputeCallback, StateVectorResourceBootstrapCallback,
     StateVectorUpdate,
 };
+
+mod postselection;
+pub(crate) use postselection::PostselectionCallback;

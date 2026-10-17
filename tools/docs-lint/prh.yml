@@ -11,6 +11,14 @@ version: 1
 #     できるだけ「日本語の助詞」「日本語語幹」を伴うパターンに絞る。
 
 rules:
+  - expected: 事後選択
+    patterns:
+      - /ポストセレクション/
+      - /(?<!事)後選択/
+
+  - expected: 生存率
+    pattern: /生存確率/
+
   - expected: 検出器
     patterns:
       - /ディテクター/

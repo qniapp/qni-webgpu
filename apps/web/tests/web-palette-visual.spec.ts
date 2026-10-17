@@ -68,7 +68,7 @@ test('palette gate hover outline uses Flexoki purple-400', async ({ page }) => {
   if (!box) {
     throw new Error('expected egui canvas to be measurable')
   }
-  const gateCenter = getPaletteGateCenter(box.width, 0)
+  const gateCenter = getPaletteGateCenter(box.width, 2)
   await page.mouse.move(box.x + gateCenter.x, box.y + gateCenter.y)
   await page.waitForTimeout(50)
   const EGUI_PANEL_MARGIN = 8
@@ -522,7 +522,11 @@ test('palette probability display preview uses four Gaussian rows', async ({ pag
 })
 
 test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async ({ page }) => {
-  await page.setViewportSize({ width: 1001, height: 800 })
+  const gateSize = UI_CONSTANTS.GATE_SIZE
+  const probeWidth = 1001
+  const paletteLeft = getPaletteGateCenter(probeWidth, 0).x - gateSize / 2
+  const extraWidth = 2 * Math.max(0, gateSize - paletteLeft)
+  await page.setViewportSize({ width: probeWidth + extraWidth, height: 800 })
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['X'], ['Y'], ['Z'], ['X^½'], ['S'], ['S†'], ['T'], ['T†'], ['P'], ['Rx'], ['Ry'], ['Rz'], ['QFT2'], ['QFT†2']] })))
 
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -535,7 +539,6 @@ test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async 
   }
 
   const EGUI_PANEL_MARGIN = 8
-  const gateSize = UI_CONSTANTS.GATE_SIZE
   const labels = [
     { name: 'H', paletteIndex: 0, circuitIndex: 0, circuitYOffset: 0 },
     { name: 'X', paletteIndex: 1, circuitIndex: 1, circuitYOffset: 0 },
@@ -654,6 +657,7 @@ test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async 
 })
 
 test('palette panel keeps its corners and shadow while dragging', async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 800 })
   await page.goto('/')
 
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -678,7 +682,7 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
   const PALETTE_PADDING_X = UI_CONSTANTS.PALETTE_PADDING_X
   const PALETTE_PADDING_Y = UI_CONSTANTS.PALETTE_PADDING_Y
   const PALETTE_ROW1_COUNT = 13
-  const PALETTE_ROW2_COUNT = 14
+  const PALETTE_ROW2_COUNT = 18
   const row1Width = PALETTE_ROW1_COUNT * PALETTE_SIZE + (PALETTE_ROW1_COUNT - 1) * PALETTE_GAP
   const row2Width = PALETTE_ROW2_COUNT * PALETTE_SIZE + (PALETTE_ROW2_COUNT - 1) * PALETTE_GAP
   const gatesWidth = Math.max(row1Width, row2Width)
@@ -691,6 +695,9 @@ test('palette panel keeps its corners and shadow while dragging', async ({ page 
     y: PALETTE_ROW_Y - PALETTE_PADDING_Y,
     width: paletteWidth + PALETTE_PADDING_X * 2,
     height: paletteHeight + PALETTE_PADDING_Y * 2,
+  }
+  if (paletteRect.x - 20 < 0 || paletteRect.x + paletteRect.width > cssWidth) {
+    throw new Error('palette panel probes must be inside the canvas')
   }
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const dragTarget = { x: hSource.x + 80, y: hSource.y + 80 }
