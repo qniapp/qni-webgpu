@@ -98,6 +98,8 @@ fn supported_external_controlled_target(kind: GateKind) -> bool {
             | GateKind::Rz
             | GateKind::Write0
             | GateKind::Write1
+            | GateKind::XDetector
+            | GateKind::YDetector
     )
 }
 
@@ -105,19 +107,10 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
     if let Some(gate) = placed_gates.iter().find(|gate| {
         matches!(
             gate.kind,
-            GateKind::ZDetectControlReset
-                | GateKind::SampleDisplay
-                | GateKind::ZParityControl
-                | GateKind::XParityControl
+            GateKind::SampleDisplay | GateKind::ZParityControl | GateKind::XParityControl
         )
     }) {
         return Some(gate.kind.label().to_owned());
-    }
-    if let Some(gate) = placed_gates
-        .iter()
-        .find(|gate| matches!(gate.kind, GateKind::XDetector | GateKind::YDetector))
-    {
-        return Some(gate.kind.spec().url_token.to_owned());
     }
     // The Qiskit backend has no classical flags: qni measurement variables
     // (`Measure>a`) and conditional gates (`X<a`) run only on local WebGPU.
@@ -148,7 +141,10 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
             .iter()
             .filter(|gate| gate.column.as_usize() == column)
         {
-            if matches!(gate.kind, GateKind::Control | GateKind::AntiControl) {
+            if matches!(
+                gate.kind,
+                GateKind::Control | GateKind::AntiControl | GateKind::ZDetectControlReset
+            ) {
                 has_control = true;
             } else if supported_external_controlled_target(gate.kind)
                 || matches!(
@@ -646,39 +642,89 @@ mod gate_tests {
     }
 
     #[test]
-    fn external_gpu_rejects_x_detector() {
+    fn external_gpu_rejects_detector_with_zpar() {
+        let gates = flagged_gates(r#"{"cols":[["XDetector","zpar"]]}"#);
+        assert_eq!(
+            unsupported_external_gpu_gate_for_gates(&gates),
+            Some("Zpar".to_owned())
+        );
+    }
+
+    #[test]
+    fn external_gpu_rejects_detect_control_reset_with_zpar() {
+        let gates = flagged_gates(r#"{"cols":[["ZDetectControlReset","zpar"]]}"#);
+        assert_eq!(
+            unsupported_external_gpu_gate_for_gates(&gates),
+            Some("Zpar".to_owned())
+        );
+    }
+
+    #[test]
+    fn external_gpu_payload_preserves_detect_control_reset_token() {
+        let gates = flagged_gates(r#"{"cols":[["ZDetectControlReset"]]}"#);
+        let columns = crate::url_circuit::circuit_columns_to_json(
+            &gates,
+            crate::qubit_count::QubitCount::try_new(1).unwrap(),
+        );
+        let payload = super::qiskit_run_payload_with_display_outputs(
+            1,
+            &columns,
+            super::Shots::DEFAULT,
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+        );
+        assert_eq!(
+            payload,
+            r#"{"qubits":1,"columns":[["ZDetectControlReset"]],"shots":1024,"outputs":{"histogram":true}}"#
+        );
+    }
+
+    #[test]
+    fn external_gpu_payload_preserves_axis_detector_tokens() {
+        let gates = flagged_gates(r#"{"cols":[["XDetector"],["YDetector"]]}"#);
+        let columns = crate::url_circuit::circuit_columns_to_json(
+            &gates,
+            crate::qubit_count::QubitCount::try_new(1).unwrap(),
+        );
+        let payload = super::qiskit_run_payload_with_display_outputs(
+            1,
+            &columns,
+            super::Shots::DEFAULT,
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+        );
+        assert_eq!(
+            payload,
+            r#"{"qubits":1,"columns":[["XDetector"],["YDetector"]],"shots":1024,"outputs":{"histogram":true}}"#
+        );
+    }
+
+    #[test]
+    fn external_gpu_accepts_x_detector() {
         let gates = flagged_gates(r#"{"cols":[["XDetector"]]}"#);
-        assert_eq!(
-            unsupported_external_gpu_gate_for_gates(&gates),
-            Some("XDetector".to_owned())
-        );
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]
-    fn external_gpu_rejects_y_detector() {
+    fn external_gpu_accepts_y_detector() {
         let gates = flagged_gates(r#"{"cols":[["YDetector"]]}"#);
-        assert_eq!(
-            unsupported_external_gpu_gate_for_gates(&gates),
-            Some("YDetector".to_owned())
-        );
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]
-    fn external_gpu_rejects_x_detector_with_controls() {
+    fn external_gpu_accepts_x_detector_with_controls() {
         let gates = flagged_gates(r#"{"cols":[["◦","XDetector"]]}"#);
-        assert_eq!(
-            unsupported_external_gpu_gate_for_gates(&gates),
-            Some("XDetector".to_owned())
-        );
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]
-    fn external_gpu_rejects_y_detector_with_controls() {
+    fn external_gpu_accepts_y_detector_with_controls() {
         let gates = flagged_gates(r#"{"cols":[["•","YDetector"]]}"#);
-        assert_eq!(
-            unsupported_external_gpu_gate_for_gates(&gates),
-            Some("YDetector".to_owned())
-        );
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]
@@ -863,7 +909,7 @@ mod gate_tests {
     }
 
     #[test]
-    fn external_gpu_rejects_detect_control_reset_without_other_controls() {
+    fn external_gpu_accepts_detect_control_reset_without_other_controls() {
         let gates = [PlacedGate::new(
             crate::app::GateId::from_u32(1),
             GateKind::ZDetectControlReset,
@@ -873,10 +919,7 @@ mod gate_tests {
             None,
         )];
 
-        assert_eq!(
-            unsupported_external_gpu_gate_for_gates(&gates),
-            Some("ZDetectControlReset".to_owned())
-        );
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]

@@ -154,31 +154,33 @@ def add_display_saves(
     basis = qiskit_basis_order(qubits) if request.amplitude_outputs else []
     basis_tracker = initial_basis_tracker(qubits)
     for column_index, column in enumerate(request.columns):
-        apply_column_to_qiskit(qc, column, qubits, basis_tracker)
-        for amplitude in amplitudes_by_column.get(column_index, []):
-            label = f"amplitude:{amplitude.gate_id}"
-            qc.save_amplitudes(basis, label=label)
-            amplitude_labels[amplitude.gate_id] = label
-        for bloch in bloch_by_column.get(column_index, []):
-            if bloch.control_mask == 0:
-                axis_labels: dict[str, str] = {}
-                for axis in ("X", "Y", "Z"):
-                    label = f"bloch:{bloch.gate_id}:{axis.lower()}"
-                    qc.save_expectation_value(pauli_type(axis), [bloch.wire], label=label)
-                    axis_labels[axis] = label
-                bloch_labels[bloch.gate_id] = axis_labels
-            else:
-                label = f"bloch:{bloch.gate_id}:density"
-                qc.save_density_matrix(bloch_save_qargs(bloch, request.qubits), label=label)
-                bloch_labels[bloch.gate_id] = label
-        for probability in probability_by_column.get(column_index, []):
-            label = f"probability:{probability.gate_id}"
-            qc.save_probabilities(probability_save_qargs(probability, qubits), label=label)
-            probability_labels[probability.gate_id] = label
-        for density in density_by_column.get(column_index, []):
-            label = f"density:{density.gate_id}"
-            qc.save_density_matrix(density_save_qargs(density, qubits), label=label)
-            density_labels[density.gate_id] = label
+        def save_displays() -> None:
+            for amplitude in amplitudes_by_column.get(column_index, []):
+                label = f"amplitude:{amplitude.gate_id}"
+                qc.save_amplitudes(basis, label=label)
+                amplitude_labels[amplitude.gate_id] = label
+            for bloch in bloch_by_column.get(column_index, []):
+                if bloch.control_mask == 0:
+                    axis_labels: dict[str, str] = {}
+                    for axis in ("X", "Y", "Z"):
+                        label = f"bloch:{bloch.gate_id}:{axis.lower()}"
+                        qc.save_expectation_value(pauli_type(axis), [bloch.wire], label=label)
+                        axis_labels[axis] = label
+                    bloch_labels[bloch.gate_id] = axis_labels
+                else:
+                    label = f"bloch:{bloch.gate_id}:density"
+                    qc.save_density_matrix(bloch_save_qargs(bloch, request.qubits), label=label)
+                    bloch_labels[bloch.gate_id] = label
+            for probability in probability_by_column.get(column_index, []):
+                label = f"probability:{probability.gate_id}"
+                qc.save_probabilities(probability_save_qargs(probability, qubits), label=label)
+                probability_labels[probability.gate_id] = label
+            for density in density_by_column.get(column_index, []):
+                label = f"density:{density.gate_id}"
+                qc.save_density_matrix(density_save_qargs(density, qubits), label=label)
+                density_labels[density.gate_id] = label
+
+        apply_column_to_qiskit(qc, column, qubits, basis_tracker, save_displays=save_displays)
     return amplitude_labels, bloch_labels, probability_labels, density_labels
 
 
