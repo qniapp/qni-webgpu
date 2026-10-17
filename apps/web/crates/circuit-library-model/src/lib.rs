@@ -5,13 +5,35 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 pub const EMPTY_CIRCUIT_JSON: &str = r#"{"cols":[]}"#;
-const GROVER_SEARCH_JSON: &str = concat!(
+pub const BELL_JSON: &str = concat!(
     r#"{"cols":["#,
-    r#"["X","X","X","X","X"],["H","H","H","H","H"],["Probability5"],"#,
-    r#"["Z","•","◦","•","•"],["H","H","H","H",1],["•","•","•","•","X"],["H","H","H","H",1],["Probability5"],"#,
-    r#"["Z","•","◦","•","•"],["H","H","H","H",1],["•","•","•","•","X"],["H","H","H","H",1],["Probability5"],"#,
-    r#"["Z","•","◦","•","•"],["H","H","H","H",1],["•","•","•","•","X"],["H","H","H","H",1],["Probability5"],"#,
-    r#"["Z","•","◦","•","•"],["H","H","H","H",1],["•","•","•","•","X"],["H","H","H","H",1],["Probability5"]"#,
+    r#"["{superposition"],["H"],["Bloch"],["}"],"#,
+    r#"[1],"#,
+    r#"["{entangle"],["•","X"],["Amps2"],[1],["}"]"#,
+    r#"]}"#,
+);
+
+pub const GHZ_JSON: &str = concat!(
+    r#"{"cols":["#,
+    r#"["{superposition"],["H"],["Bloch"],["}"],"#,
+    r#"[1],"#,
+    r#"["{entangle"],["•","X"],["•",1,"X"],["Amps3"],[1],["}"]"#,
+    r#"]}"#,
+);
+
+pub const GROVER_SEARCH_JSON: &str = concat!(
+    r#"{"cols":["#,
+    r#"["{superposition"],["X","X","X","X","X"],["H","H","H","H","H"],["Probability5"],["}"],"#,
+    r#"[1],"#,
+    r#"["{oracle"],["Z","•","◦","•","•"],["}"],"#,
+    r#"[1],"#,
+    r#"["{diffuser"],["H","H","H","H"],["•","•","•","•","X"],["H","H","H","H"],["Probability5"],["}"],"#,
+    r#"[1],"#,
+    r#"["{iteration 2"],["Z","•","◦","•","•"],["H","H","H","H"],["•","•","•","•","X"],["H","H","H","H"],["Probability5"],["}"],"#,
+    r#"[1],"#,
+    r#"["{iteration 3"],["Z","•","◦","•","•"],["H","H","H","H"],["•","•","•","•","X"],["H","H","H","H"],["Probability5"],["}"],"#,
+    r#"[1],"#,
+    r#"["{iteration 4"],["Z","•","◦","•","•"],["H","H","H","H"],["•","•","•","•","X"],["H","H","H","H"],["Probability5"],["}"]"#,
     r#"]}"#,
 );
 
@@ -23,10 +45,14 @@ const GROVER_SEARCH_JSON: &str = concat!(
 /// ビット反転してからラダーを通すことで、真の対称離散フーリエ変換（Quirk の
 /// FourierTransformGates）になる。`QFT4` と数学的に等価であることは Web アプリ側の
 /// `decomposed_qft4_matches_native_qft4_ops` テストで保証する。
+/// 先頭で q1–q3 に H を掛けて周期 2 の入力を作り、入出力の確率表示で変換を見せる。
 pub const QFT4_DECOMPOSED_JSON: &str = concat!(
     r#"{"cols":["#,
-    r#"["Swap",1,1,"Swap"],"#,
-    r#"[1,"Swap","Swap"],"#,
+    r#"["{input"],[1,"H","H","H"],["Probability4"],["}"],"#,
+    r#"[1],"#,
+    r#"["{bit reversal"],["Swap",1,1,"Swap"],[1,"Swap","Swap"],["}"],"#,
+    r#"[1],"#,
+    r#"["{phase ladder"],"#,
     r#"["H"],"#,
     r#"["P(π_2)","•"],"#,
     r#"["P(π_4)",1,"•"],"#,
@@ -36,7 +62,10 @@ pub const QFT4_DECOMPOSED_JSON: &str = concat!(
     r#"[1,"P(π_4)",1,"•"],"#,
     r#"[1,1,"H"],"#,
     r#"[1,1,"P(π_2)","•"],"#,
-    r#"[1,1,1,"H"]"#,
+    r#"[1,1,1,"H"],"#,
+    r#"["}"],"#,
+    r#"[1],"#,
+    r#"["{output"],["Probability4"],["}"]"#,
     r#"]}"#,
 );
 
@@ -44,24 +73,21 @@ pub const QFT4_DECOMPOSED_JSON: &str = concat!(
 /// （q2,q3）にまったく同じ H・CNOT で Bell ペアを作り、q1↔q3 の SWAP で結合、再度
 /// CNOT、反制御つき √X を経て測定する。同一・対称に作った 2 つのサブシステムが必ず
 /// 反相関（不一致）になる様子を見せる。Quirk の symmetryBreakingLink を移植したもので、
-/// 確率表示の ID を Chance → Probability に揃え、注釈用の恒等ラベルは除いてある。
+/// 各組と全体の確率表示で反相関を見せ、注釈用の恒等ラベルは回路ブロックに置き換える。
 /// 解説は docs/implementation/symmetry-breaking.html。
 ///
 /// 制御を伴う操作（2 つの CNOT 層と反制御つき √X）は列を分ける。同じ列に複数の制御を
 /// 置くと qni では列内の全制御が全ターゲットに掛かり、独立した 2 つの操作ではなく
 /// 多重制御になってしまうため。制御を持たない H と最後の √X は同じ列にまとめてよい。
-const SYMMETRY_BREAKING_JSON: &str = concat!(
+pub const SYMMETRY_BREAKING_JSON: &str = concat!(
     r#"{"cols":["#,
-    r#"["H",1,"H"],"#,
-    r#"["•","X"],"#,
-    r#"[1,1,"•","X"],"#,
-    r#"[1,"Swap",1,"Swap"],"#,
-    r#"["•","X"],"#,
-    r#"[1,1,"•","X"],"#,
-    r#"["X^½","◦"],"#,
-    r#"[1,1,"X^½","◦"],"#,
-    r#"[1,"X^½",1,"X^½"],"#,
-    r#"["Measure","Measure","Measure","Measure"]"#,
+    r#"["{two Bell pairs"],["H",1,"H"],["•","X"],[1,1,"•","X"],["}"],"#,
+    r#"[1],"#,
+    r#"["{swap partners"],[1,"Swap",1,"Swap"],["}"],"#,
+    r#"[1],"#,
+    r#"["{symmetric ops"],["•","X"],[1,1,"•","X"],["X^½","◦"],[1,1,"X^½","◦"],[1,"X^½",1,"X^½"],["}"],"#,
+    r#"[1],"#,
+    r#"["{outcomes differ"],["Probability2",1,"Probability2"],["Probability4"],["Measure","Measure","Measure","Measure"],["}"]"#,
     r#"]}"#,
 );
 
@@ -81,18 +107,15 @@ const SYMMETRY_BREAKING_JSON: &str = concat!(
 /// Quirk が q4（QFT レジスタの上から 3 番目）に置くマークをそのまま q4 に置けば
 /// 干渉縞が 4 本になり Quirk の見た目と一致する。解説は
 /// docs/implementation/delayed-choice-eraser.html。
-const DELAYED_CHOICE_ERASER_JSON: &str = concat!(
+pub const DELAYED_CHOICE_ERASER_JSON: &str = concat!(
     r#"{"cols":["#,
-    r#"[1,"H"],"#,
-    r#"[1,"•",1,1,"X"],"#,
-    r#"[1,1,"QFT7"],"#,
-    r#"[1,1,"Probability7"],"#,
-    r#"["H"],"#,
-    r#"["•","X^½"],"#,
-    r#"["◦","◦","Probability7"],"#,
-    r#"["◦","•","Probability7"],"#,
-    r#"["•","◦","Probability7"],"#,
-    r#"["•","•","Probability7"]"#,
+    r#"["{two slits"],[1,"H"],[1,"•",1,1,"X"],["}"],"#,
+    r#"[1],"#,
+    r#"["{screen"],[1,1,"QFT7"],[1,1,"Probability7"],["}"],"#,
+    r#"[1],"#,
+    r#"["{erase path?"],["H"],["•","X^½"],["}"],"#,
+    r#"[1],"#,
+    r#"["{sort by q0,q1"],["◦","◦","Probability7"],["◦","•","Probability7"],["•","◦","Probability7"],["•","•","Probability7"],["}"]"#,
     r#"]}"#,
 );
 
@@ -103,19 +126,17 @@ const DELAYED_CHOICE_ERASER_JSON: &str = concat!(
 /// 測定で状態が潰れることをそのまま使う点で遅延選択量子消しゴムと対照的）。転送前後を
 /// 2 つのブロッホ球表示ブロックで見比べる。解説は
 /// docs/implementation/quantum-teleportation.html。
-const TELEPORTATION_JSON: &str = concat!(
+pub const TELEPORTATION_JSON: &str = concat!(
     r#"{"cols":["#,
-    r#"[1,"H"],"#,
-    r#"[1,"•","X"],"#,
-    r#"["H"],"#,
-    r#"["T"],"#,
-    r#"["Bloch"],"#,
-    r#"["•","X"],"#,
-    r#"["H"],"#,
-    r#"["Measure","Measure"],"#,
-    r#"[1,"•","X"],"#,
-    r#"["•",1,"Z"],"#,
-    r#"[1,1,"Bloch"]"#,
+    r#"["{Bell pair"],[1,"H"],[1,"•","X"],["}"],"#,
+    r#"[1],"#,
+    r#"["{message"],["H"],["T"],["Bloch"],["}"],"#,
+    r#"[1],"#,
+    r#"["{Bell measurement"],["•","X"],["H"],["Measure","Measure"],["}"],"#,
+    r#"[1],"#,
+    r#"["{correction"],[1,"•","X"],["•",1,"Z"],["}"],"#,
+    r#"[1],"#,
+    r#"["{received"],[1,1,"Bloch"],["}"]"#,
     r#"]}"#,
 );
 
@@ -124,19 +145,19 @@ const TELEPORTATION_JSON: &str = concat!(
 /// 配り、Z・X でメッセージ「11」を符号化、Swap で送信し、ボブのベル測定（CNOT・H・測定）で
 /// 2 ビットを復号する。テレポーテーションの双対で、こちらも qni の硬測定が正しく働く。解説は
 /// docs/implementation/superdense-coding.html。
-const SUPERDENSE_CODING_JSON: &str = concat!(
+pub const SUPERDENSE_CODING_JSON: &str = concat!(
     r#"{"cols":["#,
-    r#"[1,1,1,"H"],"#,
-    r#"[1,1,1,"•","X"],"#,
-    r#"[1,1,"Swap","Swap"],"#,
-    r#"[1,1,1,1,"Swap","Swap"],"#,
-    r#"["|1>","|1>"],"#,
-    r#"["•",1,"Z"],"#,
-    r#"[1,"•","X"],"#,
-    r#"[1,1,"Swap",1,"Swap"],"#,
-    r#"[1,1,1,1,"•","X"],"#,
-    r#"[1,1,1,1,"H"],"#,
-    r#"[1,1,1,1,"Measure","Measure"]"#,
+    r#"["{Bell pair"],[1,1,1,"H"],[1,1,1,"•","X"],["}"],"#,
+    r#"[1],"#,
+    r#"["{distribute"],[1,1,"Swap","Swap"],[1,1,1,1,"Swap","Swap"],["}"],"#,
+    r#"[1],"#,
+    r#"["{message"],["|1>","|1>"],["Probability2"],["}"],"#,
+    r#"[1],"#,
+    r#"["{encode"],["•",1,"Z"],[1,"•","X"],["}"],"#,
+    r#"[1],"#,
+    r#"["{send"],[1,1,"Swap",1,"Swap"],["}"],"#,
+    r#"[1],"#,
+    r#"["{decode"],[1,1,1,1,"•","X"],[1,1,1,1,"H"],[1,1,1,1,"Probability2"],[1,1,1,1,"Measure","Measure"],["}"]"#,
     r#"]}"#,
 );
 
@@ -146,10 +167,11 @@ const SUPERDENSE_CODING_JSON: &str = concat!(
 /// （X の壁）と制御 Swap（Fredkin）を使う。加算の前後に Probability5 を A・B 各 1 つずつ（計 4 つ）
 /// 置き、入力 A=5・B=3 と出力 A=5・B=8 の各レジスタ値を見せる。どれも GPU シェーダが対応済みで
 /// 新ゲートは不要。解説は docs/implementation/reversible-addition.html。
-const REVERSIBLE_ADDITION_JSON: &str = concat!(
+pub const REVERSIBLE_ADDITION_JSON: &str = concat!(
     r#"{"cols":["#,
-    r#"["X",1,"X",1,1,"X","X"],"#,
-    r#"["Probability5",1,1,1,1,"Probability5"],"#,
+    r#"["{A=5, B=3"],["X",1,"X",1,1,"X","X"],["Probability5",1,1,1,1,"Probability5"],["}"],"#,
+    r#"[1],"#,
+    r#"["{B += A"],"#,
     r#"["X","X","X","X","•","X","X","X","X","X"],"#,
     r#"[1,1,1,1,"•","X"],"#,
     r#"["Swap",1,1,1,"Swap","•"],"#,
@@ -169,7 +191,9 @@ const REVERSIBLE_ADDITION_JSON: &str = concat!(
     r#"["Swap",1,1,1,"Swap","•"],"#,
     r#"["•",1,1,1,1,"X"],"#,
     r#"["X","X","X","X","•","X","X","X","X","X"],"#,
-    r#"["Probability5",1,1,1,1,"Probability5"]"#,
+    r#"["}"],"#,
+    r#"[1],"#,
+    r#"["{A=5, B=8"],["Probability5",1,1,1,1,"Probability5"],["}"]"#,
     r#"]}"#,
 );
 
@@ -837,18 +861,8 @@ impl CircuitLibrary {
 
 fn sample_entries(updated_at: u64) -> Vec<CircuitEntry> {
     vec![
-        CircuitEntry::sample(
-            "bell",
-            "Bell state",
-            r#"{"cols":[["H"],["•","X"]]}"#,
-            updated_at,
-        ),
-        CircuitEntry::sample(
-            "ghz",
-            "GHZ state",
-            r#"{"cols":[["H"],["•","X"],["•",1,"X"]]}"#,
-            updated_at,
-        ),
+        CircuitEntry::sample("bell", "Bell state", BELL_JSON, updated_at),
+        CircuitEntry::sample("ghz", "GHZ state", GHZ_JSON, updated_at),
         CircuitEntry::sample(
             "quantum-teleportation",
             "Quantum Teleportation",

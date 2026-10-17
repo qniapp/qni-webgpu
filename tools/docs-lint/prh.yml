@@ -11,6 +11,13 @@ version: 1
 #     できるだけ「日本語の助詞」「日本語語幹」を伴うパターンに絞る。
 
 rules:
+  - expected: ベルペア
+    pattern: /Bell ペア/
+  - expected: 回路ブロック
+    patterns:
+      - /回路コメントブロック/
+      - /サーキットブロック/
+
   - expected: 事後選択
     patterns:
       - /ポストセレクション/
@@ -65,6 +72,32 @@ rules:
     patterns:
       - /display gate/
       - /表示ゲート/
+
+  # ── レイアウトの向き (docs/mobile-layout.md) ──
+  - expected: 縦レイアウト
+    patterns:
+      - /縦向きレイアウト/
+      - /ポートレートレイアウト/
+      - /[Pp]ortrait layout/
+      - /[Vv]ertical layout/
+
+  - expected: 横レイアウト
+    patterns:
+      - /横向きレイアウト/
+      - /ランドスケープレイアウト/
+      - /[Ll]andscape layout/
+      - /[Hh]orizontal layout/
+
+  - expected: パレットのカルーセル
+    patterns:
+      - /カルーセルパレット/
+      - /パレットカルーセル/
+      - /[Pp]alette carousel/
+
+  # ── 回路要素の呼び名 ──
+  - expected: 測定ゲート
+    patterns:
+      - /計測ゲート/
 
   # ── コメントブロック (qni の circuit-block、コード上は CircuitBlock) 用語統一 ──
   - expected: コメントブロック

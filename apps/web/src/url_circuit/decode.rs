@@ -353,6 +353,17 @@ fn token_to_gate(token: &str) -> Option<DecodedToken> {
     })
 }
 
+/// Quirk defines only `Chance` and the canonical decimal suffixes 2 through 16.
+fn chance_span(suffix: &str) -> Option<usize> {
+    if suffix.is_empty() {
+        return Some(1);
+    }
+    if suffix.starts_with('0') || !suffix.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    suffix.parse().ok().filter(|span| (2..=16).contains(span))
+}
+
 /// Decode a token without its measurement variable suffix.
 fn base_token_to_gate(token: &str) -> Option<(GateKind, usize, Option<ParametricAngle>)> {
     if let Some(rest) = token.strip_prefix("QFT†") {
@@ -362,6 +373,9 @@ fn base_token_to_gate(token: &str) -> Option<(GateKind, usize, Option<Parametric
     if let Some(rest) = token.strip_prefix("QFT") {
         let span: usize = rest.parse().ok()?;
         return Some((GateKind::QftGate, span, None));
+    }
+    if let Some(rest) = token.strip_prefix("Chance") {
+        return Some((GateKind::ProbabilityDisplay, chance_span(rest)?, None));
     }
     if let Some(rest) = token.strip_prefix("Probability") {
         let span = if rest.is_empty() {
@@ -443,6 +457,97 @@ mod tests {
 
     fn qubit_count(value: usize) -> QubitCount {
         QubitCount::try_new(value).expect("test qubit count must be non-zero")
+    }
+
+    #[test]
+    fn chance_decodes_as_single_qubit_probability() {
+        assert_eq!(
+            base_token_to_gate("Chance"),
+            Some((GateKind::ProbabilityDisplay, 1, None))
+        );
+    }
+
+    #[test]
+    fn chance_five_decodes() {
+        assert_eq!(
+            base_token_to_gate("Chance5"),
+            Some((GateKind::ProbabilityDisplay, 5, None))
+        );
+    }
+
+    #[test]
+    fn chance_sixteen_decodes() {
+        assert_eq!(
+            base_token_to_gate("Chance16"),
+            Some((GateKind::ProbabilityDisplay, 16, None))
+        );
+    }
+
+    #[test]
+    fn chance_one_is_ignored() {
+        assert_eq!(base_token_to_gate("Chance1"), None);
+    }
+
+    #[test]
+    fn chance_seventeen_is_ignored() {
+        assert_eq!(base_token_to_gate("Chance17"), None);
+    }
+
+    #[test]
+    fn chance_zero_is_ignored() {
+        assert_eq!(base_token_to_gate("Chance0"), None);
+    }
+
+    #[test]
+    fn chance_leading_zero_is_ignored() {
+        assert_eq!(base_token_to_gate("Chance02"), None);
+    }
+
+    #[test]
+    fn chance_plus_sign_is_ignored() {
+        assert_eq!(base_token_to_gate("Chance+2"), None);
+    }
+
+    #[test]
+    fn chance_zero_one_is_ignored() {
+        assert_eq!(base_token_to_gate("Chance01"), None);
+    }
+
+    #[test]
+    fn chance_non_numeric_suffix_is_ignored() {
+        assert_eq!(base_token_to_gate("Chancex"), None);
+    }
+
+    #[test]
+    fn chance_two_round_trips_as_probability_two() {
+        let circuit = parse_circuit_json(r#"{"cols":[["H"],["Chance2"]]}"#);
+        assert_eq!(
+            crate::url_circuit::circuit_to_json(
+                &circuit.gates,
+                &circuit.blocks,
+                "",
+                qubit_count(2)
+            ),
+            r#"{"cols":[["H"],["Probability2"]]}"#
+        );
+    }
+
+    #[test]
+    fn chance_is_accepted_in_palette() {
+        assert_eq!(
+            palette_token_to_gate("Chance"),
+            Some((GateKind::ProbabilityDisplay, None))
+        );
+    }
+
+    #[test]
+    fn chance_two_is_rejected_in_palette() {
+        assert_eq!(palette_token_to_gate("Chance2"), None);
+    }
+
+    #[test]
+    fn chance_measurement_condition_matches_probability() {
+        assert_eq!(token_to_gate("Chance2<a"), token_to_gate("Probability2<a"));
     }
 
     #[test]
@@ -668,6 +773,60 @@ mod tests {
     #[test]
     fn z_detect_control_reset_round_trips() {
         let json = r#"{"cols":[["H"],["ZDetectControlReset","X"]]}"#;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn bell_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::BELL_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn ghz_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::GHZ_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn teleportation_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::TELEPORTATION_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn superdense_coding_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::SUPERDENSE_CODING_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn qft4_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::QFT4_DECOMPOSED_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn symmetry_breaking_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::SYMMETRY_BREAKING_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn grover_search_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::GROVER_SEARCH_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn reversible_addition_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::REVERSIBLE_ADDITION_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn delayed_choice_eraser_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::DELAYED_CHOICE_ERASER_JSON;
         assert_eq!(round_trip(json), json);
     }
 

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fullPaletteCircuitOffsetY } from '../test-support/palette-layout'
 import { readStateVector, waitForStartupReady, waitForValue } from './support/web-spec-helpers'
 
 const circuit = '#%7B%22cols%22%3A%5B%5B%22H%22%5D%2C%5B%22Z%22%5D%5D%7D'
@@ -137,20 +138,23 @@ test('hovering the left gap draws a translucent initial bar', async ({ page }) =
   })
 })
 
+const NARROW = { width: 600, height: 590 }
+const narrowStepY = 224 + fullPaletteCircuitOffsetY(NARROW.width)
+
 test('narrow circuit keeps the initial hit target without shifting columns', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 800 })
+  await page.setViewportSize(NARROW)
   await page.goto('/' + circuit)
   await waitForStartupReady(page, { waitForStateVector: true })
-  await page.mouse.click(52, 224)
+  await page.mouse.click(52, narrowStepY)
   await page.mouse.move(389, 450)
   await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
 })
 
 test('narrow circuit hits the extended left end', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 800 })
+  await page.setViewportSize(NARROW)
   await page.goto('/' + circuit)
   await waitForStartupReady(page, { waitForStateVector: true })
-  await page.mouse.click(25, 224)
+  await page.mouse.click(25, narrowStepY)
   await page.mouse.move(389, 450)
   await expect.poll(async () => matches(await readStateVector(page), initialState)).toBe(true)
 })

@@ -16,8 +16,14 @@ const tutorialGeometry = async (page: Page): Promise<TutorialGeometry> => {
   return page.evaluate(() => JSON.parse((window as any).__qniToolbarTutorialGeometryJson))
 }
 
-for (const mode of ['local', 'gpu']) {
-  test(`Tutorial opens the exact tutorial URL in a new tab in ${mode} mode`, async ({ page, context }) => {
+for (const { mode, width, height } of [
+  { mode: 'local', width: 1000, height: 800 },
+  { mode: 'gpu', width: 1000, height: 800 },
+  { mode: 'local', width: 390, height: 844 },
+  { mode: 'gpu', width: 390, height: 844 },
+]) {
+  test(`Tutorial opens the exact tutorial URL in a new tab in ${mode} mode at ${width}px`, async ({ page, context }) => {
+    await page.setViewportSize({ width, height })
     await context.route('https://qniapp.github.io/**', route => route.fulfill({
       contentType: 'text/html',
       body: '<!doctype html><title>Tutorial</title>',
@@ -31,6 +37,34 @@ for (const mode of ['local', 'gpu']) {
     })
     const popup = await popupPromise
     await expect(popup).toHaveURL(TUTORIAL_URL)
+  })
+}
+
+for (const mode of ['local', 'gpu']) {
+  test(`portrait ${mode} toolbar keeps Tutorial separate from editing tools`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto(mode === 'gpu' ? '/?mode=gpu' : '/')
+    await waitForStartupReady(page)
+    const tutorial = await tutorialGeometry(page)
+    const tools = await page.evaluate((gpu) => JSON.parse(gpu
+      ? (window as any).__qniToolbarRunGeometryJson
+      : (window as any).__qniToolbarLockGeometryJson), mode === 'gpu')
+    expect(tutorial.left).toBeGreaterThanOrEqual(tools.right)
+  })
+}
+
+for (const status of ['running', 'completed', 'failed']) {
+  test(`portrait GPU ${status} indicator does not overlap Tutorial`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/?mode=gpu#' + encodeURIComponent(JSON.stringify({ title: 'Test', cols: [] })))
+    await waitForStartupReady(page)
+    await page.evaluate((status) => {
+      (window as any).__setExternalGpuStatus(JSON.stringify({ status, durationMs: 1400 }))
+    }, status)
+    await page.waitForFunction(() => typeof (window as any).__qniToolbarGpuStatusGeometryJson === 'string')
+    const tutorial = await tutorialGeometry(page)
+    const indicator = await page.evaluate(() => JSON.parse((window as any).__qniToolbarGpuStatusGeometryJson))
+    expect(tutorial.left).toBeGreaterThanOrEqual(indicator.right)
   })
 }
 

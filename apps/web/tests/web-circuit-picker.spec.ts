@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { BELL_SAMPLE_JSON, GHZ_SAMPLE_JSON, GROVER_SAMPLE_JSON } from './support/aist-sample-fixtures'
 import {
   pixelRgbDistance,
   readProbabilityDistributions,
@@ -24,30 +25,10 @@ type Point = { x: number; y: number }
 const BELL_JSON = '{"cols":[["H"]]}'
 const GHZ_JSON = '{"cols":[["X"]]}'
 const QFT_JSON = '{"cols":[["QFT4"]]}'
-const LEGACY_BELL_SAMPLE_JSON = '{"cols":[["H"],["•","X"]]}'
-const LEGACY_GHZ_SAMPLE_JSON = '{"cols":[["H"],["•","X"],["•",1,"X"]]}'
 const GROVER_PROBABILITY_SLOTS = 5
 const GROVER_OUTCOME_COUNT = 32
 const GROVER_MARKED_OUTCOME = 27
 const GROVER_SUCCESS_THRESHOLD = 0.99
-const GROVER_ORACLE_COL = ['Z', '•', '◦', '•', '•']
-const GROVER_DIFFUSER_COLS = [
-  ['H', 'H', 'H', 'H', 1],
-  ['•', '•', '•', '•', 'X'],
-  ['H', 'H', 'H', 'H', 1],
-]
-const GROVER_ITERATION_COLS = [GROVER_ORACLE_COL, ...GROVER_DIFFUSER_COLS, ['Probability5']]
-const GROVER_JSON = JSON.stringify({
-  cols: [
-    ['X', 'X', 'X', 'X', 'X'],
-    ['H', 'H', 'H', 'H', 'H'],
-    ['Probability5'],
-    ...GROVER_ITERATION_COLS,
-    ...GROVER_ITERATION_COLS,
-    ...GROVER_ITERATION_COLS,
-    ...GROVER_ITERATION_COLS,
-  ],
-})
 const STORAGE_KEY = 'qni.circuit_library.v2'
 const LEGACY_STORAGE_KEY = 'qni.circuit_library.v1'
 
@@ -127,7 +108,7 @@ const legacySeedLibraryDocument = () => ({
     {
       id: 'bell',
       name: 'Bell state',
-      json: LEGACY_BELL_SAMPLE_JSON,
+      json: BELL_SAMPLE_JSON,
       createdAt: 1,
       updatedAt: 1,
       meta: { qubits: 2, columns: 2, gateCount: 3 },
@@ -135,7 +116,7 @@ const legacySeedLibraryDocument = () => ({
     {
       id: 'ghz',
       name: 'GHZ state',
-      json: LEGACY_GHZ_SAMPLE_JSON,
+      json: GHZ_SAMPLE_JSON,
       createdAt: 2,
       updatedAt: 2,
       meta: { qubits: 3, columns: 3, gateCount: 5 },
@@ -212,10 +193,10 @@ test('startup current entry preserves the four seeded sample circuits', async ({
   }).toMatchObject({
     activeId: 'current',
     current: { name: 'Circuit 1', circuit_json: '{"cols":[]}' },
-    bell: { name: 'Bell state', circuit_json: '{"cols":[["H"],["•","X"]]}' },
+    bell: { name: 'Bell state', circuit_json: BELL_SAMPLE_JSON },
     ghzName: 'GHZ state',
     qftName: 'QFT 4-qubit',
-    grover: { name: 'Grover Search', circuit_json: GROVER_JSON },
+    grover: { name: 'Grover Search', circuit_json: GROVER_SAMPLE_JSON },
     groverHasCustomGateSection: false,
     hashCols: [],
   })
@@ -239,8 +220,8 @@ test('legacy seeded localStorage gains Grover Search on reload', async ({ page }
     storedGrover: stored.entries.find((entry: { id: string }) => entry.id === 'grover-search'),
   }).toMatchObject({
     activeId: 'ghz',
-    grover: { name: 'Grover Search', circuit_json: GROVER_JSON },
-    storedGrover: { name: 'Grover Search', circuit_json: GROVER_JSON, origin: { kind: 'sample', origin_id: 'grover-search' } },
+    grover: { name: 'Grover Search', circuit_json: GROVER_SAMPLE_JSON },
+    storedGrover: { name: 'Grover Search', circuit_json: GROVER_SAMPLE_JSON, origin: { kind: 'sample', origin_id: 'grover-search' } },
   })
 })
 

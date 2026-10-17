@@ -11,6 +11,12 @@ impl QniApp {
         // of it inside `rect` on both axes.
         const MIN_VISIBLE: f32 = 40.0;
 
+        if self.orientation.is_vertical() {
+            // The vertical layout pins the panel under the toolbar.
+            self.state_panel.offset = egui::Vec2::ZERO;
+            return;
+        }
+
         if matches!(self.mode, crate::app::AppMode::Embed { .. }) {
             // Embedded panels stay entirely inside the canvas and below wires.
             let min = egui::vec2(

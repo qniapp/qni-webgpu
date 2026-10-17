@@ -33,6 +33,8 @@ impl DragController {
             // grab cursor. Step preview remains available because it is an
             // inspection aid, not an editing affordance.
             let edit_hover_allowed = !app.library.active_locked();
+            let circuit_hit_allowed = geometry.circuit_hit_allowed(pointer.screen_pos);
+            let upright = geometry.upright();
             // Iterate top-of-stack first so a resizable-span handle wins
             // over the gate body when the cursor is on both (span handles
             // overhang the top / bottom edges).
@@ -46,14 +48,15 @@ impl DragController {
             let mut hovered_probability_outcome = None;
             let mut hovered_amplitude_outcome = None;
             let mut hovered_density_cell = None;
-            if edit_hover_allowed {
+            if edit_hover_allowed && circuit_hit_allowed {
                 for gate in app.placed_gates.iter().rev() {
                     let gate_rect = gate_visible_rect(gate, gate.committed_pos());
                     let resize_handles = SpanResizeHandles::for_gate_with_availability(
                         gate,
                         &app.placed_gates,
                         app.wire_capacity().get(),
-                    );
+                    )
+                    .filter(|_| !geometry.is_vertical());
                     let body_rect = resize_handles
                         .map(SpanResizeHandles::body_rect)
                         .unwrap_or_else(|| {
@@ -68,7 +71,13 @@ impl DragController {
                     }
                     if body_rect.contains(cursor) {
                         hovered_gate = Some(gate.id);
-                        if gate.kind == GateKind::ProbabilityDisplay {
+                        // Display cells are laid out upright on the screen,
+                        // so their hit test runs in the upright frame.
+                        let gate_rect = upright.to_screen_rect(gate_rect);
+                        let cursor = upright.to_screen(cursor);
+                        if gate.kind == GateKind::ProbabilityDisplay
+                            && !(geometry.is_vertical() && gate.span.get() > 1)
+                        {
                             let row_count = 1usize << gate.span.get().clamp(1, 16);
                             let row_h = gate_rect.height() / row_count as f32;
                             let row = ((cursor.y - gate_rect.top()) / row_h)
@@ -103,8 +112,7 @@ impl DragController {
                 ctx.request_repaint();
             }
 
-            let hovered_block = app
-                .circuit_block_editing_allowed()
+            let hovered_block = (app.circuit_block_editing_allowed() && circuit_hit_allowed)
                 .then(|| app.circuit_block_hover_at(cursor, &geometry.metrics, ctx))
                 .flatten();
             if hovered_block != app.hovered_circuit_block {
@@ -115,7 +123,9 @@ impl DragController {
             // Step preview: which column is the cursor on? Changes select a
             // cached GPU snapshot so the state-vector panel reflects the new
             // step without rerunning simulation.
-            let new_hovered_step = step_at_cursor(cursor, &geometry.metrics);
+            let new_hovered_step = circuit_hit_allowed
+                .then(|| step_at_cursor(cursor, &geometry.metrics))
+                .flatten();
             if new_hovered_step != app.hovered_step {
                 app.hovered_step = new_hovered_step;
                 ctx.request_repaint();
@@ -125,13 +135,7 @@ impl DragController {
             let mut hovered_palette = None;
             if edit_hover_allowed {
                 if let Some(cursor_screen) = pointer.screen_pos {
-                    if geometry.palette_rect.contains(cursor_screen) {
-                        let local = egui::pos2(
-                            cursor_screen.x - geometry.palette_origin.x,
-                            cursor_screen.y - geometry.palette_origin.y,
-                        );
-                        hovered_palette = app.palette.hit_test(local, &geometry.palette_layout);
-                    }
+                    hovered_palette = geometry.hovered_palette_entry(app, cursor_screen);
                 }
             }
             app.hovered_palette_index = hovered_palette;
