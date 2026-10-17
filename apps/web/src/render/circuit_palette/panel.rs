@@ -7,8 +7,10 @@ use crate::constants::{
     PALETTE_SEPARATOR_WIDTH, PALETTE_SIZE,
 };
 use crate::gates::GateKind;
-use crate::icons::{draw_bloch_vector, draw_density_palette_icon, draw_gate_body};
-use crate::layout::palette_start_x;
+use crate::icons::{
+    draw_bloch_vector, draw_circuit_block_palette_icon, draw_density_palette_icon, draw_gate_body,
+};
+use crate::layout::{palette_start_x, PaletteItem};
 
 use super::super::hover_frame::{hover_frame_corner_radius, hover_frame_inner_corner_radius};
 
@@ -53,7 +55,7 @@ impl QniApp {
         }
 
         for index in 0..self.palette.len() {
-            let Some(gate) = self.palette.entry(index).map(|entry| entry.kind) else {
+            let Some(item) = self.palette.item(index) else {
                 continue;
             };
             let Some(local) = self.palette.local_pos(index, &layout) else {
@@ -63,7 +65,27 @@ impl QniApp {
                 palette_origin + local.to_vec2(),
                 egui::vec2(PALETTE_SIZE, PALETTE_SIZE),
             );
-            if self.hovered_palette_index == Some(index) {
+            let hovered = self.hovered_palette_index == Some(index);
+            let gate = match item {
+                PaletteItem::Gate(entry) => entry.kind,
+                PaletteItem::CircuitBlock => {
+                    if hovered {
+                        painter.rect_filled(
+                            gate_rect.expand(4.0),
+                            egui::CornerRadius::ZERO,
+                            colors.gate_hover_border,
+                        );
+                        painter.rect_filled(
+                            gate_rect.expand(2.0),
+                            egui::CornerRadius::ZERO,
+                            colors.surface,
+                        );
+                    }
+                    draw_circuit_block_palette_icon(painter, gate_rect, colors);
+                    continue;
+                }
+            };
+            if hovered {
                 let hover_outer = gate_rect.expand(4.0);
                 let hover_inner = gate_rect.expand(2.0);
                 painter.rect_filled(

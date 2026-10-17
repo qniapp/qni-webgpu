@@ -155,7 +155,7 @@ impl CircuitColumnIndex {
     <h3>URL と外部 GPU 経路</h3>
     <table class="spec">
       <tbody>
-        <tr><th>URL 復元</th><td>回路ブロックの印の列 (<code>["{ラベル"]</code> / <code>["}"]</code>) を取り除いたあとの <code>cols</code> の添字を <code>CircuitColumnIndex::new(col_idx)</code> に変換して <code>PlacedGate</code> へ渡す。ブロックは同じ列番号の半開区間 <code>[start, end)</code> として <code>CircuitBlocks</code> に保持する</td></tr>
+        <tr><th>URL 復元</th><td>コメントブロックの印の列 (<code>["{ラベル"]</code> / <code>["}"]</code>) を取り除いたあとの <code>cols</code> の添字を <code>CircuitColumnIndex::new(col_idx)</code> に変換して <code>PlacedGate</code> へ渡す。ブロックは同じ列番号の半開区間 <code>[start, end)</code> として <code>CircuitBlocks</code> に保持する</td></tr>
         <tr><th>URL 生成</th><td><code>gate.column.as_usize()</code> で <code>cols</code> 配列の添字へ変換し、各ブロックの前後に印の列を差し込む。外部 GPU 経路へ渡す <code>circuit_columns_to_json</code> には印の列を含めない</td></tr>
         <tr><th>外部 GPU 表示出力</th><td>Rust 側の <code>ExternalAmplitudeRequest.column</code> などは <code>CircuitColumnIndex</code> にし、JSON 生成時だけ数値へ戻す</td></tr>
         <tr><th>Qiskit バックエンド</th><td>Python 側は JSON 境界なので <code>int</code> のままにし、既存どおり <code>0 &lt;= column &lt; len(columns)</code> を検証する</td></tr>
