@@ -66,6 +66,13 @@ rules:
       - /display gate/
       - /表示ゲート/
 
+  # ── コメントブロック (qni の circuit-block、コード上は CircuitBlock) 用語統一 ──
+  - expected: コメントブロック
+    patterns:
+      - /コメント付きブロック/
+      - /注釈ブロック/
+      - /回路ブロック/
+
   # ── ブロッホ + 和語 ──
   - expected: ブロッホ球
     pattern: /Bloch 球/

@@ -32,7 +32,21 @@ pub(crate) struct PaletteEntry {
     pub(crate) angle: Option<ParametricAngle>,
 }
 
-/// Which gates the palette offers. Indices are stable per palette: the full
+/// One palette cell: a gate, or the comment block that wraps circuit columns.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PaletteItem {
+    Gate(PaletteEntry),
+    CircuitBlock,
+}
+
+/// Restricted-palette token for the comment block.
+pub(crate) const CIRCUIT_BLOCK_PALETTE_TOKEN: &str = "{}";
+
+/// Flat index of the comment block in the full palette: the Display
+/// section's bottom-right slot, after every gate.
+pub(crate) const PALETTE_CIRCUIT_BLOCK_INDEX: usize = PALETTE_GATE_COUNT;
+
+/// Which items the palette offers. Indices are stable per palette: the full
 /// palette keeps its historical flat indices, a restricted palette numbers
 /// its entries left to right.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -43,20 +57,26 @@ pub(crate) enum Palette {
     /// of qni's `mini_qni` Liquid filter). The entries sit in one row and
     /// wrap into balanced rows when the canvas is too narrow. Empty hides
     /// the palette panel.
-    Restricted(Vec<PaletteEntry>),
+    Restricted(Vec<PaletteItem>),
 }
 
 impl Palette {
-    /// Parses circuit-JSON gate tokens such as `["|0>", "H", "P(π/4)"]`.
+    /// Parses circuit-JSON gate tokens such as `["|0>", "H", "P(π/4)"]`, plus
+    /// `"{}"` for the comment block.
     pub(crate) fn restricted<S: AsRef<str>>(tokens: &[S]) -> Result<Self, String> {
         tokens
             .iter()
             .map(|token| {
                 let token = token.as_ref();
+                if token == CIRCUIT_BLOCK_PALETTE_TOKEN {
+                    return Ok(PaletteItem::CircuitBlock);
+                }
                 crate::url_circuit::palette_token_to_gate(token)
-                    .map(|(kind, angle)| PaletteEntry {
-                        kind,
-                        angle: angle.or_else(|| default_palette_angle(kind)),
+                    .map(|(kind, angle)| {
+                        PaletteItem::Gate(PaletteEntry {
+                            kind,
+                            angle: angle.or_else(|| default_palette_angle(kind)),
+                        })
                     })
                     .ok_or_else(|| format!("unknown palette gate: {token}"))
             })
@@ -68,11 +88,14 @@ impl Palette {
         matches!(self, Self::Restricted(entries) if entries.is_empty())
     }
 
-    pub(crate) fn entry(&self, index: usize) -> Option<PaletteEntry> {
+    pub(crate) fn item(&self, index: usize) -> Option<PaletteItem> {
         match self {
-            Self::Full => palette_gate_kind(index).map(|kind| PaletteEntry {
-                kind,
-                angle: default_palette_angle(kind),
+            Self::Full if index == PALETTE_CIRCUIT_BLOCK_INDEX => Some(PaletteItem::CircuitBlock),
+            Self::Full => palette_gate_kind(index).map(|kind| {
+                PaletteItem::Gate(PaletteEntry {
+                    kind,
+                    angle: default_palette_angle(kind),
+                })
             }),
             Self::Restricted(entries) => entries.get(index).copied(),
         }
@@ -80,8 +103,17 @@ impl Palette {
 
     pub(crate) fn len(&self) -> usize {
         match self {
-            Self::Full => PALETTE_GATE_COUNT,
+            Self::Full => PALETTE_CIRCUIT_BLOCK_INDEX + 1,
             Self::Restricted(entries) => entries.len(),
+        }
+    }
+
+    /// Whether the comment block can be placed, which also lets existing
+    /// blocks be edited.
+    pub(crate) fn offers_circuit_block(&self) -> bool {
+        match self {
+            Self::Full => true,
+            Self::Restricted(entries) => entries.contains(&PaletteItem::CircuitBlock),
         }
     }
 
@@ -110,7 +142,7 @@ impl Palette {
     /// Gate top-left relative to the palette panel top-left.
     pub(crate) fn local_pos(&self, index: usize, layout: &PaletteLayout) -> Option<egui::Pos2> {
         match self {
-            Self::Full => palette_gate_local_pos(index, layout),
+            Self::Full => palette_item_local_pos(index, layout),
             Self::Restricted(entries) => (index < entries.len()).then(|| {
                 egui::pos2(
                     (index % layout.columns) as f32 * (PALETTE_SIZE + PALETTE_GAP),
@@ -227,9 +259,13 @@ fn palette_gates_local_pos(index: usize) -> Option<egui::Pos2> {
 }
 
 fn palette_display_local_pos(index: usize, layout: &PaletteLayout) -> Option<egui::Pos2> {
-    let slot = PALETTE_DISPLAY_INDICES
-        .iter()
-        .position(|candidate| *candidate == index)?;
+    let slot = if index == PALETTE_CIRCUIT_BLOCK_INDEX {
+        PALETTE_DISPLAY_GATES.len()
+    } else {
+        PALETTE_DISPLAY_INDICES
+            .iter()
+            .position(|candidate| *candidate == index)?
+    };
     let row = slot / PALETTE_DISPLAY_COLUMNS;
     let col = slot % PALETTE_DISPLAY_COLUMNS;
     Some(egui::pos2(
@@ -238,8 +274,8 @@ fn palette_display_local_pos(index: usize, layout: &PaletteLayout) -> Option<egu
     ))
 }
 
-fn palette_gate_local_pos(index: usize, layout: &PaletteLayout) -> Option<egui::Pos2> {
-    if index >= PALETTE_GATE_COUNT {
+fn palette_item_local_pos(index: usize, layout: &PaletteLayout) -> Option<egui::Pos2> {
+    if index > PALETTE_CIRCUIT_BLOCK_INDEX {
         return None;
     }
     palette_gates_local_pos(index).or_else(|| palette_display_local_pos(index, layout))
@@ -285,15 +321,16 @@ fn hit_test_display(local_pos: egui::Pos2, layout: &PaletteLayout) -> Option<usi
         return None;
     }
     let slot = row * PALETTE_DISPLAY_COLUMNS + col;
-    if slot >= PALETTE_DISPLAY_GATES.len() {
-        return None;
+    if slot == PALETTE_DISPLAY_GATES.len() {
+        return Some(PALETTE_CIRCUIT_BLOCK_INDEX);
     }
     PALETTE_DISPLAY_INDICES.get(slot).copied()
 }
 
 /// Maps a cursor position (relative to the palette panel top-left) to a flat
-/// gate index. Returns `None` outside any gate cell, including the separator,
-/// inter-section gaps, and the Display section's empty bottom-right slot.
+/// item index. Returns `None` outside any cell, including the separator and
+/// inter-section gaps. The Display section's bottom-right slot holds the
+/// comment block.
 fn palette_hit_test(local_pos: egui::Pos2, layout: &PaletteLayout) -> Option<usize> {
     if local_pos.y < 0.0 || local_pos.x < 0.0 {
         return None;
@@ -320,9 +357,16 @@ mod tests {
         "H", "X", "Y", "Z", "P(π/2)", "X^½", "Rx(π/2)", "Ry(π/2)", "Rz(π/2)",
     ];
 
+    fn entry(palette: &Palette, index: usize) -> Option<PaletteEntry> {
+        match palette.item(index)? {
+            PaletteItem::Gate(entry) => Some(entry),
+            PaletteItem::CircuitBlock => None,
+        }
+    }
+
     fn kinds(palette: &Palette) -> Vec<GateKind> {
         (0..palette.len())
-            .filter_map(|index| palette.entry(index).map(|entry| entry.kind))
+            .filter_map(|index| entry(palette, index).map(|entry| entry.kind))
             .collect()
     }
 
@@ -352,7 +396,7 @@ mod tests {
         let palette = Palette::restricted(&["P"]).unwrap();
 
         assert_eq!(
-            palette.entry(0).unwrap().angle,
+            entry(&palette, 0).unwrap().angle,
             Some(ParametricAngle::default())
         );
     }
@@ -362,7 +406,7 @@ mod tests {
         let palette = Palette::restricted(&["P(π/4)"]).unwrap();
 
         assert_eq!(
-            palette.entry(0).unwrap().angle,
+            entry(&palette, 0).unwrap().angle,
             ParametricAngle::parse_qni("π/4").ok()
         );
     }
@@ -528,7 +572,7 @@ mod tests {
     #[test]
     fn palette_hit_test_finds_gates_section_cell() {
         let layout = palette_layout();
-        let local = palette_gate_local_pos(14, &layout).unwrap() + egui::vec2(20.0, 20.0);
+        let local = palette_item_local_pos(14, &layout).unwrap() + egui::vec2(20.0, 20.0);
 
         assert_eq!(palette_hit_test(local, &layout), Some(14));
     }
@@ -536,7 +580,7 @@ mod tests {
     #[test]
     fn palette_hit_test_finds_display_section_cell() {
         let layout = palette_layout();
-        let local = palette_gate_local_pos(20, &layout).unwrap() + egui::vec2(20.0, 20.0);
+        let local = palette_item_local_pos(20, &layout).unwrap() + egui::vec2(20.0, 20.0);
 
         assert_eq!(palette_hit_test(local, &layout), Some(20));
     }
@@ -544,7 +588,7 @@ mod tests {
     #[test]
     fn palette_hit_test_finds_density_display_slot() {
         let layout = palette_layout();
-        let local = palette_gate_local_pos(25, &layout).unwrap() + egui::vec2(20.0, 20.0);
+        let local = palette_item_local_pos(25, &layout).unwrap() + egui::vec2(20.0, 20.0);
 
         assert_eq!(palette_hit_test(local, &layout), Some(25));
     }
@@ -553,7 +597,7 @@ mod tests {
     fn palette_hit_test_round_trips_all_flat_indices() {
         let layout = palette_layout();
         let all_round_trip = (0..PALETTE_GATE_COUNT).all(|index| {
-            let Some(local) = palette_gate_local_pos(index, &layout) else {
+            let Some(local) = palette_item_local_pos(index, &layout) else {
                 return false;
             };
             palette_hit_test(
@@ -563,6 +607,78 @@ mod tests {
         });
 
         assert!(all_round_trip);
+    }
+
+    #[test]
+    fn full_palette_offers_the_circuit_block_last() {
+        assert_eq!(
+            Palette::Full.item(Palette::Full.len() - 1),
+            Some(PaletteItem::CircuitBlock)
+        );
+    }
+
+    #[test]
+    fn circuit_block_sits_in_the_display_sections_bottom_right_slot() {
+        let layout = palette_layout();
+
+        assert_eq!(
+            palette_item_local_pos(PALETTE_CIRCUIT_BLOCK_INDEX, &layout),
+            Some(egui::pos2(
+                layout.display_x + 2.0 * (PALETTE_SIZE + PALETTE_GAP),
+                PALETTE_SIZE + PALETTE_ROW_GAP,
+            ))
+        );
+    }
+
+    #[test]
+    fn palette_hit_test_finds_the_circuit_block_slot() {
+        let layout = palette_layout();
+        let local = palette_item_local_pos(PALETTE_CIRCUIT_BLOCK_INDEX, &layout).unwrap()
+            + egui::vec2(20.0, 20.0);
+
+        assert_eq!(
+            palette_hit_test(local, &layout),
+            Some(PALETTE_CIRCUIT_BLOCK_INDEX)
+        );
+    }
+
+    #[test]
+    fn full_palette_has_no_item_after_the_circuit_block() {
+        let layout = palette_layout();
+
+        assert_eq!(
+            palette_item_local_pos(PALETTE_CIRCUIT_BLOCK_INDEX + 1, &layout),
+            None
+        );
+    }
+
+    #[test]
+    fn restricted_palette_accepts_the_circuit_block_token() {
+        let palette = Palette::restricted(&["H", "{}"]).unwrap();
+
+        assert_eq!(palette.item(1), Some(PaletteItem::CircuitBlock));
+    }
+
+    #[test]
+    fn restricted_palette_rejects_an_open_block_marker() {
+        assert!(Palette::restricted(&["{"]).is_err());
+    }
+
+    #[test]
+    fn restricted_palette_with_the_token_offers_the_circuit_block() {
+        assert!(Palette::restricted(&["H", "{}"])
+            .unwrap()
+            .offers_circuit_block());
+    }
+
+    #[test]
+    fn restricted_palette_without_the_token_lacks_the_circuit_block() {
+        assert!(!Palette::restricted(&["H"]).unwrap().offers_circuit_block());
+    }
+
+    #[test]
+    fn full_palette_offers_the_circuit_block() {
+        assert!(Palette::Full.offers_circuit_block());
     }
 
     #[test]

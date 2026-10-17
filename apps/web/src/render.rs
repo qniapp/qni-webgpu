@@ -10,6 +10,7 @@
 mod amplitude_circle_popover;
 mod angle_input;
 mod circuit;
+mod circuit_block_editor;
 mod circuit_blocks;
 mod circuit_connectors;
 mod circuit_gates;
@@ -27,4 +28,5 @@ mod toolbar;
 
 pub(crate) use state_panel_layout::StatePanelLayout;
 
+pub(crate) use circuit_blocks::{circuit_block_boundary_x, circuit_block_rect};
 pub(crate) use circuit_gates::CircuitGpuBatch;

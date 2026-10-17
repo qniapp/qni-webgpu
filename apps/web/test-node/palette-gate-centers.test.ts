@@ -41,3 +41,7 @@ test('semantic drag helper locates Spacer after both QFT gates', () => {
   assert.deepEqual(buildDragOperation({ cssWidth: 1000, gate: 'spacer', wire: 'q0', slot: 1 }).from,
     { x: 639, y: 148 })
 })
+
+test('palette helper locates the comment block in the Display section bottom-right slot', () => {
+  assert.deepEqual(getPaletteGateCenter(1000, 36), { x: 985, y: 148 })
+})

@@ -13,9 +13,9 @@ use crate::gates::GateKind;
 use crate::icons::draw_span_resize_handle;
 use crate::layout::{amplitude_grid_rect, gate_rect_at_grid, gate_visible_rect, gate_width_cols};
 
-const SPAN_RESIZE_HANDLE_MIN_WIDTH: f32 = 24.0;
+pub(crate) const SPAN_RESIZE_HANDLE_MIN_WIDTH: f32 = 24.0;
 const SPAN_RESIZE_HANDLE_WIDTH_RATIO: f32 = 0.6;
-const SPAN_RESIZE_HANDLE_HEIGHT: f32 = 6.0;
+pub(crate) const SPAN_RESIZE_HANDLE_HEIGHT: f32 = 6.0;
 const SPAN_RESIZE_HANDLE_MAX_SCALE_PAD_RATIO: f32 = 0.125;
 const SPAN_RESIZE_HANDLE_EDGES: [SpanResizeEdge; 2] = [SpanResizeEdge::Top, SpanResizeEdge::Bottom];
 

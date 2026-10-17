@@ -1,0 +1,430 @@
+---
+source: src/render/circuit_blocks.rs
+expression: "hover_shapes(CircuitBlockHover\n{ index: 0, handle: Some(CircuitBlockEdge::Right), label: None, })"
+---
+[
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Rect(
+            RectShape {
+                rect: [[190.0 194.0] - [302.0 374.0]],
+                corner_radius: CornerRadius {
+                    nw: 0,
+                    ne: 0,
+                    sw: 0,
+                    se: 0,
+                },
+                fill: #73_72_6D_80,
+                stroke: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+                stroke_kind: Outside,
+                round_to_pixels: None,
+                blur_width: 0.0,
+                brush: None,
+                angle: 0.0,
+            },
+        ),
+    },
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Rect(
+            RectShape {
+                rect: [[190.0 194.0] - [302.0 196.0]],
+                corner_radius: CornerRadius {
+                    nw: 0,
+                    ne: 0,
+                    sw: 0,
+                    se: 0,
+                },
+                fill: #43_85_BE_FF,
+                stroke: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+                stroke_kind: Outside,
+                round_to_pixels: None,
+                blur_width: 0.0,
+                brush: None,
+                angle: 0.0,
+            },
+        ),
+    },
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Rect(
+            RectShape {
+                rect: [[190.0 372.0] - [302.0 374.0]],
+                corner_radius: CornerRadius {
+                    nw: 0,
+                    ne: 0,
+                    sw: 0,
+                    se: 0,
+                },
+                fill: #43_85_BE_FF,
+                stroke: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+                stroke_kind: Outside,
+                round_to_pixels: None,
+                blur_width: 0.0,
+                brush: None,
+                angle: 0.0,
+            },
+        ),
+    },
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Text(
+            TextShape {
+                pos: [241.2 174.5],
+                galley: Galley {
+                    job: LayoutJob {
+                        text: "a",
+                        sections: [
+                            LayoutSection {
+                                leading_space: 0.0,
+                                byte_range: ByteIndex(
+                                    0,
+                                )..ByteIndex(
+                                    1,
+                                ),
+                                format: TextFormat {
+                                    font_id: FontId {
+                                        size: 16.0,
+                                        family: Monospace,
+                                    },
+                                    extra_letter_spacing: 0.0,
+                                    line_height: None,
+                                    color: #43_85_BE_FF,
+                                    background: #00_00_00_00,
+                                    expand_bg: 1.0,
+                                    coords: VariationCoords(
+                                        [],
+                                    ),
+                                    italics: false,
+                                    underline: Stroke {
+                                        width: 0.0,
+                                        color: #00_00_00_00,
+                                    },
+                                    strikethrough: Stroke {
+                                        width: 0.0,
+                                        color: #00_00_00_00,
+                                    },
+                                    valign: Max,
+                                },
+                            },
+                        ],
+                        wrap: TextWrapping {
+                            max_width: inf,
+                            max_rows: 18446744073709551615,
+                            break_anywhere: false,
+                            overflow_character: Some(
+                                '…',
+                            ),
+                        },
+                        first_row_min_height: 0.0,
+                        break_on_newline: true,
+                        halign: Min,
+                        justify: false,
+                        round_output_to_gui: true,
+                        keep_trailing_whitespace: false,
+                    },
+                    rows: [
+                        PlacedRow {
+                            pos: [0.0 0.0],
+                            row: Row {
+                                section_index_at_start: 4294967295,
+                                glyphs: [
+                                    Glyph {
+                                        chr: 'a',
+                                        pos: [0.0 15.0],
+                                        advance_width: 9.6328125,
+                                        line_height: 18.625,
+                                        font_ascent: 14.84375,
+                                        font_height: 18.625,
+                                        font_face_ascent: 14.84375,
+                                        font_face_height: 18.625,
+                                        uv_rect: UvRect {
+                                            offset: [1.0 -9.0],
+                                            size: [8.0 9.0],
+                                            min: [
+                                                90,
+                                                0,
+                                            ],
+                                            max: [
+                                                98,
+                                                9,
+                                            ],
+                                        },
+                                        section_index: 4294967295,
+                                        first_vertex: 0,
+                                    },
+                                ],
+                                size: [9.6 19.0],
+                                visuals: RowVisuals {
+                                    mesh: Mesh {
+                                        indices: [
+                                            0,
+                                            1,
+                                            2,
+                                            2,
+                                            1,
+                                            3,
+                                        ],
+                                        vertices: [
+                                            Vertex {
+                                                pos: [1.0 6.0],
+                                                uv: [90.0 0.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [9.0 6.0],
+                                                uv: [98.0 0.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [1.0 15.0],
+                                                uv: [90.0 9.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [9.0 15.0],
+                                                uv: [98.0 9.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                        ],
+                                        texture_id: Managed(
+                                            0,
+                                        ),
+                                    },
+                                    mesh_bounds: [[1.0 6.0] - [9.0 15.0]],
+                                    glyph_index_start: 0,
+                                    glyph_vertex_range: 0..4,
+                                },
+                            },
+                            ends_with_newline: false,
+                        },
+                    ],
+                    elided: false,
+                    rect: [[0.0 0.0] - [9.6 19.0]],
+                    mesh_bounds: [[1.0 6.0] - [9.0 15.0]],
+                    num_vertices: 4,
+                    num_indices: 6,
+                    pixels_per_point: 1.0,
+                    intrinsic_size: [9.6 19.0],
+                },
+                underline: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+                fallback_color: #43_85_BE_FF,
+                override_text_color: None,
+                opacity_factor: 1.0,
+                angle: 0.0,
+            },
+        ),
+    },
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Text(
+            TextShape {
+                pos: [241.2 374.5],
+                galley: Galley {
+                    job: LayoutJob {
+                        text: "a",
+                        sections: [
+                            LayoutSection {
+                                leading_space: 0.0,
+                                byte_range: ByteIndex(
+                                    0,
+                                )..ByteIndex(
+                                    1,
+                                ),
+                                format: TextFormat {
+                                    font_id: FontId {
+                                        size: 16.0,
+                                        family: Monospace,
+                                    },
+                                    extra_letter_spacing: 0.0,
+                                    line_height: None,
+                                    color: #43_85_BE_FF,
+                                    background: #00_00_00_00,
+                                    expand_bg: 1.0,
+                                    coords: VariationCoords(
+                                        [],
+                                    ),
+                                    italics: false,
+                                    underline: Stroke {
+                                        width: 0.0,
+                                        color: #00_00_00_00,
+                                    },
+                                    strikethrough: Stroke {
+                                        width: 0.0,
+                                        color: #00_00_00_00,
+                                    },
+                                    valign: Max,
+                                },
+                            },
+                        ],
+                        wrap: TextWrapping {
+                            max_width: inf,
+                            max_rows: 18446744073709551615,
+                            break_anywhere: false,
+                            overflow_character: Some(
+                                '…',
+                            ),
+                        },
+                        first_row_min_height: 0.0,
+                        break_on_newline: true,
+                        halign: Min,
+                        justify: false,
+                        round_output_to_gui: true,
+                        keep_trailing_whitespace: false,
+                    },
+                    rows: [
+                        PlacedRow {
+                            pos: [0.0 0.0],
+                            row: Row {
+                                section_index_at_start: 4294967295,
+                                glyphs: [
+                                    Glyph {
+                                        chr: 'a',
+                                        pos: [0.0 15.0],
+                                        advance_width: 9.6328125,
+                                        line_height: 18.625,
+                                        font_ascent: 14.84375,
+                                        font_height: 18.625,
+                                        font_face_ascent: 14.84375,
+                                        font_face_height: 18.625,
+                                        uv_rect: UvRect {
+                                            offset: [1.0 -9.0],
+                                            size: [8.0 9.0],
+                                            min: [
+                                                90,
+                                                0,
+                                            ],
+                                            max: [
+                                                98,
+                                                9,
+                                            ],
+                                        },
+                                        section_index: 4294967295,
+                                        first_vertex: 0,
+                                    },
+                                ],
+                                size: [9.6 19.0],
+                                visuals: RowVisuals {
+                                    mesh: Mesh {
+                                        indices: [
+                                            0,
+                                            1,
+                                            2,
+                                            2,
+                                            1,
+                                            3,
+                                        ],
+                                        vertices: [
+                                            Vertex {
+                                                pos: [1.0 6.0],
+                                                uv: [90.0 0.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [9.0 6.0],
+                                                uv: [98.0 0.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [1.0 15.0],
+                                                uv: [90.0 9.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [9.0 15.0],
+                                                uv: [98.0 9.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                        ],
+                                        texture_id: Managed(
+                                            0,
+                                        ),
+                                    },
+                                    mesh_bounds: [[1.0 6.0] - [9.0 15.0]],
+                                    glyph_index_start: 0,
+                                    glyph_vertex_range: 0..4,
+                                },
+                            },
+                            ends_with_newline: false,
+                        },
+                    ],
+                    elided: false,
+                    rect: [[0.0 0.0] - [9.6 19.0]],
+                    mesh_bounds: [[1.0 6.0] - [9.0 15.0]],
+                    num_vertices: 4,
+                    num_indices: 6,
+                    pixels_per_point: 1.0,
+                    intrinsic_size: [9.6 19.0],
+                },
+                underline: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+                fallback_color: #43_85_BE_FF,
+                override_text_color: None,
+                opacity_factor: 1.0,
+                angle: 0.0,
+            },
+        ),
+    },
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Rect(
+            RectShape {
+                rect: [[187.0 272.0] - [193.0 296.0]],
+                corner_radius: CornerRadius {
+                    nw: 3,
+                    ne: 3,
+                    sw: 3,
+                    se: 3,
+                },
+                fill: #3A_A9_9F_FF,
+                stroke: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+                stroke_kind: Outside,
+                round_to_pixels: None,
+                blur_width: 0.0,
+                brush: None,
+                angle: 0.0,
+            },
+        ),
+    },
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Rect(
+            RectShape {
+                rect: [[298.5 270.2] - [305.5 297.8]],
+                corner_radius: CornerRadius {
+                    nw: 3,
+                    ne: 3,
+                    sw: 3,
+                    se: 3,
+                },
+                fill: #24_83_7B_FF,
+                stroke: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+                stroke_kind: Outside,
+                round_to_pixels: None,
+                blur_width: 0.0,
+                brush: None,
+                angle: 0.0,
+            },
+        ),
+    },
+]

@@ -207,6 +207,9 @@ impl QniApp {
         self.hovered_step = None;
         self.angle_affordance = None;
         self.angle_editor = None;
+        self.hovered_circuit_block = None;
+        self.circuit_block_drag = None;
+        self.circuit_block_editor = None;
         let step_count =
             crate::url_circuit::summarize_circuit_json(json).map_or(0, |summary| summary.columns);
         self.breakpoint_step = self.initial_breakpoint_step(step_count);
