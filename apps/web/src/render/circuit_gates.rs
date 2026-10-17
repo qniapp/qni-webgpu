@@ -510,7 +510,8 @@ impl QniApp {
                             PROBABILITY_RENDER_MODE_SAMPLE
                         },
                     )
-                } else if self.external_gpu_display_placeholders_active()
+                } else if gate.kind == GateKind::ProbabilityDisplay
+                    && self.external_gpu_display_placeholders_active()
                     && (next_probability_placeholder_slot as usize)
                         < crate::gpu::MAX_PROBABILITY_SLOTS
                 {
