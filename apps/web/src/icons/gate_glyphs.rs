@@ -51,6 +51,28 @@ fn draw_meter_arc(
     )));
 }
 
+pub(crate) fn draw_sampled_measurement_icon(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    kind: GateKind,
+    color: egui::Color32,
+    colors: &Colors,
+) {
+    draw_meter_icon(painter, rect, color);
+    let axis = match kind {
+        GateKind::XDetector => "X",
+        GateKind::YDetector => "Y",
+        _ => return,
+    };
+    painter.text(
+        rect.left_top() + egui::vec2(crate::tailwind::SPACING_1, 0.0),
+        egui::Align2::LEFT_TOP,
+        axis,
+        egui::FontId::proportional(crate::tailwind::TEXT_XS),
+        colors.semantic_intermediate,
+    );
+}
+
 pub(super) fn draw_gate_icon(
     painter: &egui::Painter,
     rect: egui::Rect,
@@ -102,9 +124,9 @@ pub(super) fn draw_gate_icon(
             painter.circle_filled(p(24.0, 24.0), DETECTOR_CONTROL_RADIUS * scale, color);
             true
         }
-        GateKind::Measurement => {
+        GateKind::Measurement | GateKind::XDetector | GateKind::YDetector => {
             // qni reference: packages/elements/icon/measurement-gate.svg
-            draw_meter_icon(painter, rect, color);
+            draw_sampled_measurement_icon(painter, rect, kind, color, colors);
             true
         }
         GateKind::Spacer => {

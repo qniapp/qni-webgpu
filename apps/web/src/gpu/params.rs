@@ -239,6 +239,9 @@ pub(crate) struct MeasureReduceParams {
     pub(crate) state_count: u32,
     pub(crate) output_slot: u32,
     pub(crate) seed: u32,
+    pub(crate) control_mask: u32,
+    pub(crate) control_value: u32,
+    pub(crate) _pad: [u32; 2],
 }
 
 #[repr(C)]
@@ -248,6 +251,9 @@ pub(crate) struct MeasureCollapseParams {
     pub(crate) state_count: u32,
     pub(crate) aux_slot: u32,
     pub(crate) _pad: u32,
+    pub(crate) control_mask: u32,
+    pub(crate) control_value: u32,
+    pub(crate) _pad_controls: [u32; 2],
 }
 
 #[repr(C)]

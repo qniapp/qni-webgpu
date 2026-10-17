@@ -55,15 +55,20 @@ impl PackedRecomputeParams {
                     gate_id,
                     qubit_bit,
                     output_slot,
+                    controls,
                 } => packed.measure_reduce.push(MeasureReduceParams {
                     qubit_bit: qubit_bit.as_u32(),
                     state_count: state_count as u32,
                     output_slot: output_slot.as_u32(),
                     seed: gate_id.as_u32(),
+                    control_mask: controls.mask(),
+                    control_value: controls.value(),
+                    _pad: [0; 2],
                 }),
                 SimulationOp::MeasureCollapse {
                     qubit_bit,
                     aux_slot,
+                    controls,
                 } => {
                     if pair_count == 0 {
                         continue;
@@ -73,6 +78,9 @@ impl PackedRecomputeParams {
                         state_count: state_count as u32,
                         aux_slot: aux_slot.as_u32(),
                         _pad: 0,
+                        control_mask: controls.mask(),
+                        control_value: controls.value(),
+                        _pad_controls: [0; 2],
                     });
                 }
                 SimulationOp::CaptureProbability {
@@ -189,5 +197,54 @@ impl PackedRecomputeParams {
                 bytemuck::cast_slice(&self.density),
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::GateId;
+    use crate::gates::ColumnControls;
+    use crate::gpu::SlotIndex;
+    use crate::qubit_bit::QubitBit;
+
+    fn packed_measurement() -> PackedRecomputeParams {
+        let mut controls = ColumnControls::NONE.with_control(QubitBit::new(0));
+        controls.add_anti_control(QubitBit::new(1));
+        PackedRecomputeParams::from_ops(
+            &[
+                SimulationOp::MeasureReduceSample {
+                    gate_id: GateId::from_u32(7),
+                    qubit_bit: QubitBit::new(2),
+                    output_slot: SlotIndex::new(3),
+                    controls,
+                },
+                SimulationOp::MeasureCollapse {
+                    qubit_bit: QubitBit::new(2),
+                    aux_slot: SlotIndex::new(3),
+                    controls,
+                },
+            ],
+            8,
+            4,
+        )
+    }
+
+    #[test]
+    fn reduce_uniform_preserves_joint_predicate_and_seed() {
+        let packed = packed_measurement();
+        assert_eq!(
+            bytemuck::cast_slice::<_, u32>(&packed.measure_reduce),
+            &[2, 8, 3, 7, 3, 1, 0, 0]
+        );
+    }
+
+    #[test]
+    fn collapse_uniform_preserves_joint_predicate_and_aux_slot() {
+        let packed = packed_measurement();
+        assert_eq!(
+            bytemuck::cast_slice::<_, u32>(&packed.measure_collapse),
+            &[2, 8, 3, 0, 3, 1, 0, 0]
+        );
     }
 }

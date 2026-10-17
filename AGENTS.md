@@ -70,6 +70,10 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 
 ドキュメント内で使う日本語表記とコード識別子の対応をここで一元管理する。新しい用語の方針が決まったら必ずここに追記し、`docs/*` 側もこの表に従って統一する。
 
+- **検出器** — 指定軸の負の固有状態を標本測定で検出し、検出結果に対応する部分空間へ射影する回路要素。
+  - 個別名: `X 軸検出器` / `Y 軸検出器`
+  - コード識別子と Quirk 互換のシリアライズ ID: `XDetector` / `YDetector`。
+
 - **表示ブロック** — 量子状態を可視化するが状態を変えない回路要素の総称 (Quirk が `Display` と呼ぶカテゴリに対応)。ユニタリ変換を行わないため厳密にはゲートではない。
   - 個別名: `ブロッホ球表示ブロック` / `確率表示ブロック` / `振幅表示ブロック`
   - コード識別子: `GateKind::BlochDisplay` / `GateKind::ProbabilityDisplay` / `GateKind::AmplitudeDisplay` (`Display` サフィックス) はそのまま維持。Quirk 互換のシリアライズ ID (`"Bloch"` / `"Probability"` / `"Amps"` ほか) もそのまま。

@@ -683,6 +683,46 @@ mod tests {
     }
 
     #[test]
+    fn x_detector_json_round_trip() {
+        let json = r#"{"cols":[["XDetector"]]}"#;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn x_detector_url_round_trip() {
+        let circuit = try_decode(r#"circuit={"cols":[["XDetector"]]}"#).unwrap();
+        assert_eq!(
+            crate::url_circuit::circuit_to_json(
+                &circuit.gates,
+                &circuit.blocks,
+                &circuit.title,
+                qubit_count(1)
+            ),
+            r#"{"cols":[["XDetector"]]}"#
+        );
+    }
+
+    #[test]
+    fn y_detector_json_round_trip() {
+        let json = r#"{"cols":[["YDetector"]]}"#;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn y_detector_url_round_trip() {
+        let circuit = try_decode(r#"circuit={"cols":[["YDetector"]]}"#).unwrap();
+        assert_eq!(
+            crate::url_circuit::circuit_to_json(
+                &circuit.gates,
+                &circuit.blocks,
+                &circuit.title,
+                qubit_count(1)
+            ),
+            r#"{"cols":[["YDetector"]]}"#
+        );
+    }
+
+    #[test]
     fn title_round_trips_after_cols() {
         assert_eq!(
             round_trip(r#"{"title":"  Superdense Coding ","cols":[["|0>"]]}"#),

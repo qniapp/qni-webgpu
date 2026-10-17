@@ -41,6 +41,8 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
         | GateKind::BlochDisplay
         | GateKind::Measurement
         | GateKind::ZDetectControlReset
+        | GateKind::XDetector
+        | GateKind::YDetector
         | GateKind::ProbabilityDisplay
         | GateKind::SampleDisplay
         | GateKind::AmplitudeDisplay

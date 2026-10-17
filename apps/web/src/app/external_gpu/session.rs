@@ -113,6 +113,12 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
     }) {
         return Some(gate.kind.label().to_owned());
     }
+    if let Some(gate) = placed_gates
+        .iter()
+        .find(|gate| matches!(gate.kind, GateKind::XDetector | GateKind::YDetector))
+    {
+        return Some(gate.kind.spec().url_token.to_owned());
+    }
     // The Qiskit backend has no classical flags: qni measurement variables
     // (`Measure>a`) and conditional gates (`X<a`) run only on local WebGPU.
     if let Some((gate, flag)) = placed_gates
@@ -630,6 +636,42 @@ mod gate_tests {
                 Some("Zpar".into()),
                 Some("Xpar".into())
             ]
+        );
+    }
+
+    #[test]
+    fn external_gpu_rejects_x_detector() {
+        let gates = flagged_gates(r#"{"cols":[["XDetector"]]}"#);
+        assert_eq!(
+            unsupported_external_gpu_gate_for_gates(&gates),
+            Some("XDetector".to_owned())
+        );
+    }
+
+    #[test]
+    fn external_gpu_rejects_y_detector() {
+        let gates = flagged_gates(r#"{"cols":[["YDetector"]]}"#);
+        assert_eq!(
+            unsupported_external_gpu_gate_for_gates(&gates),
+            Some("YDetector".to_owned())
+        );
+    }
+
+    #[test]
+    fn external_gpu_rejects_x_detector_with_controls() {
+        let gates = flagged_gates(r#"{"cols":[["◦","XDetector"]]}"#);
+        assert_eq!(
+            unsupported_external_gpu_gate_for_gates(&gates),
+            Some("XDetector".to_owned())
+        );
+    }
+
+    #[test]
+    fn external_gpu_rejects_y_detector_with_controls() {
+        let gates = flagged_gates(r#"{"cols":[["•","YDetector"]]}"#);
+        assert_eq!(
+            unsupported_external_gpu_gate_for_gates(&gates),
+            Some("YDetector".to_owned())
         );
     }
 

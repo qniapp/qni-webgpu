@@ -9,6 +9,8 @@ pub(crate) enum GateKind {
     BlochDisplay,
     Measurement,
     ZDetectControlReset,
+    XDetector,
+    YDetector,
     /// Quirk-compatible probability display. It has no unitary effect;
     /// a GPU compute pass marginalizes the live state vector into outcome
     /// bars and a render shader paints them without CPU readback.
@@ -69,7 +71,7 @@ pub(crate) struct GateSpec {
     pub(crate) resizable_span: bool,
 }
 
-const GATE_SPECS: [GateSpec; 30] = [
+const GATE_SPECS: [GateSpec; 32] = [
     GateSpec {
         kind: GateKind::ZParityControl,
         label: "Zpar",
@@ -250,6 +252,18 @@ const GATE_SPECS: [GateSpec; 30] = [
         url_token: "QFT†",
         resizable_span: true,
     },
+    GateSpec {
+        kind: GateKind::XDetector,
+        label: "X Detector",
+        url_token: "XDetector",
+        resizable_span: false,
+    },
+    GateSpec {
+        kind: GateKind::YDetector,
+        label: "Y Detector",
+        url_token: "YDetector",
+        resizable_span: false,
+    },
 ];
 
 pub(crate) const PALETTE_GATES_ROW1: [GateKind; 13] = [
@@ -267,7 +281,7 @@ pub(crate) const PALETTE_GATES_ROW1: [GateKind; 13] = [
     GateKind::Ry,
     GateKind::Rz,
 ];
-pub(crate) const PALETTE_GATES_ROW2: [GateKind; 12] = [
+pub(crate) const PALETTE_GATES_ROW2: [GateKind; 14] = [
     GateKind::Swap,
     GateKind::Control,
     GateKind::AntiControl,
@@ -277,6 +291,8 @@ pub(crate) const PALETTE_GATES_ROW2: [GateKind; 12] = [
     GateKind::Write1,
     GateKind::Measurement,
     GateKind::ZDetectControlReset,
+    GateKind::XDetector,
+    GateKind::YDetector,
     GateKind::QftGate,
     GateKind::QftDaggerGate,
     GateKind::Spacer,
@@ -291,8 +307,8 @@ pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 5] = [
 pub(crate) const PALETTE_GATE_COUNT: usize =
     PALETTE_GATES_ROW1.len() + PALETTE_GATES_ROW2.len() + PALETTE_DISPLAY_GATES.len();
 pub(crate) const PALETTE_ROW1_COUNT: usize = PALETTE_GATES_ROW1.len();
-pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 12] =
-    [13, 14, 15, 27, 28, 17, 18, 19, 26, 22, 23, 21];
+pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 14] =
+    [13, 14, 15, 27, 28, 17, 18, 19, 26, 30, 31, 22, 23, 21];
 pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 5] = [16, 20, 29, 24, 25];
 
 pub(crate) fn default_palette_angle(kind: GateKind) -> Option<ParametricAngle> {
@@ -321,6 +337,10 @@ pub(crate) fn palette_gate_kind(index: usize) -> Option<GateKind> {
 }
 
 impl GateKind {
+    pub(crate) fn is_sampled_measurement(self) -> bool {
+        matches!(self, Self::Measurement | Self::XDetector | Self::YDetector)
+    }
+
     pub(crate) fn spec(self) -> &'static GateSpec {
         GATE_SPECS
             .iter()
@@ -388,6 +408,50 @@ mod tests {
                 Some(GateKind::XParityControl),
                 Some(GateKind::SampleDisplay),
             ]
+        );
+    }
+
+    #[test]
+    fn detectors_do_not_accept_measurement_flags() {
+        let flag = GateFlag::Set(FlagName::parse("outcome").unwrap());
+        assert_eq!(
+            [
+                GateKind::Measurement,
+                GateKind::XDetector,
+                GateKind::YDetector
+            ]
+            .map(|kind| flag.fits(kind)),
+            [true, false, false]
+        );
+    }
+
+    #[test]
+    fn detector_palette_ids_follow_historical_gates() {
+        assert_eq!(
+            [
+                palette_gate_kind(26),
+                palette_gate_kind(30),
+                palette_gate_kind(31),
+            ],
+            [
+                Some(GateKind::ZDetectControlReset),
+                Some(GateKind::XDetector),
+                Some(GateKind::YDetector),
+            ]
+        );
+    }
+
+    #[test]
+    fn sampled_measurements_include_both_detectors() {
+        assert_eq!(
+            [
+                GateKind::Measurement,
+                GateKind::XDetector,
+                GateKind::YDetector,
+                GateKind::H
+            ]
+            .map(GateKind::is_sampled_measurement),
+            [true, true, true, false]
         );
     }
 

@@ -22,7 +22,7 @@ use crate::gpu::{
 use crate::grid_cell::GridCell;
 use crate::icons::{
     conditional_gate_body_shape, draw_bloch_vector, draw_gate_body, draw_gate_body_filled,
-    draw_gate_glyph, draw_meter_icon,
+    draw_gate_glyph, draw_sampled_measurement_icon,
 };
 use crate::layout::{amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect};
 use crate::simulation_plan::FlagSource;
@@ -237,7 +237,7 @@ impl QniApp {
                 && self.dragging_live_display_snap
                 && ((gate.kind == GateKind::BlochDisplay
                     && self.bloch_display_slot(gate.id).is_some())
-                    || (gate.kind == GateKind::Measurement
+                    || (gate.kind.is_sampled_measurement()
                         && self.gpu_plan.has_measurement_slot(gate.id)));
             if dragging_gate_id == Some(gate.id) && !live_dragging_gate {
                 continue;
@@ -252,10 +252,10 @@ impl QniApp {
             // draw area. The shared span-resize component uses that same body.
             let body_rect = span_resize_body_rect(gate.kind, gate.span.get(), gate_rect);
             let measurement_has_slot =
-                gate.kind == GateKind::Measurement && self.gpu_plan.has_measurement_slot(gate.id);
+                gate.kind.is_sampled_measurement() && self.gpu_plan.has_measurement_slot(gate.id);
             let edit_hover_visible = !self.library.active_locked();
             let circuit_fill = colors.background;
-            if gate.kind == GateKind::Measurement {
+            if gate.kind.is_sampled_measurement() {
                 // qni shortens the input/output wire around a measurement
                 // dropzone and the meter's interior is opaque. Mask the
                 // circuit wire before painting hover chrome / SVG strokes /
@@ -285,7 +285,13 @@ impl QniApp {
                 // Repaint the meter in the same neutral tone as the wire after
                 // masking the wire gap. Draw it once (instead of purple then
                 // neutral) so anti-aliased edges do not leak the palette colour.
-                draw_meter_icon(painter, gate_rect, colors.measurement_fired_icon);
+                draw_sampled_measurement_icon(
+                    painter,
+                    gate_rect,
+                    gate.kind,
+                    colors.measurement_fired_icon,
+                    colors,
+                );
             } else if let Some(body) = batch.conditional_bodies.get(&gate.id) {
                 match body {
                     ConditionalGateBody::NeverApplies => draw_gate_body_filled(
@@ -785,7 +791,7 @@ impl QniApp {
             .placed_gates
             .iter()
             .filter_map(|gate| {
-                if gate.kind != GateKind::Measurement {
+                if !gate.kind.is_sampled_measurement() {
                     return None;
                 }
                 if dragging_gate_id == Some(gate.id)

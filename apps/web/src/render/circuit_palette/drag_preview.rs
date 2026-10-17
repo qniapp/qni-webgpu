@@ -63,7 +63,9 @@ impl QniApp {
             GateKind::AmplitudeDisplay => self.gpu_plan.amplitude_slot(gate.id).is_some(),
             GateKind::DensityMatrixDisplay => self.gpu_plan.density_slot(gate.id).is_some(),
             GateKind::BlochDisplay => self.gpu_plan.bloch_slot(gate.id).is_some(),
-            GateKind::Measurement => self.gpu_plan.has_measurement_slot(gate.id),
+            GateKind::Measurement | GateKind::XDetector | GateKind::YDetector => {
+                self.gpu_plan.has_measurement_slot(gate.id)
+            }
             _ => false,
         }
     }

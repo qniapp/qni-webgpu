@@ -11,6 +11,11 @@ version: 1
 #     できるだけ「日本語の助詞」「日本語語幹」を伴うパターンに絞る。
 
 rules:
+  - expected: 検出器
+    patterns:
+      - /ディテクター/
+      - /ディテクタ(?!ー)/
+
   # ── 表示ブロック (Display blocks) 用語統一 ──
   - expected: 確率表示ブロック
     patterns:

@@ -187,6 +187,7 @@ mod tests {
             gate_id: GateId::from_u32(1),
             qubit_bit: QubitBit::new(0),
             output_slot: SlotIndex::new(1),
+            controls: ColumnControls::NONE,
         }];
         let error = validate_simulation_plan_capacity(&ops, tiny_limits()).unwrap_err();
         assert_eq!(
