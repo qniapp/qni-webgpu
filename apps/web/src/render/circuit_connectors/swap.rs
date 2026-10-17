@@ -3,20 +3,19 @@ use std::cmp::Ordering;
 
 use crate::app::{GateId, QniApp};
 use crate::colors::Colors;
-use crate::constants::GATE_SIZE;
 use crate::gates::GateKind;
-use crate::layout::LayoutMetrics;
+use crate::layout::{CircuitProjection, LayoutMetrics};
 use crate::simulation_plan::ColumnAnalysis;
 
 use super::super::circuit::gate_slot_index_for_render;
-use super::draw_vertical_connector;
+use super::{along_time, along_wires, draw_wire_connector};
 
 pub(super) fn draw_swap_connectors(
     app: &QniApp,
     painter: &egui::Painter,
     metrics: &LayoutMetrics,
     colors: &Colors,
-    circuit_origin: egui::Pos2,
+    projection: CircuitProjection,
     dragging_gate_id: Option<GateId>,
 ) {
     let analysis = ColumnAnalysis::from_gates(&app.placed_gates, |gate| {
@@ -38,13 +37,18 @@ pub(super) fn draw_swap_connectors(
         if gates.len() < 2 {
             continue;
         }
-        let mut ys = gates
+        let centers = gates
             .iter()
             .map(|gate| {
-                circuit_origin.y
-                    + crate::render::circuit::gate_draw_pos(gate, app.dragging).y
-                    + GATE_SIZE / 2.0
+                crate::render::circuit::gate_square_center(
+                    projection,
+                    crate::render::circuit::gate_draw_pos(gate, app.dragging),
+                )
             })
+            .collect::<Vec<_>>();
+        let mut ys = centers
+            .iter()
+            .map(|&center| along_wires(projection, center))
             .collect::<Vec<_>>();
         ys.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
         let top_y = *ys.first().unwrap();
@@ -52,15 +56,11 @@ pub(super) fn draw_swap_connectors(
         // Swap connectors visually join the swap symbols themselves. Use the
         // actual rendered gate centres instead of the slot centre so the line
         // stays centred in the transparent Swap body during hover / drag.
-        let x = gates
+        let time = centers
             .iter()
-            .map(|gate| {
-                circuit_origin.x
-                    + crate::render::circuit::gate_draw_pos(gate, app.dragging).x
-                    + GATE_SIZE / 2.0
-            })
+            .map(|&center| along_time(projection, center))
             .sum::<f32>()
             / gates.len() as f32;
-        draw_vertical_connector(painter, x, top_y, bottom_y, colors.box_fill);
+        draw_wire_connector(painter, projection, time, top_y, bottom_y, colors.box_fill);
     }
 }

@@ -90,6 +90,10 @@ pub(crate) struct Colors {
     pub(crate) toolbar_icon: egui::Color32,
     pub(crate) toolbar_icon_hover: egui::Color32,
     pub(crate) toolbar_icon_disabled: egui::Color32,
+    pub(crate) carousel_arrow: egui::Color32,
+    pub(crate) carousel_arrow_disabled: egui::Color32,
+    pub(crate) carousel_dot: egui::Color32,
+    pub(crate) carousel_dot_current: egui::Color32,
     pub(crate) toolbar_shadow: egui::Color32,
     pub(crate) gpu_status_running: egui::Color32,
     pub(crate) gpu_status_completed: egui::Color32,
@@ -230,6 +234,10 @@ fn flexoki_light() -> Colors {
         toolbar_icon: flexoki::TX_2,
         toolbar_icon_hover: flexoki::TX,
         toolbar_icon_disabled: flexoki::TX_3,
+        carousel_arrow: flexoki::TX,
+        carousel_arrow_disabled: flexoki::UI_2,
+        carousel_dot: flexoki::UI_2,
+        carousel_dot_current: flexoki::BLUE_600,
         toolbar_shadow: with_alpha(flexoki::TX, 15),
         gpu_status_running: flexoki::BLUE_600,
         gpu_status_completed: flexoki::GREEN_600,
@@ -241,6 +249,16 @@ fn flexoki_light() -> Colors {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn carousel_current_dot_uses_flexoki_blue_600() {
+        assert_eq!(Colors::new().carousel_dot_current, flexoki::BLUE_600);
+    }
+
+    #[test]
+    fn carousel_idle_dot_uses_flexoki_ui_2() {
+        assert_eq!(Colors::new().carousel_dot, flexoki::UI_2);
+    }
 
     #[test]
     fn span_resize_handle_default_uses_flexoki_cyan_400() {

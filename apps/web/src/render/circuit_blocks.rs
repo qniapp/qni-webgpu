@@ -1,6 +1,7 @@
 //! Circuit-block drawing (qni `circuit-block`): a tinted band behind the
 //! block's columns, ruled top and bottom, with the label centred above and
-//! below it, as in qni's desktop (`min-width: 768px`) layout.
+//! below it, as in qni's desktop (`min-width: 768px`) layout. The vertical
+//! layout rules the band left and right and puts one label left of it.
 
 use eframe::egui;
 
@@ -10,7 +11,10 @@ use crate::constants::{
     CIRCUIT_BLOCK_BORDER_WIDTH, CIRCUIT_BLOCK_LABEL_FONT_SIZE, CIRCUIT_BLOCK_LABEL_LINE_HEIGHT,
     CIRCUIT_BLOCK_MARGIN_Y, CIRCUIT_BLOCK_PADDING_Y, LINE_GAP, SLOT_SPACING,
 };
-use crate::layout::LayoutMetrics;
+use crate::layout::{CircuitProjection, LayoutMetrics};
+
+/// Vertical layout: gap between a block's label and its left rule.
+const CIRCUIT_BLOCK_LABEL_GAP_X: f32 = crate::tailwind::SPACING_2;
 
 /// Circuit-local rect of a block body, borders included. Spans the block's
 /// columns edge to edge horizontally and, vertically, the step-preview bars
@@ -50,15 +54,33 @@ impl QniApp {
         painter: &egui::Painter,
         metrics: &LayoutMetrics,
         colors: &Colors,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
     ) {
         let font = egui::FontId::monospace(CIRCUIT_BLOCK_LABEL_FONT_SIZE);
         for block in self.circuit_blocks.iter() {
             let Some(local) = circuit_block_rect(block, metrics) else {
                 continue;
             };
-            let body = local.translate(circuit_origin.to_vec2());
+            let body = projection.to_screen_rect(local);
             painter.rect_filled(body, 0.0, colors.circuit_block_fill);
+            if projection.is_vertical() {
+                let rule = egui::vec2(CIRCUIT_BLOCK_BORDER_WIDTH, body.height());
+                for min in [body.left_top(), body.right_top() - egui::vec2(rule.x, 0.0)] {
+                    painter.rect_filled(
+                        egui::Rect::from_min_size(min, rule),
+                        0.0,
+                        colors.circuit_block_border,
+                    );
+                }
+                painter.text(
+                    egui::pos2(body.left() - CIRCUIT_BLOCK_LABEL_GAP_X, body.top()),
+                    egui::Align2::RIGHT_TOP,
+                    block.label(),
+                    font.clone(),
+                    colors.circuit_block_label,
+                );
+                continue;
+            }
             let rule = egui::vec2(body.width(), CIRCUIT_BLOCK_BORDER_WIDTH);
             painter.rect_filled(
                 egui::Rect::from_min_size(body.left_top(), rule),
@@ -157,8 +179,14 @@ mod tests {
 
     #[test]
     fn blocks_push_the_circuit_down_by_their_outset() {
-        let shift = app(BELL_BLOCK).circuit_origin(screen(), 0.0).y
-            - app(BELL).circuit_origin(screen(), 0.0).y;
+        let shift = app(BELL_BLOCK)
+            .circuit_projection(screen(), 0.0)
+            .to_screen(egui::Pos2::ZERO)
+            .y
+            - app(BELL)
+                .circuit_projection(screen(), 0.0)
+                .to_screen(egui::Pos2::ZERO)
+                .y;
 
         assert_eq!(shift, 32.0 + 2.0 + 24.0);
     }
@@ -176,7 +204,12 @@ mod tests {
     #[test]
     fn circuit_bottom_includes_the_lower_label_band() {
         let app = app(BELL_BLOCK);
-        let last_line_y = app.circuit_origin(screen(), 0.0).y + LINE_Y + LINE_GAP;
+        let last_line_y = app
+            .circuit_projection(screen(), 0.0)
+            .to_screen(egui::Pos2::ZERO)
+            .y
+            + LINE_Y
+            + LINE_GAP;
 
         assert_eq!(
             app.circuit_bottom_y(screen()),

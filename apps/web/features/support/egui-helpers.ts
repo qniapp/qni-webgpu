@@ -3,7 +3,10 @@ import os from 'node:os'
 import path from 'node:path'
 import type { Locator, Page } from 'playwright'
 import { UI_CONSTANTS } from '../../test-support/generated-ui-constants'
+import { getPaletteGateCenter } from '../../test-support/palette-layout'
 import type { CanvasPixel, DragPreviewProbe, PixelSamplePoint, Point } from './support-types'
+
+export { getPaletteGateCenter }
 
 declare global {
   interface Window {
@@ -23,15 +26,8 @@ type CanvasContentStats = { nonBackground: number; sampledPixels: number }
 type ReadCanvasContentStatsOptions = { path?: string; background?: readonly number[]; threshold?: number; step?: number }
 type WaitForCanvasContentOptions = ReadCanvasContentStatsOptions & { timeout?: number; minNonBackground?: number }
 type ScreenshotWithRetryOptions = NonNullable<Parameters<Locator['screenshot']>[0]> & { waitForStateVector?: boolean }
-type PaletteGateCenterOptions = {
-  gateSize?: number; gap?: number; rowY?: number
-  row1Count?: number; rowGap?: number; sectionGap?: number; separatorWidth?: number
-  displayColumns?: number
-}
 type DragPreviewProbeOptions = {
-  gateIndex?: number; gateSize?: number; paletteGap?: number; paletteRowY?: number
-  paletteRow1Count?: number; paletteRowGap?: number; paletteSectionGap?: number
-  paletteSeparatorWidth?: number; paletteDisplayColumns?: number
+  gateIndex?: number; gateSize?: number
   stateCircleBottomMargin?: number; stateCount?: number; rem?: number
 }
 type ArtifactWorld = { artifactDir?: string } | null | undefined
@@ -49,16 +45,6 @@ const DEFAULT_CANVAS_SAMPLE_STEP = 4
 const DEFAULT_BACKGROUND_RGB = [255, 255, 255]
 const DEFAULT_REM = UI_CONSTANTS.REM
 const DEFAULT_GATE_SIZE = UI_CONSTANTS.GATE_SIZE
-// qni reference: space-x-2 / space-y-2 (Tailwind) → 0.5rem (8px).
-const DEFAULT_PALETTE_GAP = UI_CONSTANTS.PALETTE_GAP
-const DEFAULT_PALETTE_ROW_Y = UI_CONSTANTS.PALETTE_ROW_Y
-const DEFAULT_PALETTE_ROW1_COUNT = 13
-const DEFAULT_PALETTE_ROW_GAP = UI_CONSTANTS.PALETTE_ROW_GAP
-const DEFAULT_PALETTE_SECTION_GAP = UI_CONSTANTS.PALETTE_SECTION_GAP
-const DEFAULT_PALETTE_SEPARATOR_WIDTH = UI_CONSTANTS.PALETTE_SEPARATOR_WIDTH
-const DEFAULT_PALETTE_DISPLAY_COLUMNS = UI_CONSTANTS.PALETTE_DISPLAY_COLUMNS
-const DEFAULT_PALETTE_GATES_ROW2_INDICES = [13, 14, 15, 31, 32, 17, 18, 19, 26, 34, 35, 22, 23, 21, 27, 28, 29, 30]
-const DEFAULT_PALETTE_DISPLAY_INDICES = [16, 20, 33, 24, 25]
 const DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN = UI_CONSTANTS.STATE_CIRCLE_BOTTOM_MARGIN
 const DEFAULT_STATE_COUNT = 4
 
@@ -543,84 +529,18 @@ export const releasePointer = async (page: Page, at: Point): Promise<void> => {
   await page.mouse.up()
 }
 
-export const getPaletteGateCenter = (
-  cssWidth: number,
-  gateIndex: number,
-  {
-    gateSize = DEFAULT_GATE_SIZE,
-    gap = DEFAULT_PALETTE_GAP,
-    rowY = DEFAULT_PALETTE_ROW_Y,
-    row1Count = DEFAULT_PALETTE_ROW1_COUNT,
-    rowGap = DEFAULT_PALETTE_ROW_GAP,
-    sectionGap = DEFAULT_PALETTE_SECTION_GAP,
-    separatorWidth = DEFAULT_PALETTE_SEPARATOR_WIDTH,
-    displayColumns = DEFAULT_PALETTE_DISPLAY_COLUMNS,
-  }: PaletteGateCenterOptions = {}
-): Point => {
-  const row1Width = row1Count > 0 ? row1Count * gateSize + (row1Count - 1) * gap : 0
-  const row2Count = DEFAULT_PALETTE_GATES_ROW2_INDICES.length
-  const row2Width = row2Count > 0 ? row2Count * gateSize + (row2Count - 1) * gap : 0
-  const gatesWidth = Math.max(row1Width, row2Width)
-  const displayWidth = displayColumns * gateSize + (displayColumns - 1) * gap
-  const displayX = gatesWidth + sectionGap + separatorWidth + sectionGap
-  const totalWidth = displayX + displayWidth
-  const panelMargin = 8
-  const offset = (cssWidth - 2 * panelMargin - totalWidth) / 2
-  const paletteStartX = panelMargin + Math.sign(offset) * Math.round(Math.abs(offset))
-
-  const row2Col = DEFAULT_PALETTE_GATES_ROW2_INDICES.indexOf(gateIndex)
-  const displaySlot = DEFAULT_PALETTE_DISPLAY_INDICES.indexOf(gateIndex)
-  if (gateIndex < row1Count) {
-    return {
-      x: paletteStartX + gateIndex * (gateSize + gap) + gateSize / 2,
-      y: rowY + gateSize / 2,
-    }
-  }
-  if (row2Col >= 0) {
-    return {
-      x: paletteStartX + row2Col * (gateSize + gap) + gateSize / 2,
-      y: rowY + gateSize + rowGap + gateSize / 2,
-    }
-  }
-  if (displaySlot >= 0) {
-    const row = Math.floor(displaySlot / displayColumns)
-    const col = displaySlot % displayColumns
-    return {
-      x: paletteStartX + displayX + col * (gateSize + gap) + gateSize / 2,
-      y: rowY + row * (gateSize + rowGap) + gateSize / 2,
-    }
-  }
-  throw new Error(`unknown palette gate index: ${gateIndex}`)
-}
-
 export const getDragPreviewAboveStatePanelProbe = (
   cssWidth: number,
   cssHeight: number,
   {
     gateIndex = 0,
     gateSize = DEFAULT_GATE_SIZE,
-    paletteGap = DEFAULT_PALETTE_GAP,
-    paletteRowY = DEFAULT_PALETTE_ROW_Y,
-    paletteRow1Count = DEFAULT_PALETTE_ROW1_COUNT,
-    paletteRowGap = DEFAULT_PALETTE_ROW_GAP,
-    paletteSectionGap = DEFAULT_PALETTE_SECTION_GAP,
-    paletteSeparatorWidth = DEFAULT_PALETTE_SEPARATOR_WIDTH,
-    paletteDisplayColumns = DEFAULT_PALETTE_DISPLAY_COLUMNS,
     stateCircleBottomMargin = DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN,
     stateCount = DEFAULT_STATE_COUNT,
     rem = DEFAULT_REM,
   }: DragPreviewProbeOptions = {}
 ): DragPreviewProbe => {
-  const source = getPaletteGateCenter(cssWidth, gateIndex, {
-    gateSize,
-    gap: paletteGap,
-    rowY: paletteRowY,
-    row1Count: paletteRow1Count,
-    rowGap: paletteRowGap,
-    sectionGap: paletteSectionGap,
-    separatorWidth: paletteSeparatorWidth,
-    displayColumns: paletteDisplayColumns,
-  })
+  const source = getPaletteGateCenter(cssWidth, gateIndex)
 
   // qni reference: `circle_notation` is rendered with `padding_x: 16,
   // padding_y: 20` (`apps/www/app/views/circuits/show.html.erb:66-67`),
