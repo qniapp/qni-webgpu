@@ -272,6 +272,28 @@ mod tests {
     }
 
     #[test]
+    fn serializes_detect_control_reset_probability_controls() {
+        let gates = [GateKind::ZDetectControlReset, GateKind::ProbabilityDisplay]
+            .into_iter()
+            .enumerate()
+            .map(|(wire, kind)| {
+                PlacedGate::new(
+                    crate::app::GateId::from_u32(wire as u32 + 1),
+                    kind,
+                    crate::app::CircuitColumnIndex::new(0),
+                    crate::app::WireIndex::new(wire),
+                    crate::gates::GateSpan::SINGLE,
+                    None,
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            probability_requests_json(&requests(&gates, qubit_count(2))),
+            r#"[{"gate_id":2,"column":0,"span":1,"base_bit":1,"control_mask":1,"control_value":1}]"#,
+        );
+    }
+
+    #[test]
     fn external_probability_slot_matches_collection_order() {
         let requests = requests(
             &[
