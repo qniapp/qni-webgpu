@@ -14,6 +14,7 @@ use eframe::{egui, egui_wgpu};
 
 use super::{GateId, QniApp};
 use crate::gpu::StateVectorResourceBootstrapCallback;
+use crate::layout::CircuitOrientation;
 use crate::render::StatePanelLayout;
 use crate::shared::now_seconds;
 
@@ -40,6 +41,7 @@ impl QniApp {
         ui: &mut egui::Ui,
     ) {
         let screen_rect = ui.max_rect();
+        self.update_orientation(ctx);
         let colors = self.colors();
         let target_format = frame.wgpu_render_state().map(|state| state.target_format);
 
@@ -82,6 +84,32 @@ impl QniApp {
     }
 }
 
+impl QniApp {
+    /// Decides the layout once per frame. Embeds keep the horizontal
+    /// layout, and a gesture in progress keeps the layout it started in
+    /// (a phone keyboard or URL bar may resize the canvas mid-gesture).
+    fn update_orientation(&mut self, ctx: &egui::Context) {
+        if self.dragging.is_some()
+            || self.span_resize_drag.is_some()
+            || self.angle_editor.is_some()
+            || self.circuit_pan.is_some()
+        {
+            return;
+        }
+        let orientation = if matches!(self.mode, super::AppMode::Embed { .. }) {
+            CircuitOrientation::Horizontal
+        } else {
+            CircuitOrientation::for_canvas(ctx.content_rect().size())
+        };
+        if orientation != self.orientation {
+            self.orientation = orientation;
+            self.circuit_scroll_time = 0.0;
+            self.state_panel.offset = egui::Vec2::ZERO;
+            ctx.request_repaint();
+        }
+    }
+}
+
 impl eframe::App for QniApp {
     #[cfg(target_arch = "wasm32")]
     fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
@@ -112,5 +140,80 @@ impl eframe::App for QniApp {
             });
         self.show_exec_mode_toolbar(ctx, &colors);
         self.finish_update_frame(ctx, frame_start);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PHONE: egui::Vec2 = egui::vec2(390.0, 844.0);
+    const DESKTOP: egui::Vec2 = egui::vec2(1000.0, 800.0);
+
+    fn app() -> (QniApp, egui::Context) {
+        let ctx = egui::Context::default();
+        let app = QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));
+        (app, ctx)
+    }
+
+    fn update(app: &mut QniApp, ctx: &egui::Context, canvas: egui::Vec2) {
+        let _ = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, canvas)),
+                ..Default::default()
+            },
+            |ui| app.update_orientation(ui.ctx()),
+        );
+    }
+
+    #[test]
+    fn phone_canvas_selects_the_vertical_layout() {
+        let (mut app, ctx) = app();
+        update(&mut app, &ctx, PHONE);
+
+        assert_eq!(app.orientation, CircuitOrientation::Vertical);
+    }
+
+    #[test]
+    fn desktop_canvas_returns_to_the_horizontal_layout() {
+        let (mut app, ctx) = app();
+        update(&mut app, &ctx, PHONE);
+        update(&mut app, &ctx, DESKTOP);
+
+        assert_eq!(app.orientation, CircuitOrientation::Horizontal);
+    }
+
+    #[test]
+    fn embed_keeps_the_horizontal_layout_on_a_phone() {
+        let (mut app, ctx) = app();
+        app.mode = super::super::AppMode::Embed {
+            show_state_panel: true,
+            max_wire_count: None,
+        };
+        update(&mut app, &ctx, PHONE);
+
+        assert_eq!(app.orientation, CircuitOrientation::Horizontal);
+    }
+
+    #[test]
+    fn layout_is_kept_while_a_pan_is_in_progress() {
+        let (mut app, ctx) = app();
+        update(&mut app, &ctx, PHONE);
+        app.circuit_pan = Some(super::super::drag_controller::pan::CircuitPan::new(
+            egui::pos2(60.0, 400.0),
+            None,
+        ));
+        update(&mut app, &ctx, DESKTOP);
+
+        assert_eq!(app.orientation, CircuitOrientation::Vertical);
+    }
+
+    #[test]
+    fn switching_layout_resets_the_time_scroll() {
+        let (mut app, ctx) = app();
+        app.circuit_scroll_time = 120.0;
+        update(&mut app, &ctx, PHONE);
+
+        assert_eq!(app.circuit_scroll_time, 0.0);
     }
 }

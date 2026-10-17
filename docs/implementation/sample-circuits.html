@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>9 本のサンプル回路の読み方 — 実装仕様</title>
+  <link rel="stylesheet" href="../design-system/design-system.css" />
+  <script src="../design-system/components/circuit-dropzone.js"></script>
+  <script src="../design-system/components/h-gate.js"></script>
+  <script src="../design-system/components/x-gate.js"></script>
+  <script src="../design-system/components/control-gate.js"></script>
+  <script src="../design-system/components/bloch-display.js"></script>
+  <script src="../design-system/components/amplitude-display.js"></script>
+  <script src="../design-system/components/quantum-circuit.js"></script>
+  <style>
+    .sample-figure { overflow-x: auto; padding-inline: 8px; }
+  </style>
+</head>
+<body>
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../implementation.html">実装仕様</a><span class="sep">/</span>
+  <span class="current" aria-current="page">サンプル回路の読み方</span>
+</nav>
+<div class="page">
+  <p class="eyebrow">qni-webgpu · sample circuits</p>
+  <h1 class="page-title">9 本のサンプル回路の読み方</h1>
+  <p class="page-lede">サンプルを開いたら、まず回路ブロックのラベルで処理のまとまりを読み、表示ブロックで状態や確率を見比べる。</p>
+</div>
+<section class="block" id="guide">
+  <h2>共通の読み方</h2>
+  <div class="card">
+    <p>青い上下罫線の淡い帯が<strong>回路ブロック</strong>。全ワイヤにまたがり、上下に同じ英語のラベルを表示する。ブロック間の空列は区切りで、帯も空列も計算を変えない。</p>
+    <p>一番上の q0 が最下位ビット（LSB）。値 k は q0 + 2·q1 + 4·q2 + … で数える。ビット列 |q2 q1 q0⟩ では右端が q0 になる。</p>
+    <ul>
+      <li><code>Bloch</code> は 1 量子ビットのブロッホ球表示ブロック。球の向きで状態を比べる。</li>
+      <li><code>ProbabilityN</code> は N 量子ビットの確率表示ブロック。各値の確率を見る。1 量子ビットでは接尾辞なしの <code>Probability</code>。</li>
+      <li><code>AmpsN</code> は振幅表示ブロック。円の大きさは振幅の絶対値、針は位相を示し、確率は絶対値の二乗。</li>
+    </ul>
+    <p>表示ブロックは状態を変えない。同じ列の制御は表示の条件にもなるため、遅延選択量子消しゴムの <code>sort by q0,q1</code> にある 4 個の Probability7 以外は専用の列に置いている。</p>
+    <p class="note">このページの回路図は配置を示す静的な図で、表示ブロックの箱は計算結果ではない。以下の値はアプリでサンプルを実行したときの読み方。Bell の Amps2 と GHZ の Amps3 は 2 列幅なので、直後の余白列も帯に含めている。</p>
+  </div>
+</section>
+<section class="block" id="bell">
+  <h2>§ 01 Bell 状態（Bell state）</h2>
+  <div class="card">
+    <p>H で q0 を重ね合わせにし、CNOT でもつれを作る最小の例。</p>
+    <div class="sample-figure"><quantum-circuit cols='[["{superposition"],["H"],["Bloch"],["}"],[1],["{entangle"],["•","X"],["Amps2"],[1],["}"]]'></quantum-circuit></div>
+    <table class="spec">
+      <thead><tr><th>回路ブロック</th><th>役割と表示の読み方</th></tr></thead>
+      <tbody>
+        <tr><td><code>superposition</code></td><td>H の後の Bloch は +x（|+⟩）を向く。</td></tr>
+        <tr><td><code>entangle</code></td><td>Amps2 の |00⟩ と |11⟩ にだけ +1/√2 の振幅がある。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="block" id="ghz">
+  <h2>§ 02 GHZ 状態（GHZ state）</h2>
+  <div class="card">
+    <p>Bell 状態をもう 1 量子ビットへ広げ、3 本が全部 0 か全部 1 になる。</p>
+    <div class="sample-figure"><quantum-circuit cols='[["{superposition"],["H"],["Bloch"],["}"],[1],["{entangle"],["•","X"],["•",1,"X"],["Amps3"],[1],["}"]]'></quantum-circuit></div>
+    <table class="spec">
+      <thead><tr><th>回路ブロック</th><th>役割と表示の読み方</th></tr></thead>
+      <tbody>
+        <tr><td><code>superposition</code></td><td>Bell と同じく、H の後の Bloch は +x を向く。</td></tr>
+        <tr><td><code>entangle</code></td><td>CNOT を 2 回使う。Amps3 の |000⟩ と |111⟩ にだけ +1/√2 の振幅がある。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="block" id="quantum-teleportation">
+  <h2>§ 03 量子テレポーテーション（Quantum Teleportation）</h2>
+  <div class="card">
+    <p>共有したもつれと 2 ビットの測定結果を使い、q0 の状態を q2 へ移す。</p>
+    <table class="spec">
+      <thead><tr><th>回路ブロック</th><th>役割と表示の読み方</th></tr></thead>
+      <tbody>
+        <tr><td><code>Bell pair</code></td><td>q1・q2 にもつれを用意する。</td></tr>
+        <tr><td><code>message</code></td><td>H と T でメッセージを作り、Bloch で表示する。</td></tr>
+        <tr><td><code>Bell measurement</code></td><td>q0・q1 を測定し、2 ビットの古典情報を得る。</td></tr>
+        <tr><td><code>correction</code></td><td>測定値に応じて X と Z で補正する。</td></tr>
+        <tr><td><code>received</code></td><td>q2 の Bloch は message と同じ (1/√2, 1/√2, 0)。測定結果はランダムでも一致する。</td></tr>
+      </tbody>
+    </table>
+    <p><a href="quantum-teleportation.html">回路図と詳しい解説</a></p>
+  </div>
+</section>
+<section class="block" id="superdense-coding">
+  <h2>§ 04 超高密度符号化（Superdense Coding）</h2>
+  <div class="card">
+    <p>共有したベルペアを使い、1 量子ビットを送るだけで 2 古典ビットを伝える。送信ビットは 11 に固定している。</p>
+    <table class="spec">
+      <thead><tr><th>回路ブロック</th><th>役割と表示の読み方</th></tr></thead>
+      <tbody>
+        <tr><td><code>Bell pair</code></td><td>q3・q4 にもつれを作る。</td></tr>
+        <tr><td><code>distribute</code></td><td>Swap でアリスとボブへ配る。</td></tr>
+        <tr><td><code>message</code></td><td>q0・q1 の Probability2 は 11（値 3）が 100 %。</td></tr>
+        <tr><td><code>encode</code></td><td>Z と X で 2 ビットを符号化する。</td></tr>
+        <tr><td><code>send</code></td><td>符号化した 1 量子ビットを送る。</td></tr>
+        <tr><td><code>decode</code></td><td>復号後の q4・q5 の Probability2 も 11 が 100 %。q0 ↔ q4、q1 ↔ q5 に対応する。</td></tr>
+      </tbody>
+    </table>
+    <p><a href="superdense-coding.html">回路図と詳しい解説</a></p>
+  </div>
+</section>
+<section class="block" id="qft-4">
+  <h2>§ 05 4 量子ビットの量子フーリエ変換（QFT 4-qubit）</h2>
+  <div class="card">
+    <p>周期的な入力が、周期に対応する位置のピークへ変わる。</p>
+    <table class="spec">
+      <thead><tr><th>回路ブロック</th><th>役割と表示の読み方</th></tr></thead>
+      <tbody>
+        <tr><td><code>input</code></td><td>q1–q3 に H を掛け、偶数の値 0・2・…・14 に各 1/8 の確率を持つ周期 2 の入力を作る。Probability4 で確認する。</td></tr>
+        <tr><td><code>bit reversal</code></td><td>Swap で入力のビット順を反転する。</td></tr>
+        <tr><td><code>phase ladder</code></td><td>H と制御位相回転 P(π_2)・P(π_4)・P(π_8) のはしごで QFT を実行する。</td></tr>
+        <tr><td><code>output</code></td><td>Probability4 は |0⟩ と |8⟩ に各 1/2。16 / 周期 2 = 8 の倍数に集まる。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="block" id="symmetry-breaking">
+  <h2>§ 06 対称性の破れ（Symmetry Breaking）</h2>
+  <div class="card">
+    <p>上の組 Alice¹（q0・q1）と下の組 Alice²（q2・q3）に同じ操作をしても、両者の測定結果は必ずビット反転になる。</p>
+    <table class="spec">
+      <thead><tr><th>回路ブロック</th><th>役割と表示の読み方</th></tr></thead>
+      <tbody>
+        <tr><td><code>two Bell pairs</code></td><td>2 組にもつれを用意する。</td></tr>
+        <tr><td><code>swap partners</code></td><td>q1 と q3 を入れ替える。</td></tr>
+        <tr><td><code>symmetric ops</code></td><td>両組に同じ操作を行う。</td></tr>
+        <tr><td><code>outcomes differ</code></td><td>Probability2 ×2 はどちらも 4 通りが各 25 %。Probability4 は値 3・6・9・12 だけが各 25 %。各組だけでは区別できないが、組み合わせると必ず逆になる。</td></tr>
+      </tbody>
+    </table>
+    <p><a href="symmetry-breaking.html">回路図と詳しい解説</a></p>
+  </div>
+</section>
+<section class="block" id="grover-search">
+  <h2>§ 07 Grover 探索（Grover Search）</h2>
+  <div class="card">
+    <p>32 通りの中で印を付けた |27⟩ の確率を、反復によって高める。</p>
+    <table class="spec">
+      <thead><tr><th>回路ブロック</th><th>役割と表示の読み方</th></tr></thead>
+      <tbody>
+        <tr><td><code>superposition</code></td><td>一様な重ね合わせを作る。Probability5 の |27⟩ は約 3.1 %。</td></tr>
+        <tr><td><code>oracle</code></td><td>|27⟩ の位相を反転する。</td></tr>
+        <tr><td><code>diffuser</code></td><td>平均のまわりで振幅を反転する。最初の反復後は約 25.8 %。</td></tr>
+        <tr><td><code>iteration 2 / iteration 3 / iteration 4</code></td><td>オラクルと拡散を繰り返す。Probability5 の |27⟩ は約 60.2 % → 89.7 % → 99.9 % と増える。表示は初期状態を含めて 5 個。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="block" id="reversible-addition">
+  <h2>§ 08 可逆加算（Reversible Addition）</h2>
+  <div class="card">
+    <p>A（q0–q4）を保ったまま B（q5–q9）に足す。5 ビットなので計算は mod 32。</p>
+    <table class="spec">
+      <thead><tr><th>回路ブロック</th><th>役割と表示の読み方</th></tr></thead>
+      <tbody>
+        <tr><td><code>A=5, B=3</code></td><td>入力の Probability5 ×2 は A = 5、B = 3 に確率 1。</td></tr>
+        <tr><td><code>B += A</code></td><td>X・CNOT・制御 Swap の可逆回路で足し算する。</td></tr>
+        <tr><td><code>A=5, B=8</code></td><td>出力の Probability5 ×2 は A = 5 のまま、B = 8 に確率 1。</td></tr>
+      </tbody>
+    </table>
+    <p><a href="reversible-addition.html">回路図と詳しい解説</a></p>
+  </div>
+</section>
+<section class="block" id="delayed-choice-eraser">
+  <h2>§ 09 遅延選択量子消しゴム（Delayed Choice Eraser）</h2>
+  <div class="card">
+    <p>経路情報を消した場合だけ、選択と経路で仕分けたスクリーンの分布に干渉縞が現れる。</p>
+    <table class="spec">
+      <thead><tr><th>回路ブロック</th><th>役割と表示の読み方</th></tr></thead>
+      <tbody>
+        <tr><td><code>two slits</code></td><td>q1 の二経路の重ね合わせを q4 と結び、経路情報を残す。</td></tr>
+        <tr><td><code>screen</code></td><td>q2–q8 に QFT7 を適用する。Probability7 は全 128 通りが 1/128。</td></tr>
+        <tr><td><code>erase path?</code></td><td>q0 の選択で q1 の基底を変え、経路情報を消す。測定は置かない。</td></tr>
+        <tr><td><code>sort by q0,q1</code></td><td>左から (q0,q1) = (0,0), (0,1), (1,0), (1,1) の条件付き Probability7。最初の 2 つは平らで各 1/128。(1,0) は周期 32 の縞で、値 8・40・72・104 は 1/64、24・56・88・120 は 0。(1,1) は逆の縞で、値 8 は 0、24 は 1/64。</td></tr>
+      </tbody>
+    </table>
+    <p><a href="delayed-choice-eraser.html">回路図と詳しい解説</a></p>
+  </div>
+</section>
+<footer class="doc-foot">
+  <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
+</footer>
+</body>
+</html>

@@ -64,10 +64,11 @@
     </p>
 
     <div class="dce-figure">
-      <quantum-circuit cols='[[1,"H"],[1,"•",1,1,"X"],[1,1,"QFT7"],[1,1,"Probability7"],["H"],["•","X^½"],["◦","◦","Probability7"],["◦","•","Probability7"],["•","◦","Probability7"],["•","•","Probability7"]]'></quantum-circuit>
+      <quantum-circuit cols='[["{two slits"],[1,"H"],[1,"•",1,1,"X"],["}"],[1],["{screen"],[1,1,"QFT7"],[1,1,"Probability7"],["}"],[1],["{erase path?"],["H"],["•","X^½"],["}"],[1],["{sort by q0,q1"],["◦","◦","Probability7"],["◦","•","Probability7"],["•","◦","Probability7"],["•","•","Probability7"],["}"]]'></quantum-circuit>
     </div>
 
     <div class="dce-legend" aria-hidden="true">
+      <span class="item">青い上下罫線の帯 = 回路ブロック（上下に同じラベル）</span>
       <span class="item"><span class="glyph"><h-gate></h-gate></span>アダマール</span>
       <span class="item"><span class="glyph"><control-gate></control-gate></span>制御</span>
       <span class="item"><span class="glyph"><anti-control-gate></anti-control-gate></span>反制御</span>
@@ -87,14 +88,12 @@
   <h2>§ 02 回路の読み方</h2>
   <div class="card">
     <table class="spec">
-      <thead><tr><th>ステップ</th><th>操作</th><th>意味</th></tr></thead>
+      <thead><tr><th>回路ブロック</th><th>操作</th><th>意味</th></tr></thead>
       <tbody>
-        <tr><td>1 – 2</td><td>q1 に H → CNOT(q1→q4)</td><td>光子（q1）を二経路の重ね合わせにし、経路情報をスクリーンの 1 本（q4）へ刻む（二重スリットに相当）</td></tr>
-        <tr><td>3</td><td>スクリーンに QFT</td><td>着弾位置の分布を作る</td></tr>
-        <tr><td>4</td><td>スクリーン全体の確率表示ブロック</td><td>経路情報が残っているため、全体の分布は<strong>のっぺり</strong>（干渉縞なし）</td></tr>
-        <tr><td>5</td><td>q0 に H</td><td>「経路情報を消すか残すか」をコヒーレントな重ね合わせにする（測定はしない）</td></tr>
-        <tr><td>6</td><td>q0 で制御した √X を q1 に</td><td><strong>消しゴム</strong>。q0 が「消す」側のとき q1 の基底を変え、経路情報を消す</td></tr>
-        <tr><td>7 – 10</td><td>条件付きの確率表示ブロック ×4</td><td>スクリーンの分布を、選択（q0）と経路（q1）の 4 通りで<strong>仕分けて同時に</strong>見せる</td></tr>
+        <tr><td><code>two slits</code></td><td>H(q1) → CNOT(q1→q4)</td><td>光子を二経路の重ね合わせにし、スクリーンに経路情報を刻む。</td></tr>
+        <tr><td><code>screen</code></td><td>QFT7 → Probability7</td><td>q2–q8 の着弾位置の分布を作り、平らな分布を表示する。</td></tr>
+        <tr><td><code>erase path?</code></td><td>H(q0) → 制御 √X(q0→q1)</td><td>選択を重ね合わせにし、q0 = 1 のとき経路情報を消す。測定は置かない。</td></tr>
+        <tr><td><code>sort by q0,q1</code></td><td>条件付き Probability7 ×4</td><td>(q0, q1) = (0,0), (0,1), (1,0), (1,1) の順に分布を表示する。</td></tr>
       </tbody>
     </table>
   </div>
@@ -118,6 +117,7 @@
     <p class="note">
       肝心なのは、<strong>スクリーン全体の分布は常にのっぺり</strong>で、干渉縞は<strong>選択・経路で仕分けた部分集合のなかにだけ</strong>現れること。縞を取り出すには仕分けが要る。
     </p>
+    <p>sort by q0,q1 の 4 つの表示は左から (0,0), (0,1), (1,0), (1,1)。最初の 2 つは全 128 通りが 1/128。(1,0) は周期 32 の縞になり、値 8・40・72・104 で 1/64、24・56・88・120 で 0。(1,1) はその逆で、値 8 で 0、24 で 1/64 になる。</p>
     <p class="note">
       Quirk は各ショットで測定し結果ごとに仕分けてこの分布（アンサンブル）を見せる。qni の測定は状態を 1 サンプルに潰すため同じ見せ方ができないので、ここでは<strong>測定を置かず、コヒーレントな状態への条件付き確率表示</strong>で同じ分布を 4 通り同時に提示している（測定して仕分けたアンサンブルと、コヒーレントな状態の条件付き確率は同じ分布になる）。
     </p>
@@ -135,7 +135,7 @@
       <li>確率表示ブロックの ID を <code>Chance</code> → <code>Probability</code> に書き換える。</li>
       <li><strong>測定（Measure）は置かない。</strong> qni の測定は状態を 1 サンプルに潰すため、アンサンブルの干渉縞が 1 画面で出ない。スクリーンと q0/q1 をコヒーレントに保ち、条件付き確率表示で 4 通りを同時に見せる（測定して仕分けた分布と同じ）。</li>
       <li><strong>which-path のマーク（CNOT のターゲット）は Quirk と同じ q4 のまま。</strong> qni は上のワイヤ q0 を最下位ビット（LSB）として数えるリトルエンディアンで、これは Quirk と同じビット順なので、Quirk 本来の q4（QFT レジスタの上から 3 番目のワイヤ）にマークを置けば干渉縞の本数（4 本）も Quirk と一致する。qni の QFT は先頭にビット反転 SWAP を含む真の離散フーリエ変換（<a href="quirk-sample-circuits.html">QFT の項</a>）。</li>
-      <li>注釈用のカスタムゲート（<code>slits</code> / <code>choice</code> / <code>result</code> / <code>flat</code> / <code>waves</code> といった恒等行列のラベル）と区切りだけの列を削除する。</li>
+      <li>注釈用のカスタムゲート（<code>slits</code> / <code>choice</code> / <code>result</code> / <code>flat</code> / <code>waves</code> といった恒等行列のラベル）を回路ブロックのラベルに置き換え、ブロックの間に区切りの空列を 1 つずつ入れる。</li>
     </ul>
     <table class="spec">
       <tbody>
@@ -149,6 +149,7 @@
 </section>
 
 <footer class="doc-foot">
+  <p><a href="sample-circuits.html">9 本のサンプル回路の読み方</a></p>
   <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
   <p class="meta">qni-webgpu · 遅延選択量子消しゴム（Delayed Choice Quantum Eraser）· 2026-05</p>
 </footer>

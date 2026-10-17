@@ -8,13 +8,13 @@ use crate::gpu::{
     AMPLITUDE_FORCE_ZERO,
 };
 use crate::icons::{draw_bloch_vector, draw_drag_gate_body};
-use crate::layout::{amplitude_grid_rect, gate_visible_rect};
+use crate::layout::{amplitude_grid_rect, CircuitProjection};
 
 impl QniApp {
     pub(crate) fn draw_drag_preview(
         &self,
         painter: &egui::Painter,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
         colors: &Colors,
         dragging_gate_id: GateId,
         live_drag_gpu_overlay_ready: bool,
@@ -26,9 +26,10 @@ impl QniApp {
         else {
             return;
         };
-        let gate_rect = gate_visible_rect(
+        let gate_rect = crate::render::circuit::gate_screen_rect(
+            projection,
             gate,
-            circuit_origin + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+            crate::render::circuit::gate_draw_pos(gate, self.dragging),
         );
         let body_rect = if gate.kind == GateKind::AmplitudeDisplay {
             amplitude_grid_rect(gate_rect, gate.span.get())

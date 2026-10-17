@@ -64,6 +64,7 @@ impl QniApp {
             mode: &mut self.exec_mode,
             keyboard_focus: &mut self.exec_mode_keyboard_focus,
             local_available,
+            compact: self.orientation.is_vertical(),
             colors,
         });
         if self.exec_mode != previous_mode {
@@ -103,6 +104,7 @@ struct ExecModeToggle<'a> {
     mode: &'a mut ExecMode,
     keyboard_focus: &'a mut bool,
     local_available: bool,
+    compact: bool,
     colors: &'a Colors,
 }
 
@@ -116,7 +118,12 @@ impl egui::Widget for ExecModeToggle<'_> {
         let gpu = ui
             .painter()
             .layout_no_wrap("GPU".to_owned(), font.clone(), self.colors.text);
-        let segment_padding = egui::vec2(crate::tailwind::SPACING_3, crate::tailwind::SPACING_1); // Per-side padding matches the mock.
+        let segment_padding_x = if self.compact {
+            crate::tailwind::SPACING_2
+        } else {
+            crate::tailwind::SPACING_3
+        };
+        let segment_padding = egui::vec2(segment_padding_x, crate::tailwind::SPACING_1); // Per-side padding matches the mock.
         let local_size = local.size() + segment_padding * 2.0;
         let gpu_size = gpu.size() + segment_padding * 2.0;
         let segment_height = local_size.y.max(gpu_size.y);

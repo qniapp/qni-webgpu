@@ -29,18 +29,22 @@ impl QniApp {
             self.poll_external_gpu_run(ctx);
         }
         let viewport = ctx.content_rect();
+        let compact = self.orientation.is_vertical();
+        let (padding_x, item_spacing) = if compact {
+            (crate::tailwind::SPACING_2, crate::tailwind::SPACING_0)
+        } else {
+            (crate::tailwind::SPACING_3, crate::tailwind::SPACING_2)
+        };
         egui::Area::new(egui::Id::new("exec_mode_toolbar"))
             .order(egui::Order::Foreground)
             .fixed_pos(viewport.min)
             .show(ctx, |ui| {
                 ui.set_min_width(viewport.width());
-                toolbar_frame(colors).show(ui, |ui| {
-                    ui.set_min_width(
-                        (viewport.width() - 2.0 * crate::tailwind::SPACING_3).max(0.0),
-                    ); // Padding on both sides.
+                toolbar_frame(colors, padding_x).show(ui, |ui| {
+                    ui.set_min_width((viewport.width() - 2.0 * padding_x).max(0.0)); // Padding on both sides.
                     ui.set_min_height(crate::tailwind::SPACING_8);
                     ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing = egui::vec2(crate::tailwind::SPACING_2, 0.0);
+                        ui.spacing_mut().item_spacing = egui::vec2(item_spacing, 0.0);
                         if self.mode.uses_browser_state() {
                             self.show_circuit_picker(ui, colors, ctx);
                         }
@@ -52,7 +56,7 @@ impl QniApp {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             self.show_exec_mode_toggle(ui, colors);
                             if self.mode.uses_browser_state() {
-                                tutorial_link(ui, colors);
+                                tutorial_link(ui, colors, compact);
                             }
                         });
                     });
@@ -71,6 +75,7 @@ impl QniApp {
             ui,
             colors,
             ToolbarIcon::Undo,
+            self.orientation.is_vertical(),
             ButtonState {
                 enabled: edit_allowed && self.can_undo_circuit(),
                 toggle_on: false,
@@ -85,6 +90,7 @@ impl QniApp {
             ui,
             colors,
             ToolbarIcon::Redo,
+            self.orientation.is_vertical(),
             ButtonState {
                 enabled: edit_allowed && self.can_redo_circuit(),
                 toggle_on: false,
@@ -100,6 +106,7 @@ impl QniApp {
                 ui,
                 colors,
                 ToolbarIcon::Trash,
+                self.orientation.is_vertical(),
                 ButtonState {
                     enabled: edit_allowed,
                     toggle_on: false,
@@ -117,6 +124,7 @@ impl QniApp {
             ui,
             colors,
             ToolbarIcon::Copy,
+            self.orientation.is_vertical(),
             ButtonState {
                 enabled: true,
                 toggle_on: false,
@@ -143,6 +151,7 @@ impl QniApp {
             ui,
             colors,
             icon,
+            self.orientation.is_vertical(),
             ButtonState {
                 enabled: !example,
                 toggle_on: locked,
@@ -178,6 +187,7 @@ impl QniApp {
             ui,
             colors,
             ToolbarIcon::Play,
+            self.orientation.is_vertical(),
             ButtonState {
                 enabled: !running,
                 toggle_on: false,
@@ -190,11 +200,17 @@ impl QniApp {
         if run.clicked() {
             self.start_external_gpu_run(ctx);
         }
-        let _ = gpu_status_pill(ui, self.external_gpu.view().status);
+        if let Some(status) = gpu_status_pill(
+            ui,
+            self.external_gpu.view().status,
+            self.orientation.is_vertical(),
+        ) {
+            publish_toolbar_button_debug_json("GPU status", status.rect, status.hovered());
+        }
     }
 }
 
-fn tutorial_link(ui: &mut egui::Ui, colors: &Colors) -> egui::Response {
+fn tutorial_link(ui: &mut egui::Ui, colors: &Colors, compact: bool) -> egui::Response {
     let text = ui
         .painter()
         .layout_job(egui::text::LayoutJob::single_section(
@@ -206,11 +222,13 @@ fn tutorial_link(ui: &mut egui::Ui, colors: &Colors) -> egui::Response {
                 ..Default::default()
             },
         ));
+    let padding_x = if compact {
+        crate::tailwind::SPACING_0
+    } else {
+        crate::tailwind::SPACING_2
+    };
     let (rect, response) = ui.allocate_exact_size(
-        egui::vec2(
-            text.size().x + 2.0 * crate::tailwind::SPACING_2,
-            crate::tailwind::SPACING_8,
-        ),
+        egui::vec2(text.size().x + 2.0 * padding_x, crate::tailwind::SPACING_8),
         egui::Sense::click(),
     );
     let response = response
@@ -244,12 +262,9 @@ fn tutorial_link(ui: &mut egui::Ui, colors: &Colors) -> egui::Response {
     response
 }
 
-fn toolbar_frame(colors: &Colors) -> egui::Frame {
+fn toolbar_frame(colors: &Colors, padding_x: f32) -> egui::Frame {
     egui::Frame {
-        inner_margin: egui::Margin::symmetric(
-            crate::tailwind::SPACING_3 as i8,
-            crate::tailwind::SPACING_1_5 as i8,
-        ),
+        inner_margin: egui::Margin::symmetric(padding_x as i8, crate::tailwind::SPACING_1_5 as i8),
         fill: colors.surface,
         stroke: egui::Stroke::NONE,
         corner_radius: egui::CornerRadius::ZERO, // Full-width header strip: all 4 corners square.
@@ -273,6 +288,7 @@ fn icon_button(
     ui: &mut egui::Ui,
     colors: &Colors,
     icon: ToolbarIcon,
+    compact: bool,
     state: ButtonState,
     tooltip: &'static str,
 ) -> egui::Response {
@@ -281,7 +297,12 @@ fn icon_button(
     } else {
         egui::Sense::hover()
     };
-    let (rect, response) = ui.allocate_exact_size(TOOL_SIZE, sense);
+    let size = if compact {
+        egui::vec2(crate::tailwind::SPACING_6, TOOL_SIZE.y)
+    } else {
+        TOOL_SIZE
+    };
+    let (rect, response) = ui.allocate_exact_size(size, sense);
     let response = response.on_hover_text(tooltip);
     let hovered = response.hovered() && state.enabled;
     publish_toolbar_button_debug_json(tooltip, rect, hovered);
@@ -335,6 +356,8 @@ fn icon_button(
 fn publish_toolbar_button_debug_json(tooltip: &str, rect: egui::Rect, hovered: bool) {
     let target = match tooltip {
         TUTORIAL_TOOLTIP => Some(crate::test_hooks::QNI_TOOLBAR_TUTORIAL_GEOMETRY_JSON),
+        "Run on GPU" => Some(crate::test_hooks::QNI_TOOLBAR_RUN_GEOMETRY_JSON),
+        "GPU status" => Some(crate::test_hooks::QNI_TOOLBAR_GPU_STATUS_GEOMETRY_JSON),
         "Duplicate circuit" => Some(crate::test_hooks::QNI_TOOLBAR_DUPLICATE_GEOMETRY_JSON),
         "Lock circuit" | "Unlock circuit" | "Locked (sample) — duplicate to edit" => {
             Some(crate::test_hooks::QNI_TOOLBAR_LOCK_GEOMETRY_JSON)
@@ -610,7 +633,7 @@ mod tests {
     fn tutorial_link_snapshot() {
         let ctx = egui::Context::default();
         let output = ctx.run_ui(egui::RawInput::default(), |ui| {
-            tutorial_link(ui, &Colors::new());
+            tutorial_link(ui, &Colors::new(), false);
         });
         insta::assert_debug_snapshot!(output.shapes);
     }
@@ -620,7 +643,7 @@ mod tests {
         let ctx = egui::Context::default();
         let mut rect = egui::Rect::NOTHING;
         let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
-            rect = tutorial_link(ui, &Colors::new()).rect;
+            rect = tutorial_link(ui, &Colors::new(), false).rect;
         });
         let position = rect.center();
         let mut output = egui::FullOutput::default();
@@ -639,7 +662,7 @@ mod tests {
                     ..Default::default()
                 },
                 |ui| {
-                    tutorial_link(ui, &Colors::new());
+                    tutorial_link(ui, &Colors::new(), false);
                 },
             );
         }
