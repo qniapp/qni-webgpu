@@ -716,7 +716,7 @@ const textAgentFocused = (page: Page) => page.evaluate(() => {
 
 test('restricted embed palette without the comment block keeps block labels read-only', async ({ page }) => {
   await hostEmbed(page, COMMENT_BLOCK, { settings: { palette: ['H', 'X'] } })
-  await waitForStepZero(page)
+  await waitForStepZero(page, 2)
   await page.locator('qni-webgpu-test canvas').click({ position: COMMENT_LABEL })
   await page.evaluate(async () => {
     for (let i = 0; i < 10; i++) await new Promise(requestAnimationFrame)
@@ -726,7 +726,7 @@ test('restricted embed palette without the comment block keeps block labels read
 
 test('restricted embed palette with the comment block token edits block labels', async ({ page }) => {
   await hostEmbed(page, COMMENT_BLOCK, { settings: { palette: ['H', '{}'] } })
-  await waitForStepZero(page)
+  await waitForStepZero(page, 2)
   await page.locator('qni-webgpu-test canvas').click({ position: COMMENT_LABEL })
   await page.waitForFunction(() => {
     const root = document.querySelector('qni-webgpu-test')!.shadowRoot!
