@@ -227,6 +227,10 @@ impl GateParams {
     pub(crate) fn condition_slot(self) -> u32 {
         self.condition_slot
     }
+
+    pub(crate) fn mode(self) -> u32 {
+        self.mode
+    }
 }
 
 fn gate_mode(kind: GateKind) -> u32 {

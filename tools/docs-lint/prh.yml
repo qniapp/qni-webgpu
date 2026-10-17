@@ -11,6 +11,13 @@ version: 1
 #     できるだけ「日本語の助詞」「日本語語幹」を伴うパターンに絞る。
 
 rules:
+  - expected: ベルペア
+    pattern: /Bell ペア/
+  - expected: 回路ブロック
+    patterns:
+      - /回路コメントブロック/
+      - /サーキットブロック/
+
   - expected: 事後選択
     patterns:
       - /ポストセレクション/
