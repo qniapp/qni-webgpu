@@ -139,7 +139,16 @@ fn parse_amplitude_upload_batch_impl(
             slot,
             coherent: Arc::from(coherent.into_boxed_slice()),
             incoherent: Arc::from(incoherent_values.into_boxed_slice()),
-            meta: [quality, phase_lock_index, span as f32, 0.0],
+            meta: [
+                quality,
+                phase_lock_index,
+                span as f32,
+                super::display_defined_marker(
+                    js_sys::Reflect::get(&value, &wasm_bindgen::JsValue::from_str("defined"))
+                        .ok()
+                        .and_then(|value| value.as_bool()),
+                ),
+            ],
         });
     }
     if uploads.len() != slot_to_gate_id.len() || seen_slots.iter().any(|seen| !*seen) {
