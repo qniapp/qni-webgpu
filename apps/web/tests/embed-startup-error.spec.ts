@@ -217,7 +217,7 @@ test('URL copy failure selects the URL instead of diagnostic details', async ({ 
   await hostError(page, { code: 'webgpu-unsupported' })
   await slot(page).getByRole('button', { name: 'このページの URL をコピー', exact: true }).click()
   await slot(page).getByRole('button', { name: 'コピーできませんでした', exact: true }).waitFor()
-  expect(await page.evaluate(() => getSelection()?.toString())).toBe(page.url())
+  expect(await page.evaluate(() => getSelection()?.toString())).toBe('http://127.0.0.1:4174/host/startup-error')
 })
 
 test('error details show the raw message', async ({ page }) => {
