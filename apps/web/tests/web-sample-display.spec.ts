@@ -11,9 +11,9 @@ import {
 
 type Column = (string | number)[]
 const PANEL_MARGIN = 8
-const SAMPLE_FILL: [number, number, number, number] = [146, 191, 219, 255]
+const SAMPLE_FILL: [number, number, number, number] = [241, 214, 126, 255]
 const SURFACE: [number, number, number, number] = [255, 252, 240, 255]
-const PIXEL_TOLERANCE = 24
+const PIXEL_TOLERANCE = 8
 
 const openCircuit = async (page: Page, cols: Column[]) => {
   await page.goto(`/#${encodeURIComponent(JSON.stringify({ cols }))}`)
@@ -46,7 +46,7 @@ for (const span of [1, 2, 3]) {
     })
   }
 
-  test(`Sample${span} paints one highlighted digit per wire`, async ({ page }) => {
+  test(`Sample${span} paints on and off rows`, async ({ page }) => {
     const bits = Array.from({ length: span }, (_, wire) => wire % 2 === 0 ? 1 : 0)
     await openCircuit(page, [bits.map((bit) => `|${bit}>`), [`Sample${span}`]])
     await sampleOutcome(page, span)
@@ -60,6 +60,106 @@ for (const span of [1, 2, 3]) {
     ))).toBe(true)
   })
 }
+
+test('Sample3 continuous block matches the nearest wire', async ({ page }) => {
+  await openCircuit(page, [['X', 1, 'X'], ['Sample3']])
+  await sampleOutcome(page, 3)
+  const centerX = PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING
+  const halfWidth = UI_CONSTANTS.GATE_SIZE / 2 - 4
+  const samples = Array.from({ length: UI_CONSTANTS.LINE_GAP * 2 + UI_CONSTANTS.GATE_SIZE - 4 }, (_, index) => {
+    const y = PANEL_MARGIN + UI_CONSTANTS.LINE_Y - UI_CONSTANTS.GATE_SIZE / 2 + 2 + index
+    const wire = Math.max(0, Math.min(2, Math.round((y - PANEL_MARGIN - UI_CONSTANTS.LINE_Y) / UI_CONSTANTS.LINE_GAP)))
+    const bit = [1, 0, 1][wire]
+    return [
+      { name: `left${index}`, x: centerX - halfWidth, y },
+      { name: `right${index}`, x: centerX + halfWidth, y },
+    ].map((point) => ({ ...point, expected: bit ? SAMPLE_FILL : SURFACE }))
+  }).flat()
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), samples)
+  expect(samples.every((sample) => pixelRgbDistance(pixels[sample.name], sample.expected) < PIXEL_TOLERANCE)).toBe(true)
+})
+
+test('Sample1 over zero has a neutral background', async ({ page }) => {
+  await openCircuit(page, [['Sample1']])
+  await sampleOutcome(page, 1)
+  const centerX = PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'left', x: centerX - UI_CONSTANTS.GATE_SIZE / 2 + 4, y: PANEL_MARGIN + UI_CONSTANTS.LINE_Y },
+    { name: 'right', x: centerX + UI_CONSTANTS.GATE_SIZE / 2 - 4, y: PANEL_MARGIN + UI_CONSTANTS.LINE_Y },
+  ])
+  expect(['left', 'right'].every((side) => pixelRgbDistance(pixels[side], SURFACE) < PIXEL_TOLERANCE)).toBe(true)
+})
+
+test('Sample3 101 visual snapshot', async ({ page }) => {
+  await openCircuit(page, [['|1>', '|0>', '|1>'], ['Sample3']])
+  await sampleOutcome(page, 3)
+  await expect(page.locator('#egui-canvas')).toHaveScreenshot('sample3-101.png')
+})
+
+test('Sample free drag remains visible over the palette', async ({ page }) => {
+  await openCircuit(page, [['X', 1, 'X'], ['Sample3']])
+  await sampleOutcome(page, 3)
+  const sourceX = PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING
+  await page.mouse.move(sourceX, PANEL_MARGIN + UI_CONSTANTS.LINE_Y)
+  await page.mouse.down()
+  await page.mouse.move(399, 108, { steps: 8 })
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'left', x: 383, y: 108 },
+    { name: 'right', x: 415, y: 108 },
+  ])
+  expect(['left', 'right'].every((side) => pixelRgbDistance(pixels[side], SURFACE) < PIXEL_TOLERANCE)).toBe(true)
+  await page.mouse.up()
+})
+
+test('Sample free drag visual snapshot', async ({ page }) => {
+  await openCircuit(page, [['X', 1, 'X'], ['Sample3']])
+  await sampleOutcome(page, 3)
+  const sourceX = PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING
+  await page.mouse.move(sourceX, PANEL_MARGIN + UI_CONSTANTS.LINE_Y)
+  await page.mouse.down()
+  await page.mouse.move(399, 108, { steps: 8 })
+  await expect(page.locator('#egui-canvas')).toHaveScreenshot('sample3-free-drag.png')
+  await page.mouse.up()
+})
+
+test('Sample snapped drag shows the GPU sampled row colors', async ({ page }) => {
+  await openCircuit(page, [['X', 1, 'X'], ['Sample3']])
+  await sampleOutcome(page, 3)
+  const sourceX = PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING
+  const targetX = sourceX + UI_CONSTANTS.SLOT_SPACING
+  await page.mouse.move(sourceX, PANEL_MARGIN + UI_CONSTANTS.LINE_Y)
+  await page.mouse.down()
+  await page.mouse.move(targetX, PANEL_MARGIN + UI_CONSTANTS.LINE_Y, { steps: 8 })
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [0, 1, 2].map((wire) => ({
+    name: `wire${wire}`, x: targetX - UI_CONSTANTS.GATE_SIZE / 2 + 4,
+    y: PANEL_MARGIN + UI_CONSTANTS.LINE_Y + wire * UI_CONSTANTS.LINE_GAP,
+  })))
+  expect([0, 1, 2].every((wire) => pixelRgbDistance(pixels[`wire${wire}`], wire === 1 ? SURFACE : SAMPLE_FILL) < PIXEL_TOLERANCE)).toBe(true)
+  await page.mouse.up()
+})
+
+test('Sample resize from one to three wires paints the added on row', async ({ page }) => {
+  await openCircuit(page, [['X', 1, 'X'], ['Sample1']])
+  await sampleOutcome(page, 1)
+  const centerX = PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING
+  const handleY = PANEL_MARGIN + UI_CONSTANTS.LINE_Y + UI_CONSTANTS.GATE_SIZE / 2 + 9
+  await page.mouse.move(centerX, handleY)
+  await page.mouse.down()
+  await page.mouse.move(centerX, handleY + 2 * UI_CONSTANTS.LINE_GAP, { steps: 8 })
+  await page.mouse.up()
+  await waitForValue(
+    () => Promise.resolve(JSON.parse(decodeURIComponent(new URL(page.url()).hash.slice(1))).cols),
+    (cols) => JSON.stringify(cols) === JSON.stringify([['X', 1, 'X'], ['Sample3']]),
+    'Sample resize did not update the URL',
+  )
+  await sampleOutcome(page, 3)
+  await page.mouse.move(900, 700)
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [{
+    name: 'added', x: centerX - UI_CONSTANTS.GATE_SIZE / 2 + 4,
+    y: PANEL_MARGIN + UI_CONSTANTS.LINE_Y + 2 * UI_CONSTANTS.LINE_GAP,
+  }])
+  expect(pixelRgbDistance(pixels.added, SAMPLE_FILL)).toBeLessThan(PIXEL_TOLERANCE)
+})
 
 test('Sample on a Bell state returns one possible joint outcome', async ({ page }) => {
   await openCircuit(page, [['H'], ['•', 'X'], ['Sample2']])

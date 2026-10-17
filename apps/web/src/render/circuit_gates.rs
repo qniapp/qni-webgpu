@@ -487,7 +487,10 @@ impl QniApp {
                 ) {
                     return None;
                 }
-                if dragging_gate_id == Some(gate.id) {
+                let dragging = dragging_gate_id == Some(gate.id);
+                if dragging
+                    && !(gate.kind == GateKind::SampleDisplay && self.dragging_live_display_snap)
+                {
                     return None;
                 }
                 let span = gate.span.get().clamp(1, 16) as u32;
@@ -541,6 +544,7 @@ impl QniApp {
         if !probability_instances.is_empty() {
             let callback = ProbabilityDisplayCallback {
                 instances: probability_instances.into(),
+                use_drag_preview_buffer: false,
                 viewport_min: [callback_rect.min.x, callback_rect.min.y],
                 viewport_size: [callback_rect.width(), callback_rect.height()],
                 background: colors.surface.to_normalized_gamma_f32(),
@@ -548,6 +552,7 @@ impl QniApp {
                 border: colors.line.to_normalized_gamma_f32(),
                 log_hint: colors.probability_log_hint.to_normalized_gamma_f32(),
                 bar: colors.state_fill.to_normalized_gamma_f32(),
+                sample_on_fill: colors.sample_on_fill.to_normalized_gamma_f32(),
                 bar_edge: colors.popup_icon.to_normalized_gamma_f32(),
                 hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
                 text_color: colors.text_strong.to_normalized_gamma_f32(),

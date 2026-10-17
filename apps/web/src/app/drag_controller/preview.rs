@@ -105,7 +105,8 @@ impl DragController {
         let live_display_kind = gate_kind.is_sampled_measurement()
             || matches!(
                 gate_kind,
-                GateKind::AmplitudeDisplay
+                GateKind::SampleDisplay
+                    | GateKind::AmplitudeDisplay
                     | GateKind::DensityMatrixDisplay
                     | GateKind::BlochDisplay
             );

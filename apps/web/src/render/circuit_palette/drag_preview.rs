@@ -3,7 +3,10 @@ use eframe::{egui, egui_wgpu};
 use crate::app::{GateId, QniApp};
 use crate::colors::Colors;
 use crate::gates::GateKind;
-use crate::gpu::{AmplitudeDisplayCallback, AmplitudeInstance, AMPLITUDE_FORCE_ZERO};
+use crate::gpu::{
+    AmplitudeDisplayCallback, AmplitudeInstance, ProbabilityDisplayCallback, ProbabilityInstance,
+    AMPLITUDE_FORCE_ZERO,
+};
 use crate::icons::{draw_bloch_vector, draw_drag_gate_body};
 use crate::layout::{amplitude_grid_rect, gate_visible_rect};
 
@@ -40,6 +43,10 @@ impl QniApp {
             // overwrite each other's geometry.
             return;
         }
+        if gate.kind == GateKind::SampleDisplay {
+            draw_sample_drag_preview(painter, body_rect, gate.span.get(), colors);
+            return;
+        }
         if gate.kind == GateKind::AmplitudeDisplay && gate.span.get() == 1 {
             draw_zero_amplitude_drag_preview(painter, body_rect, colors);
             return;
@@ -60,6 +67,7 @@ impl QniApp {
             return false;
         };
         match gate.kind {
+            GateKind::SampleDisplay => self.gpu_plan.probability_slot(gate.id).is_some(),
             GateKind::AmplitudeDisplay => self.gpu_plan.amplitude_slot(gate.id).is_some(),
             GateKind::DensityMatrixDisplay => self.gpu_plan.density_slot(gate.id).is_some(),
             GateKind::BlochDisplay => self.gpu_plan.bloch_slot(gate.id).is_some(),
@@ -69,6 +77,47 @@ impl QniApp {
             _ => false,
         }
     }
+}
+
+fn draw_sample_drag_preview(
+    painter: &egui::Painter,
+    body_rect: egui::Rect,
+    span: usize,
+    colors: &Colors,
+) {
+    let callback_rect = body_rect.intersect(painter.clip_rect());
+    if !callback_rect.is_positive() {
+        return;
+    }
+    let callback = ProbabilityDisplayCallback {
+        instances: vec![ProbabilityInstance {
+            rect_min: [body_rect.min.x, body_rect.min.y],
+            rect_size: [body_rect.width(), body_rect.height()],
+            slot: 0,
+            span: span as u32,
+            hovered_outcome: -1,
+            render_mode: ProbabilityInstance::SAMPLE_PREVIEW,
+            seed: 0,
+            _pad: 0,
+        }]
+        .into(),
+        use_drag_preview_buffer: true,
+        viewport_min: [callback_rect.min.x, callback_rect.min.y],
+        viewport_size: [callback_rect.width(), callback_rect.height()],
+        background: colors.surface.to_normalized_gamma_f32(),
+        placeholder_background: colors.display_placeholder_fill.to_normalized_gamma_f32(),
+        border: colors.line.to_normalized_gamma_f32(),
+        log_hint: colors.probability_log_hint.to_normalized_gamma_f32(),
+        bar: colors.state_fill.to_normalized_gamma_f32(),
+        sample_on_fill: colors.sample_on_fill.to_normalized_gamma_f32(),
+        bar_edge: colors.popup_icon.to_normalized_gamma_f32(),
+        hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
+        text_color: colors.text_strong.to_normalized_gamma_f32(),
+        external_uploads: None,
+    };
+    painter.add(egui::Shape::Callback(
+        egui_wgpu::Callback::new_paint_callback(callback_rect, callback),
+    ));
 }
 
 fn draw_zero_amplitude_drag_preview(

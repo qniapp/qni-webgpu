@@ -8,6 +8,7 @@ struct ProbabilityRenderParams {
   border: vec4<f32>,
   log_hint: vec4<f32>,
   bar: vec4<f32>,
+  sample_on_fill: vec4<f32>,
   bar_edge: vec4<f32>,
   hover_border: vec4<f32>,
   text_color: vec4<f32>,
@@ -25,13 +26,16 @@ const PROBABILITY_AGGREGATE_MIN_SPAN: u32 = 13u;
 const PROBABILITY_RENDER_MODE_SAMPLE: u32 = 0u;
 const PROBABILITY_RENDER_MODE_PLACEHOLDER: u32 = 1u;
 const SAMPLE_RENDER_MODE: u32 = 2u;
+const SAMPLE_PREVIEW_MODE: u32 = 3u;
 const SAMPLE_MAX_SPAN: u32 = 3u;
 const SAMPLE_INVALID: u32 = 0xFFFFFFFFu;
-const SAMPLE_DIGIT_W: f32 = 12.0;
-const SAMPLE_DIGIT_H: f32 = 16.0;
+const SAMPLE_CHAR_W: f32 = 8.0;
+const SAMPLE_CHAR_H: f32 = 16.0;
 const SAMPLE_WIRE_PITCH: f32 = 56.0;
-const SAMPLE_HIGHLIGHT_INSET: f32 = 4.0;
-const GLYPH_COUNT: u32 = 20u;
+const GLYPH_COUNT: u32 = 23u;
+const GLYPH_O: u32 = 20u;
+const GLYPH_N: u32 = 21u;
+const GLYPH_F: u32 = 22u;
 const GLYPH_DOT: u32 = 10u;
 const GLYPH_PERCENT: u32 = 14u;
 const GLYPH_BLANK: u32 = 0xFFFFu;
@@ -268,22 +272,28 @@ fn sampled_outcome(slot: u32, span: u32, seed: u32) -> u32 {
 }
 
 fn sample_color(input: VsOut, local_y: f32) -> vec4<f32> {
-  let outcome = sampled_outcome(input.slot, input.span, input.seed);
+  var outcome = 0u;
+  if (input.render_mode != SAMPLE_PREVIEW_MODE) {
+    outcome = sampled_outcome(input.slot, input.span, input.seed);
+  }
   let wire = u32(clamp(floor((local_y - input.rect_size.y * 0.5 + f32(input.span) * SAMPLE_WIRE_PITCH * 0.5) / SAMPLE_WIRE_PITCH), 0.0, f32(input.span - 1u)));
   let center_y = input.rect_size.y * 0.5 + (f32(wire) - f32(input.span - 1u) * 0.5) * SAMPLE_WIRE_PITCH;
   let bit = (outcome >> wire) & 1u;
   var color = params.background;
   if (outcome == SAMPLE_INVALID) {
     color = params.placeholder_background;
-  } else if (bit != 0u && abs(local_y - center_y) < SAMPLE_WIRE_PITCH * 0.5 - SAMPLE_HIGHLIGHT_INSET) {
-    color = params.bar;
+  } else if (bit != 0u) {
+    color = params.sample_on_fill;
   }
   if (input.local.x < 1.0 || local_y < 1.0 || input.local.x >= input.rect_size.x - 1.0 || local_y >= input.rect_size.y - 1.0) {
     return params.border;
   }
-  let p = vec2<f32>(input.local.x - (input.rect_size.x - SAMPLE_DIGIT_W) * 0.5, local_y - center_y + SAMPLE_DIGIT_H * 0.5);
-  if (outcome != SAMPLE_INVALID && all(p >= vec2<f32>(0.0)) && p.x < SAMPLE_DIGIT_W && p.y < SAMPLE_DIGIT_H) {
-    let uv = vec2<f32>((f32(bit) + p.x / SAMPLE_DIGIT_W) / f32(GLYPH_COUNT), p.y / SAMPLE_DIGIT_H);
+  let text_w = select(3.0, 2.0, bit != 0u) * SAMPLE_CHAR_W;
+  let p = vec2<f32>(input.local.x - (input.rect_size.x - text_w) * 0.5, local_y - center_y + SAMPLE_CHAR_H * 0.5);
+  if (outcome != SAMPLE_INVALID && all(p >= vec2<f32>(0.0)) && p.x < text_w && p.y < SAMPLE_CHAR_H) {
+    let index = u32(floor(p.x / SAMPLE_CHAR_W));
+    let glyph = select(select(GLYPH_F, GLYPH_N, bit != 0u), GLYPH_O, index == 0u);
+    let uv = vec2<f32>((f32(glyph) + fract(p.x / SAMPLE_CHAR_W)) / f32(GLYPH_COUNT), p.y / SAMPLE_CHAR_H);
     let alpha = textureSampleLevel(atlas, atlas_sampler, uv, 0.0).r;
     return over(vec4<f32>(params.text_color.rgb * alpha, alpha), color);
   }
@@ -333,7 +343,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let viewport_top_px = floor(params.viewport_min.y * dpr + 0.5);
   let row_local_y =
     params.viewport_min.y - input.rect_min.y + (input.clip.y - viewport_top_px) / dpr;
-  if (input.render_mode == SAMPLE_RENDER_MODE) { return sample_color(input, row_local_y); }
+  if (input.render_mode == SAMPLE_RENDER_MODE || input.render_mode == SAMPLE_PREVIEW_MODE) { return sample_color(input, row_local_y); }
   let raw_row = u32(clamp(floor(row_local_y / max(row_h, 1.0e-6)), 0.0, f32(row_count - 1u)));
   let border_px = 1.0;
   if (input.render_mode == PROBABILITY_RENDER_MODE_PLACEHOLDER) {

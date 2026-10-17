@@ -411,6 +411,7 @@ pub(crate) struct ProbabilityRenderParams {
     /// Logarithm hints for Probability5..16.
     pub(crate) log_hint: [f32; 4],
     pub(crate) bar: [f32; 4],
+    pub(crate) sample_on_fill: [f32; 4],
     pub(crate) bar_edge: [f32; 4],
     pub(crate) hover_border: [f32; 4],
     pub(crate) text_color: [f32; 4],
@@ -431,6 +432,7 @@ pub(crate) struct ProbabilityInstance {
 
 impl ProbabilityInstance {
     pub(crate) const SAMPLED_BITSTRING: u32 = 2;
+    pub(crate) const SAMPLE_PREVIEW: u32 = 3;
 }
 
 /// Uniform for the Probability hover popup value text shader. The shader reads
