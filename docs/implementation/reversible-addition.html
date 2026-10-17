@@ -61,16 +61,17 @@
       10 量子ビット。<strong>q0–q4 = A レジスタ</strong>（5 ビット。加算しても変わらない）、
       <strong>q5–q9 = B レジスタ</strong>（5 ビット。最後に A + B が入る）。各レジスタは下位ビットが上のワイヤ
       （q0・q5 が 1 の位）。回路図はサンプル定義（cols JSON）から <code>&lt;quantum-circuit&gt;</code> カスタム要素が組み立てる
-      （横に長いので右へスクロールできる）。全 22 列で、先頭の 1 列が入力（A・B）のセット、次の 1 列が
+      （横に長いので右へスクロールできる）。空の区切り列 2 つを除く 22 列で、先頭の 1 列が入力（A・B）のセット、次の 1 列が
       入力の確率表示、続く 19 列が Quirk の加算本体、最後の 1 列が出力の確率表示。確率表示は A（q0–q4）と
       B（q5–q9）に 1 つずつ <code>Probability5</code> を置き、各レジスタが取りうる値ごとの確率を縦に並べて示す。
     </p>
 
     <div class="ra-figure">
-      <quantum-circuit cols='[["X",1,"X",1,1,"X","X"],["Probability5",1,1,1,1,"Probability5"],["X","X","X","X","•","X","X","X","X","X"],[1,1,1,1,"•","X"],["Swap",1,1,1,"Swap","•"],[1,1,1,1,"•",1,"X"],[1,"Swap",1,1,"Swap",1,"•"],[1,1,1,1,"•",1,1,"X"],[1,1,"Swap",1,"Swap",1,1,"•"],[1,1,1,1,"•",1,1,1,"X"],[1,1,1,"Swap","Swap",1,1,1,"•"],[1,1,1,1,"•",1,1,1,1,"X"],[1,1,1,"Swap","Swap",1,1,1,"•"],[1,1,1,"•",1,1,1,1,"X"],[1,1,"Swap",1,"Swap",1,1,"•"],[1,1,"•",1,1,1,1,"X"],[1,"Swap",1,1,"Swap",1,"•"],[1,"•",1,1,1,1,"X"],["Swap",1,1,1,"Swap","•"],["•",1,1,1,1,"X"],["X","X","X","X","•","X","X","X","X","X"],["Probability5",1,1,1,1,"Probability5"]]'></quantum-circuit>
+      <quantum-circuit cols='[["{A=5, B=3"],["X",1,"X",1,1,"X","X"],["Probability5",1,1,1,1,"Probability5"],["}"],[1],["{B += A"],["X","X","X","X","•","X","X","X","X","X"],[1,1,1,1,"•","X"],["Swap",1,1,1,"Swap","•"],[1,1,1,1,"•",1,"X"],[1,"Swap",1,1,"Swap",1,"•"],[1,1,1,1,"•",1,1,"X"],[1,1,"Swap",1,"Swap",1,1,"•"],[1,1,1,1,"•",1,1,1,"X"],[1,1,1,"Swap","Swap",1,1,1,"•"],[1,1,1,1,"•",1,1,1,1,"X"],[1,1,1,"Swap","Swap",1,1,1,"•"],[1,1,1,"•",1,1,1,1,"X"],[1,1,"Swap",1,"Swap",1,1,"•"],[1,1,"•",1,1,1,1,"X"],[1,"Swap",1,1,"Swap",1,"•"],[1,"•",1,1,1,1,"X"],["Swap",1,1,1,"Swap","•"],["•",1,1,1,1,"X"],["X","X","X","X","•","X","X","X","X","X"],["}"],[1],["{A=5, B=8"],["Probability5",1,1,1,1,"Probability5"],["}"]]'></quantum-circuit>
     </div>
 
     <div class="ra-legend" aria-hidden="true">
+      <span class="item">青い上下罫線の帯 = 回路ブロック（上下に同じラベル）</span>
       <span class="item"><span class="glyph"><x-gate></x-gate></span>X（NOT）</span>
       <span class="item"><span class="glyph"><control-gate></control-gate></span>制御</span>
       <span class="item"><span class="glyph"><swap-gate></swap-gate></span>Swap（入れ替え）</span>
@@ -89,13 +90,11 @@
   <h2>§ 02 回路の読み方</h2>
   <div class="card">
     <table class="spec">
-      <thead><tr><th>ステップ</th><th>操作</th><th>意味</th></tr></thead>
+      <thead><tr><th>回路ブロック</th><th>操作</th><th>意味</th></tr></thead>
       <tbody>
-        <tr><td>1</td><td>X(q0) ・ X(q2)<br />／ X(q5) ・ X(q6)</td><td>A レジスタを <strong>5</strong>（1 の位 q0 ＋ 4 の位 q2）、B レジスタを <strong>3</strong>（1 の位 q5 ＋ 2 の位 q6）にセット</td></tr>
-        <tr><td>2</td><td>確率表示（A: q0–q4 ／ B: q5–q9）</td><td><strong>入力</strong>を表示。A = <strong>5</strong>、B = <strong>3</strong> に確率 1 が集中する</td></tr>
-        <tr><td>3 – 21</td><td>X の壁 ＋ 制御 Swap 網</td><td>Quirk の<strong>可逆加算</strong>。前後の多ターゲット制御 X（X の壁）と、その間の制御 Swap（Fredkin）・制御 X が、A を保ったまま <strong>B += A</strong> を計算する（5 ビット同士、mod 32）</td></tr>
-        <tr><td>22</td><td>確率表示（A: q0–q4 ／ B: q5–q9）</td><td><strong>出力</strong>を表示。A = <strong>5</strong>（保たれる）、B = <strong>8</strong>（= 5 + 3）に確率 1 が集中する</td></tr>
-        <tr><td>結果</td><td>—</td><td>B = A + B = <strong>8</strong>（= 5 + 3）。A は <strong>5</strong> のまま保たれる</td></tr>
+        <tr><td><code>A=5, B=3</code></td><td>X による入力準備 → Probability5 ×2</td><td>A（q0–q4）は 5、B（q5–q9）は 3 に確率 1 が集中する。</td></tr>
+        <tr><td><code>B += A</code></td><td>X の壁と制御 Swap 網（19 列）</td><td>A を保ったまま B += A を計算する（mod 32）。</td></tr>
+        <tr><td><code>A=5, B=8</code></td><td>Probability5 ×2</td><td>A は 5 のまま、B は 8 に確率 1 が集中する。</td></tr>
       </tbody>
     </table>
   </div>
@@ -146,6 +145,7 @@
 </section>
 
 <footer class="doc-foot">
+  <p><a href="sample-circuits.html">9 本のサンプル回路の読み方</a></p>
   <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
   <p class="meta">qni-webgpu · 可逆加算（Reversible Addition）· 2026-05</p>
 </footer>
