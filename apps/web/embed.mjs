@@ -1,4 +1,7 @@
-import init, { start_embed } from './qni-web.js'
+import { QniStartupError, classifyStartupError, preflightSync, diagnoseWebGpu } from './qni-embed-error.mjs'
+export { QniStartupError, classifyStartupError, preflightSync, diagnoseWebGpu, STARTUP_ERROR_CODES, renderStartupError, detectPlatform, startupErrorContent } from './qni-embed-error.mjs'
+
+let start_embed
 
 let initialization
 let progress = { stage: 'download', loaded: 0, total: null }
@@ -11,8 +14,15 @@ function publish(update) {
 
 async function initialize() {
   performance.mark('qni:wasm-fetch-start')
-  const response = await fetch(new URL('./qni-web_bg.wasm', import.meta.url))
-  if (!response.ok) throw new Error(`Wasm download failed: ${response.status}`)
+  let response
+  try {
+    response = await fetch(new URL('./qni-web_bg.wasm', import.meta.url))
+  } catch (error) {
+    throw new QniStartupError('load-failed', `Wasm download failed: ${error?.message ?? String(error)}`, {
+      cause: error, detail: { offline: globalThis.navigator?.onLine === false },
+    })
+  }
+  if (!response.ok) throw new QniStartupError('load-failed', `Wasm download failed: ${response.status}`, { detail: { status: response.status } })
   // Fetch delivers decoded bytes, whereas Content-Length may describe compressed
   // bytes. Only use a known identity-encoded length for a percentage.
   const length = Number(response.headers.get('content-length'))
@@ -36,7 +46,17 @@ async function initialize() {
     // a streaming Response, never a collected ArrayBuffer or buffered clone.
     input = new Response(body, { headers: response.headers })
   }
-  const value = await init({ module_or_path: input })
+  let value
+  try {
+    const wasm = await import('./qni-web.js')
+    start_embed = wasm.start_embed
+    value = await wasm.default({ module_or_path: input })
+  } catch (error) {
+    if (error instanceof WebAssembly.CompileError || error instanceof WebAssembly.LinkError) {
+      throw new QniStartupError('load-failed', `Wasm compile failed: ${error.message}`, { cause: error })
+    }
+    throw classifyStartupError(error)
+  }
   performance.mark('qni:wasm-instantiated')
   performance.measure('qni:wasm-init', 'qni:wasm-fetch-start', 'qni:wasm-instantiated')
   publish({ stage: 'gpu', loaded, total })
@@ -45,27 +65,56 @@ async function initialize() {
 
 /** Start wasm fetching/streaming compilation before a canvas is connected. */
 export function prepareEmbed() {
+  const early = preflightSync()
+  if (early) return Promise.reject(early)
   if (!initialization) {
     initialization = initialize().catch(error => {
       initialization = undefined
       publish({ stage: 'download', loaded: 0, total: null })
-      throw error
+      throw classifyStartupError(error)
     })
   }
   return initialization
+}
+
+// Probe and runner waits have independent GPU deadlines; downloading is never timed.
+function startWithTimeout(start, timeoutMs, dispose = runner => {
+  try { runner.destroy() } finally { runner.free() }
+}) {
+  if (!(timeoutMs > 0)) return start()
+  return new Promise((resolve, reject) => {
+    let expired = false
+    const timer = setTimeout(() => {
+      expired = true
+      reject(new QniStartupError('startup-timeout', `WebGPU initialization did not finish within ${timeoutMs} ms (stage: gpu)`, {
+        detail: { timeoutMs, stage: 'gpu' },
+      }))
+    }, timeoutMs)
+    Promise.resolve().then(start).then(runner => {
+      if (expired) {
+        dispose(runner)
+      } else {
+        clearTimeout(timer)
+        resolve(runner)
+      }
+    }, error => {
+      clearTimeout(timer)
+      reject(error)
+    }).catch(() => {}) // Late cleanup must not produce an unhandled rejection.
+  })
 }
 
 /**
  * Start a local WebGPU editor on a connected canvas, including in a shadow root.
  * @param {HTMLCanvasElement} canvas
  * @param {string} circuit Quirk-style JSON, e.g. '{"cols":[["H"]]}'.
- * @param {{showStatePanel?: boolean, palette?: string[], maxWireCount?: number, showRestartButton?: boolean, onRestart?: function, onProgress?: function, onDeviceLost?: function}} settings
+ * @param {{showStatePanel?: boolean, palette?: string[], maxWireCount?: number, showRestartButton?: boolean, onRestart?: function, onProgress?: function, onDeviceLost?: function, startupTimeoutMs?: number}} settings
  *   `palette` lists gate tokens like qni's `mini_qni` filter, e.g. ['|0>', 'H'].
  *   `maxWireCount` is qni's `data-max-wire-count`: the editor adds no empty
  *   wire beyond it, e.g. 1 keeps a one-qubit circuit on one wire while dragging.
  * @returns {Promise<{destroy(): void, circuitJSON(): string, preferredHeight(widthCssPx: number): number, selectStep(n: number): void, selectedStep(): number | null, stepCount(): number, readStateVector(): Promise<Float32Array>}>}
  */
-export async function startEmbed(canvas, circuit, { showStatePanel = true, palette, maxWireCount, showRestartButton = false, onRestart, onProgress, onDeviceLost } = {}) {
+export async function startEmbed(canvas, circuit, { showStatePanel = true, palette, maxWireCount, showRestartButton = false, onRestart, onProgress, onDeviceLost, startupTimeoutMs = 20_000 } = {}) {
   let destroyed = false
   let deviceLost = false
   // Defer host actions until egui releases its mutable app borrow. The host
@@ -74,18 +123,30 @@ export async function startEmbed(canvas, circuit, { showStatePanel = true, palet
     if (!destroyed && !deviceLost) onRestart()
   }) : undefined
   let runner
-  const lost = () => { deviceLost = true; onDeviceLost?.() }
+  let lostError
+  const lost = event => {
+    deviceLost = true
+    lostError = new QniStartupError('gpu-device-lost', runner ? 'Qni GPU device lost' : 'Qni GPU device lost during startup', { detail: event?.detail ?? {} })
+    onDeviceLost?.(lostError)
+  }
   globalThis.addEventListener?.('qni-device-lost', lost)
   try {
     if (onProgress) {
       listeners.add(onProgress)
       onProgress(progress)
     }
-    await prepareEmbed()
+    const early = preflightSync()
+    if (early) throw early
+    const gpuCheck = startWithTimeout(() => diagnoseWebGpu(), startupTimeoutMs, () => {})
+    const wasm = prepareEmbed()
+    wasm.catch(() => {})
+    const gpuProblem = await gpuCheck
+    if (gpuProblem) throw gpuProblem
+    await wasm
     if (onProgress) onProgress({ ...progress, stage: 'gpu' })
     performance.mark('qni:runner-start')
-    runner = await start_embed(canvas, circuit, showStatePanel, palette, maxWireCount, showRestartButton, restart)
-    if (deviceLost) throw new Error('Qni GPU device lost during startup')
+    runner = await startWithTimeout(() => start_embed(canvas, circuit, showStatePanel, palette, maxWireCount, showRestartButton, restart), startupTimeoutMs)
+    if (deviceLost) throw lostError
     performance.mark('qni:runner-started')
     if (onProgress) onProgress({ ...progress, stage: 'prepare' })
   } catch (error) {
@@ -94,7 +155,7 @@ export async function startEmbed(canvas, circuit, { showStatePanel = true, palet
       runner.destroy()
       runner.free()
     }
-    throw error
+    throw classifyStartupError(error)
   } finally {
     if (onProgress) listeners.delete(onProgress)
   }
