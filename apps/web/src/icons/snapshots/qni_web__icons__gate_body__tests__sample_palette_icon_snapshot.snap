@@ -7,60 +7,12 @@ expression: output.shapes
         clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
         shape: Rect(
             RectShape {
-                rect: [[30.0 16.0] - [42.0 28.0]],
+                rect: [[16.0 16.0] - [56.0 56.0]],
                 corner_radius: CornerRadius {
-                    nw: 2,
-                    ne: 2,
-                    sw: 2,
-                    se: 2,
-                },
-                fill: #B7_B5_AC_FF,
-                stroke: Stroke {
-                    width: 0.0,
-                    color: #00_00_00_00,
-                },
-                stroke_kind: Outside,
-                round_to_pixels: None,
-                blur_width: 0.0,
-                brush: None,
-                angle: 0.0,
-            },
-        ),
-    },
-    ClippedShape {
-        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
-        shape: Rect(
-            RectShape {
-                rect: [[31.0 17.0] - [41.0 27.0]],
-                corner_radius: CornerRadius {
-                    nw: 1,
-                    ne: 1,
-                    sw: 1,
-                    se: 1,
-                },
-                fill: #DA_D8_CE_FF,
-                stroke: Stroke {
-                    width: 0.0,
-                    color: #00_00_00_00,
-                },
-                stroke_kind: Outside,
-                round_to_pixels: None,
-                blur_width: 0.0,
-                brush: None,
-                angle: 0.0,
-            },
-        ),
-    },
-    ClippedShape {
-        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
-        shape: Rect(
-            RectShape {
-                rect: [[28.0 28.0] - [44.0 44.0]],
-                corner_radius: CornerRadius {
-                    nw: 4,
-                    ne: 4,
-                    sw: 4,
-                    se: 4,
+                    nw: 7,
+                    ne: 7,
+                    sw: 7,
+                    se: 7,
                 },
                 fill: #34_2A_0C_3C,
                 stroke: Stroke {
@@ -79,12 +31,12 @@ expression: output.shapes
         clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
         shape: Rect(
             RectShape {
-                rect: [[29.0 29.0] - [43.0 43.0]],
+                rect: [[17.0 17.0] - [55.0 55.0]],
                 corner_radius: CornerRadius {
-                    nw: 3,
-                    ne: 3,
-                    sw: 3,
-                    se: 3,
+                    nw: 6,
+                    ne: 6,
+                    sw: 6,
+                    se: 6,
                 },
                 fill: #69_55_17_78,
                 stroke: Stroke {
@@ -103,12 +55,12 @@ expression: output.shapes
         clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
         shape: Rect(
             RectShape {
-                rect: [[30.0 30.0] - [42.0 42.0]],
+                rect: [[18.0 18.0] - [54.0 54.0]],
                 corner_radius: CornerRadius {
-                    nw: 2,
-                    ne: 2,
-                    sw: 2,
-                    se: 2,
+                    nw: 5,
+                    ne: 5,
+                    sw: 5,
+                    se: 5,
                 },
                 fill: #DF_B4_31_FF,
                 stroke: Stroke {
@@ -127,12 +79,12 @@ expression: output.shapes
         clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
         shape: Rect(
             RectShape {
-                rect: [[31.0 31.0] - [41.0 41.0]],
+                rect: [[19.0 19.0] - [53.0 53.0]],
                 corner_radius: CornerRadius {
-                    nw: 1,
-                    ne: 1,
-                    sw: 1,
-                    se: 1,
+                    nw: 4,
+                    ne: 4,
+                    sw: 4,
+                    se: 4,
                 },
                 fill: #EC_CB_60_FF,
                 stroke: Stroke {
@@ -152,7 +104,7 @@ expression: output.shapes
         shape: Circle(
             CircleShape {
                 center: [36.0 36.0],
-                radius: 4.56,
+                radius: 13.68,
                 fill: #F1_D7_82_FF,
                 stroke: Stroke {
                     width: 0.0,
@@ -166,7 +118,7 @@ expression: output.shapes
         shape: Circle(
             CircleShape {
                 center: [36.0 36.0],
-                radius: 4.08,
+                radius: 12.24,
                 fill: #F5_E2_A4_FF,
                 stroke: Stroke {
                     width: 0.0,
@@ -180,60 +132,12 @@ expression: output.shapes
         shape: Circle(
             CircleShape {
                 center: [36.0 36.0],
-                radius: 3.6000001,
+                radius: 10.8,
                 fill: #FA_EE_C6_FF,
                 stroke: Stroke {
                     width: 0.0,
                     color: #00_00_00_00,
                 },
-            },
-        ),
-    },
-    ClippedShape {
-        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
-        shape: Rect(
-            RectShape {
-                rect: [[30.0 44.0] - [42.0 56.0]],
-                corner_radius: CornerRadius {
-                    nw: 2,
-                    ne: 2,
-                    sw: 2,
-                    se: 2,
-                },
-                fill: #B7_B5_AC_FF,
-                stroke: Stroke {
-                    width: 0.0,
-                    color: #00_00_00_00,
-                },
-                stroke_kind: Outside,
-                round_to_pixels: None,
-                blur_width: 0.0,
-                brush: None,
-                angle: 0.0,
-            },
-        ),
-    },
-    ClippedShape {
-        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
-        shape: Rect(
-            RectShape {
-                rect: [[31.0 45.0] - [41.0 55.0]],
-                corner_radius: CornerRadius {
-                    nw: 1,
-                    ne: 1,
-                    sw: 1,
-                    se: 1,
-                },
-                fill: #DA_D8_CE_FF,
-                stroke: Stroke {
-                    width: 0.0,
-                    color: #00_00_00_00,
-                },
-                stroke_kind: Outside,
-                round_to_pixels: None,
-                blur_width: 0.0,
-                brush: None,
-                angle: 0.0,
             },
         ),
     },

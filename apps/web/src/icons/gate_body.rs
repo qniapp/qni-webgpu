@@ -56,6 +56,8 @@ pub(crate) fn draw_gate_glyph(
 }
 
 const GATE_CORNER_RADIUS: u8 = 6;
+/// How far the lit Sample tile's outermost glow ring reaches past the tile.
+const SAMPLE_TILE_HALO: f32 = 2.0;
 
 pub(crate) fn draw_drag_gate_body(
     painter: &egui::Painter,
@@ -203,20 +205,12 @@ pub(crate) fn draw_sample_placeholder_tiles(
     }
 }
 
-/// Palette icon: a stack of three small tiles with the middle one lit.
+/// Palette icon: one lit tile filling the gate body, inset so the halo stays
+/// inside the palette cell.
 fn draw_sample_palette_icon(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
-    let size = rect.height();
-    let tile = egui::vec2(size * 0.3, size * 0.3);
-    let pitch = size * 0.35;
-    for (index, lit) in [false, true, false].into_iter().enumerate() {
-        let center = rect.center() + egui::vec2(0.0, (index as f32 - 1.0) * pitch);
-        draw_sample_tile(
-            painter,
-            egui::Rect::from_center_size(center, tile),
-            lit,
-            colors,
-        );
-    }
+    let size = rect.width().min(rect.height()) - 2.0 * SAMPLE_TILE_HALO;
+    let tile = egui::Rect::from_center_size(rect.center(), egui::Vec2::splat(size));
+    draw_sample_tile(painter, tile, true, colors);
 }
 
 fn draw_sample_tile(painter: &egui::Painter, tile: egui::Rect, lit: bool, colors: &Colors) {
@@ -229,7 +223,7 @@ fn draw_sample_tile(painter: &egui::Painter, tile: egui::Rect, lit: bool, colors
     }
     // egui has no blur: the halo is a few translucent rings and the hot core a
     // few concentric discs.
-    for (expand, alpha) in [(2.0, 60), (1.0, 120)] {
+    for (expand, alpha) in [(SAMPLE_TILE_HALO, 60), (1.0, 120)] {
         painter.rect_filled(
             tile.expand(expand),
             corner(-expand),
