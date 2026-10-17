@@ -142,6 +142,23 @@ test('Display section Density slot preserves its palette hover index', async ({ 
   await expect.poll(async () => (await hoverSnapshot(page)).hoveredPaletteIndex).toBe(25)
 })
 
+test('Display section bottom-right slot reports the comment block palette hover index', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const commentBlockCenter = getPaletteGateCenter(box.width, 32)
+  await page.mouse.move(box.x + commentBlockCenter.x, box.y + commentBlockCenter.y)
+
+  await expect.poll(async () => (await hoverSnapshot(page)).hoveredPaletteIndex).toBe(32)
+})
+
 test('Density palette icon maximizes circle outlines without touching the hover frame', async ({ page }) => {
   await page.goto('/')
 

@@ -33,9 +33,11 @@ use std::collections::VecDeque;
 
 #[allow(unused_imports)]
 pub(crate) use circuit_model::{
-    AngleAffordance, AngleEditor, CircuitBlock, CircuitBlocks, CircuitColumnIndex,
-    CircuitColumnIndexError, ClickCopy, DragState, GateId, GateIdAllocator, LiveDragSnap,
-    PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle, WireIndex, WireIndexError,
+    AngleAffordance, AngleEditor, BlockEdges, CircuitBlock, CircuitBlockDrag, CircuitBlockEdge,
+    CircuitBlockEditor, CircuitBlockHover, CircuitBlockLabelSlot, CircuitBlocks,
+    CircuitColumnIndex, CircuitColumnIndexError, ClickCopy, DragState, GateId, GateIdAllocator,
+    LiveDragSnap, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle, WireIndex,
+    WireIndexError,
 };
 pub(crate) use embed::{AppMode, EmbedStartup};
 pub(crate) use exec_mode::ExecMode;
@@ -90,6 +92,9 @@ pub(crate) struct QniApp {
     pub(crate) angle_affordance: Option<AngleAffordance>,
     /// Inline angle editor for Phase / Rx / Ry / Rz gates. UI-only.
     pub(crate) angle_editor: Option<AngleEditor>,
+    pub(crate) hovered_circuit_block: Option<CircuitBlockHover>,
+    pub(crate) circuit_block_drag: Option<CircuitBlockDrag>,
+    pub(crate) circuit_block_editor: Option<CircuitBlockEditor>,
     /// Column index the user clicked to "lock in" as the step shown.
     /// `None` means: show the final state (all columns applied). Loading a
     /// circuit selects the final committed column in standalone mode and step 0
@@ -340,6 +345,9 @@ impl QniApp {
             hovered_step: None,
             angle_affordance: None,
             angle_editor: None,
+            hovered_circuit_block: None,
+            circuit_block_drag: None,
+            circuit_block_editor: None,
             breakpoint_step: Some(CircuitColumnIndex::ZERO),
             hovered_gate_id: None,
             hovered_probability_outcome: None,
@@ -398,6 +406,13 @@ impl QniApp {
             + LINE_Y
             + LINE_GAP * (self.layout_qubits() - 1) as f32;
         last_line_y + STEP_OUTSET_Y.max(LINE_GAP * 0.5 + self.circuit_block_outset_y())
+    }
+
+    /// Circuit blocks can be added, edited, resized, moved and removed only
+    /// in an unlocked circuit whose palette offers the comment block, so
+    /// tutorial embeds with a restricted palette keep their blocks read-only.
+    pub(crate) fn circuit_block_editing_allowed(&self) -> bool {
+        !self.library.active_locked() && self.palette.offers_circuit_block()
     }
 
     pub(crate) fn colors(&self) -> Colors {

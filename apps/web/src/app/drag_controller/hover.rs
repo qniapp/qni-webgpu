@@ -14,7 +14,9 @@ impl DragController {
         app.hovered_amplitude_outcome = None;
         app.hovered_density_cell = None;
         app.hovered_palette_index = None;
-        if app.hovered_step.take().is_some() {
+        let step_cleared = app.hovered_step.take().is_some();
+        let block_cleared = app.hovered_circuit_block.take().is_some();
+        if step_cleared || block_cleared {
             ctx.request_repaint();
         }
     }
@@ -101,6 +103,15 @@ impl DragController {
                 ctx.request_repaint();
             }
 
+            let hovered_block = app
+                .circuit_block_editing_allowed()
+                .then(|| app.circuit_block_hover_at(cursor, &geometry.metrics, ctx))
+                .flatten();
+            if hovered_block != app.hovered_circuit_block {
+                app.hovered_circuit_block = hovered_block;
+                ctx.request_repaint();
+            }
+
             // Step preview: which column is the cursor on? Changes select a
             // cached GPU snapshot so the state-vector panel reflects the new
             // step without rerunning simulation.
@@ -137,6 +148,16 @@ impl DragController {
             ctx.set_cursor_icon(egui::CursorIcon::Grabbing);
         } else if app.hovered_span_resize_handle.is_some() {
             ctx.set_cursor_icon(egui::CursorIcon::ResizeVertical);
+        } else if app
+            .hovered_circuit_block
+            .is_some_and(|hover| hover.handle.is_some())
+        {
+            ctx.set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+        } else if app
+            .hovered_circuit_block
+            .is_some_and(|hover| hover.label.is_some())
+        {
+            ctx.set_cursor_icon(egui::CursorIcon::Text);
         } else if app.hovered_gate_id.is_some() || app.hovered_palette_index.is_some() {
             ctx.set_cursor_icon(egui::CursorIcon::Grab);
         }

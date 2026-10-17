@@ -84,6 +84,7 @@ impl QniApp {
                     self.circuit_scroll_x,
                     pointer_over_state_panel || pointer_over_picker,
                 );
+                self.show_circuit_block_editor(ui, rect, &metrics, colors, self.circuit_scroll_x);
             });
 
         frame_state

@@ -32,6 +32,10 @@ pub(crate) fn circuit_to_json(
     let mut cols = gate_columns_json(placed_gates, qubit_count, blocks.column_count());
     // Insert markers back to front so earlier column indices stay valid.
     for block in blocks.iter().rev() {
+        debug_assert!(
+            !block.label().is_empty(),
+            "an empty block label serialises as the invalid `{{` marker"
+        );
         cols.insert(block.end().as_usize(), r#"["}"]"#.to_string());
         cols.insert(
             block.start().as_usize(),
@@ -190,6 +194,29 @@ mod tests {
 
     fn qubit_count(value: usize) -> QubitCount {
         QubitCount::try_new(value).expect("test qubit count must be non-zero")
+    }
+
+    #[test]
+    #[should_panic(expected = "empty block label")]
+    fn empty_block_label_never_reaches_the_json() {
+        let mut blocks = CircuitBlocks::default();
+        blocks
+            .push(
+                String::new(),
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::CircuitColumnIndex::new(1),
+            )
+            .expect("the range is valid");
+        let gate = PlacedGate::new(
+            crate::app::GateId::from_u32(1),
+            GateKind::H,
+            crate::app::CircuitColumnIndex::new(0),
+            crate::app::WireIndex::new(0),
+            crate::gates::GateSpan::SINGLE,
+            None,
+        );
+
+        let _ = circuit_to_json(&[gate], &blocks, "", qubit_count(1));
     }
 
     #[test]

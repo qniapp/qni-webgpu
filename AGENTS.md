@@ -81,3 +81,7 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
   - コード識別子: `GateKind::SampleDisplay`。シリアライズ ID は `"Sample1"` / `"Sample2"` / `"Sample3"`。
 - **パリティ制御** — 同じ列で条件を満たすものが奇数個のときに列の操作を適用する制御。個別名は `Z パリティ制御` / `X パリティ制御`。
   - コード識別子: `GateKind::ZParityControl` / `GateKind::XParityControl`。シリアライズ ID は `"zpar"` / `"xpar"`。
+- **コメントブロック** — 回路の連続した列を囲み、コメントを付ける要素。シミュレーションには影響しない。qni の `circuit-block` に対応する。
+  - コメントを枠の上下に表示する文字を **ラベル** と呼ぶ (押すと編集、ドラッグで移動)。コード上は `label`。
+  - コード識別子: `CircuitBlock` / `CircuitBlocks`。パレットの項目は `PaletteItem::CircuitBlock`。
+  - シリアライズ: `"{<コメント>"` / `"}"`。埋め込みの制限パレットでは `"{}"`。

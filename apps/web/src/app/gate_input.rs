@@ -28,11 +28,13 @@ impl QniApp {
 
         let pointer_start = pointer_pressed || (pointer_down && !self.pointer_was_down);
         self.pointer_was_down = pointer_down;
-        if self.dragging.is_some() && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+        let gesture_active = self.dragging.is_some() || self.circuit_block_drag.is_some();
+        if gesture_active && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
             // Undo while a gesture is in progress restores its checkpoint
             // without moving back through completed edits. Keep the fixed
             // column selection, which the circuit reload otherwise clears.
             let breakpoint_step = self.breakpoint_step;
+            self.circuit_block_drag = None;
             self.undo_circuit(ctx);
             self.breakpoint_step = breakpoint_step;
             return;
@@ -91,10 +93,10 @@ impl QniApp {
         let pointer_over_picker = self
             .picker_overlay_rect
             .is_some_and(|rect| pos.is_some_and(|pos| rect.contains(pos)));
-        if (pointer_over_picker || pointer_over_state_panel)
-            && self.dragging.is_none()
+        let no_gesture = self.dragging.is_none()
             && self.span_resize_drag.is_none()
-        {
+            && self.circuit_block_drag.is_none();
+        if (pointer_over_picker || pointer_over_state_panel) && no_gesture {
             DragController::clear_idle_hover(self, ctx);
             return;
         }
@@ -122,12 +124,27 @@ impl QniApp {
             }
             return;
         }
-        if angle_label_gate_id.is_some()
-            && self.dragging.is_none()
-            && self.span_resize_drag.is_none()
-        {
+        if angle_label_gate_id.is_some() && no_gesture {
             DragController::clear_idle_hover(self, ctx);
             ctx.set_cursor_icon(egui::CursorIcon::Text);
+            return;
+        }
+        if self.circuit_block_editor.is_some() && no_gesture {
+            let on_edited_label = local_pos
+                .and_then(|cursor| self.circuit_block_hover_at(cursor, &geometry.metrics, ctx))
+                .zip(self.circuit_block_editor.as_ref())
+                .is_some_and(|(hover, editor)| {
+                    hover.index == editor.index && hover.label == Some(editor.slot)
+                });
+            if drag_pointer.start && !on_edited_label {
+                if let Some(editor) = self.circuit_block_editor.as_mut() {
+                    editor.commit_after_frame = true;
+                }
+            }
+            DragController::clear_idle_hover(self, ctx);
+            if on_edited_label {
+                ctx.set_cursor_icon(egui::CursorIcon::Text);
+            }
             return;
         }
 
@@ -153,8 +170,7 @@ impl QniApp {
             ..drag_pointer
         };
         if drag_pointer.start
-            && self.dragging.is_none()
-            && self.span_resize_drag.is_none()
+            && no_gesture
             && DragController::handle_pointer_start(self, start_pointer, &geometry, ctx)
         {
             self.clear_click_copy_after_motion(ctx, true);
@@ -169,6 +185,9 @@ impl QniApp {
         // Active resizable-span drag → update span from total Δy and skip
         // the rest of the input pipeline (gate drag, hover) for this frame.
         if DragController::update_active_span_resize(self, drag_pointer, ctx) {
+            return;
+        }
+        if DragController::update_circuit_block_drag(self, drag_pointer, &geometry.metrics, ctx) {
             return;
         }
 
