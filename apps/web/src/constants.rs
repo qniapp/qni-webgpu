@@ -235,7 +235,7 @@ pub(crate) const PALETTE_ROW_GAP: f32 = crate::tailwind::SPACING_2;
 pub(crate) const PALETTE_SECTION_GAP: f32 = crate::tailwind::SPACING_2;
 // 2px vertical divider used by UI section separators.
 pub(crate) const SECTION_DIVIDER_WIDTH: f32 = 2.0;
-// Palette separator spans the full two-row palette height.
+// Palette separator spans the Display section's rows.
 pub(crate) const PALETTE_SEPARATOR_WIDTH: f32 = SECTION_DIVIDER_WIDTH;
 pub(crate) const PALETTE_DISPLAY_COLUMNS: usize = 3;
 pub(crate) const PALETTE_DISPLAY_ROWS: usize = 2;

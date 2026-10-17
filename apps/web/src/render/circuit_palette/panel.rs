@@ -4,7 +4,7 @@ use crate::app::QniApp;
 use crate::colors::Colors;
 use crate::constants::{
     CAROUSEL_DOT_SIZE, CAROUSEL_GATES_PER_PAGE, PALETTE_CORNER_RADIUS, PALETTE_PADDING_X,
-    PALETTE_PADDING_Y, PALETTE_ROW_Y, PALETTE_SEPARATOR_WIDTH, PALETTE_SIZE,
+    PALETTE_PADDING_Y, PALETTE_ROW_Y, PALETTE_SIZE,
 };
 use crate::gates::GateKind;
 use crate::icons::{draw_bloch_vector, draw_density_palette_icon, draw_gate_body};
@@ -41,13 +41,13 @@ impl QniApp {
         painter.rect_filled(palette_rect, palette_corner, colors.surface);
 
         let palette_origin = rect.min + egui::vec2(palette_start_x, PALETTE_ROW_Y);
-        if let Some(separator_x) = layout.separator_x {
-            let separator_rect = egui::Rect::from_min_size(
-                palette_origin + egui::vec2(separator_x, 0.0),
-                egui::vec2(PALETTE_SEPARATOR_WIDTH, layout.total_height),
-            );
+        if let Some(separator) = layout.separator {
             // section separator between operation gates and displays.
-            painter.rect_filled(separator_rect, egui::CornerRadius::ZERO, colors.line);
+            painter.rect_filled(
+                separator.translate(palette_origin.to_vec2()),
+                egui::CornerRadius::ZERO,
+                colors.line,
+            );
         }
 
         for index in 0..self.palette.len() {

@@ -214,8 +214,8 @@ mod tests {
     }
 
     #[test]
-    fn full_palette_has_eight_pages() {
-        assert_eq!(carousel().page_count(), 8);
+    fn full_palette_has_nine_pages() {
+        assert_eq!(carousel().page_count(), 9);
     }
 
     #[test]
@@ -246,9 +246,22 @@ mod tests {
     }
 
     #[test]
-    fn last_page_is_the_display_blocks_after_bloch() {
+    fn eighth_page_ends_the_gate_rows_with_postselections_before_bloch() {
         assert_eq!(
             page_kinds(7),
+            vec![
+                GateKind::PostSelectOn,
+                GateKind::PostSelectAntiX,
+                GateKind::PostSelectX,
+                GateKind::BlochDisplay
+            ]
+        );
+    }
+
+    #[test]
+    fn last_page_is_the_display_blocks_after_bloch() {
+        assert_eq!(
+            page_kinds(8),
             vec![
                 GateKind::ProbabilityDisplay,
                 GateKind::SampleDisplay,
@@ -366,7 +379,7 @@ mod tests {
 
     #[test]
     fn next_on_last_page_stays() {
-        assert_eq!(carousel().page_after(7, CarouselHit::Next), 7);
+        assert_eq!(carousel().page_after(8, CarouselHit::Next), 8);
     }
 
     #[test]

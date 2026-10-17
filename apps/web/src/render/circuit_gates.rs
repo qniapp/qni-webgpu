@@ -871,7 +871,7 @@ impl QniApp {
         &self,
         painter: &egui::Painter,
         callback_rect: egui::Rect,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
         colors: &Colors,
         panel_rect: Option<egui::Rect>,
     ) {
@@ -888,20 +888,23 @@ impl QniApp {
                 continue;
             };
             let slot = slot.as_u32();
-            let pos = circuit_origin
-                + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2();
-            let entry = columns.entry(gate.column).or_insert((slot, slot, pos.x));
+            let time = crate::render::circuit::gate_draw_pos(gate, self.dragging).x;
+            let entry = columns.entry(gate.column).or_insert((slot, slot, time));
             entry.0 = entry.0.min(slot);
             entry.1 = entry.1.max(slot);
         }
+        let label_y = if projection.is_vertical() {
+            self.circuit_bottom_local_y()
+        } else {
+            self.circuit_bottom_local_y() - crate::tailwind::SPACING_4
+        };
         let mut postselection_instances: Vec<crate::gpu::SurvivalLabelInstance> = columns
             .values()
             .map(
-                |&(first_slot, last_slot, x)| crate::gpu::SurvivalLabelInstance {
-                    center: [
-                        x + GATE_SIZE * 0.5,
-                        self.circuit_bottom_y(callback_rect) - crate::tailwind::SPACING_4,
-                    ],
+                |&(first_slot, last_slot, time)| crate::gpu::SurvivalLabelInstance {
+                    center: projection
+                        .to_screen(egui::pos2(time + GATE_SIZE * 0.5, label_y))
+                        .into(),
                     half_extent: crate::tailwind::SPACING_8,
                     first_slot,
                     last_slot,

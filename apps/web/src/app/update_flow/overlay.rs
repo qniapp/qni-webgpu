@@ -28,11 +28,11 @@ impl QniApp {
         ) || circuit_frame.recompute;
 
         if let Some(content_rect) = circuit_frame.content_rect {
-            let circuit_origin = self.circuit_origin(content_rect, self.circuit_scroll_x);
+            let projection = self.circuit_projection(content_rect, self.circuit_scroll_time);
             self.draw_survival_labels(
                 &overlay_painter,
                 screen_rect,
-                circuit_origin,
+                projection,
                 colors,
                 self.state_panel_visible().then(|| {
                     state_frame

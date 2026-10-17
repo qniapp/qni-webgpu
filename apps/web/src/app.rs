@@ -456,12 +456,16 @@ impl QniApp {
     /// Screen y of the lowest pixel the circuit draws: the last wire's step
     /// bar, or a block's lower label when the circuit has blocks.
     pub(crate) fn circuit_bottom_y(&self, screen_rect: egui::Rect) -> f32 {
-        use crate::constants::LINE_GAP;
         let content_rect = self.last_content_rect.unwrap_or(screen_rect);
-        let last_line_y = self.horizontal_circuit_origin(content_rect, 0.0).y
-            + LINE_Y
-            + LINE_GAP * (self.layout_qubits() - 1) as f32;
-        last_line_y + STEP_OUTSET_Y.max(LINE_GAP * 0.5 + self.circuit_block_outset_y())
+        self.horizontal_circuit_origin(content_rect, 0.0).y + self.circuit_bottom_local_y()
+    }
+
+    /// `circuit_bottom_y` in circuit space.
+    pub(crate) fn circuit_bottom_local_y(&self) -> f32 {
+        use crate::constants::LINE_GAP;
+        LINE_Y
+            + LINE_GAP * (self.layout_qubits() - 1) as f32
+            + STEP_OUTSET_Y.max(LINE_GAP * 0.5 + self.circuit_block_outset_y())
     }
 
     pub(crate) fn colors(&self) -> Colors {

@@ -22,6 +22,7 @@ type Layout = {
 const PHONE = { width: 390, height: 844 }
 const EMPTY = '#%7B%22cols%22%3A%5B%5D%7D'
 const BELL = `#${encodeURIComponent(JSON.stringify({ cols: [['H'], ['•', 'X'], ['Measure', 'Measure']] }))}`
+const POSTSELECTION = `#${encodeURIComponent(JSON.stringify({ cols: [['H', 'H'], ['|0⟩⟨0|'], ['H'], ['|+⟩⟨+|']] }))}`
 const LONG = `#${encodeURIComponent(JSON.stringify({ cols: Array.from({ length: 12 }, () => ['H']) }))}`
 
 test.use({ viewport: PHONE, hasTouch: true, isMobile: true, deviceScaleFactor: 1 })
@@ -82,9 +83,9 @@ test('phone portrait uses the vertical layout', async ({ page }) => {
   expect(layout.orientation).toBe('vertical')
 })
 
-test('palette carousel starts on the first of eight pages', async ({ page }) => {
+test('palette carousel starts on the first of nine pages', async ({ page }) => {
   const carousel = carouselOf(await openPhone(page, EMPTY))
-  expect({ page: carousel.page, pageCount: carousel.pageCount }).toEqual({ page: 0, pageCount: 8 })
+  expect({ page: carousel.page, pageCount: carousel.pageCount }).toEqual({ page: 0, pageCount: 9 })
 })
 
 test('palette carousel sits below the circuit area', async ({ page }) => {
@@ -200,6 +201,11 @@ test('empty circuit renders the portrait layout', async ({ page }) => {
 test('bell circuit renders vertically', async ({ page }) => {
   await openPhone(page, BELL)
   await expect(page).toHaveScreenshot('mobile-bell-390x844.png')
+})
+
+test('survival labels sit beside the vertical circuit', async ({ page }) => {
+  await openPhone(page, POSTSELECTION)
+  await expect(page).toHaveScreenshot('mobile-postselection-390x844.png')
 })
 
 test('second palette page renders in the carousel', async ({ page }) => {
