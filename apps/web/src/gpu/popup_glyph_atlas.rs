@@ -41,14 +41,14 @@ pub(crate) const POPUP_GLYPH_CELL_W: u32 = 9;
 /// Height of one glyph cell in atlas pixels.
 pub(crate) const POPUP_GLYPH_CELL_H: u32 = 16;
 /// Number of cells in the atlas strip. Matches the glyph set below.
-pub(super) const POPUP_GLYPH_COUNT: u32 = 23;
+pub(super) const POPUP_GLYPH_COUNT: u32 = 20;
 pub(super) const POPUP_GLYPH_ATLAS_WIDTH: u32 = POPUP_GLYPH_CELL_W * POPUP_GLYPH_COUNT;
 pub(super) const POPUP_GLYPH_ATLAS_HEIGHT: u32 = POPUP_GLYPH_CELL_H;
 
 /// Glyphs in the order they appear in the atlas strip.
-pub(super) const POPUP_GLYPHS: [char; 23] = [
+pub(super) const POPUP_GLYPHS: [char; 20] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '+', '−', 'i', '%', '°', 'd', 'B', '∞',
-    '—', 'o', 'n', 'f',
+    '—',
 ];
 
 /// PxScale calibrated so the rasterised glyph height matches what egui

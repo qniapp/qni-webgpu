@@ -394,6 +394,16 @@ mod tests {
     }
 
     #[test]
+    fn sample_display_is_resizable_span() {
+        assert!(GateKind::SampleDisplay.is_resizable_span());
+    }
+
+    #[test]
+    fn sample_span_follows_a_smaller_capacity() {
+        assert_eq!(GateKind::SampleDisplay.max_resizable_span(2), 2);
+    }
+
+    #[test]
     fn sample_span_is_limited_to_three_wires() {
         assert_eq!(GateKind::SampleDisplay.max_resizable_span(16), 3);
     }

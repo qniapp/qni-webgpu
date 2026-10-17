@@ -85,14 +85,15 @@ fn draw_sample_drag_preview(
     span: usize,
     colors: &Colors,
 ) {
-    let callback_rect = body_rect.intersect(painter.clip_rect());
+    let draw_rect = body_rect.expand(ProbabilityInstance::SAMPLE_GLOW_PAD);
+    let callback_rect = draw_rect.intersect(painter.clip_rect());
     if !callback_rect.is_positive() {
         return;
     }
     let callback = ProbabilityDisplayCallback {
         instances: vec![ProbabilityInstance {
-            rect_min: [body_rect.min.x, body_rect.min.y],
-            rect_size: [body_rect.width(), body_rect.height()],
+            rect_min: [draw_rect.min.x, draw_rect.min.y],
+            rect_size: [draw_rect.width(), draw_rect.height()],
             slot: 0,
             span: span as u32,
             hovered_outcome: -1,
@@ -109,12 +110,11 @@ fn draw_sample_drag_preview(
         border: colors.line.to_normalized_gamma_f32(),
         log_hint: colors.probability_log_hint.to_normalized_gamma_f32(),
         bar: colors.state_fill.to_normalized_gamma_f32(),
+        sample_on_core: colors.sample_on_core.to_normalized_gamma_f32(),
         sample_on_fill: colors.sample_on_fill.to_normalized_gamma_f32(),
         sample_on_glow: colors.sample_on_glow.to_normalized_gamma_f32(),
-        sample_on_edge: colors.sample_on_edge.to_normalized_gamma_f32(),
         sample_off_fill: colors.sample_off_fill.to_normalized_gamma_f32(),
         sample_off_edge: colors.sample_off_edge.to_normalized_gamma_f32(),
-        sample_frame: colors.sample_frame.to_normalized_gamma_f32(),
         bar_edge: colors.popup_icon.to_normalized_gamma_f32(),
         hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
         text_color: colors.text_strong.to_normalized_gamma_f32(),

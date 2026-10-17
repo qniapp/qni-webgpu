@@ -21,7 +21,7 @@ struct BlochPopupParams {
 @group(0) @binding(2) var atlas: texture_2d<f32>;
 @group(0) @binding(3) var atlas_sampler: sampler;
 
-const GLYPH_COUNT: u32 = 23u;
+const GLYPH_COUNT: u32 = 20u;
 const GLYPH_DOT: u32 = 10u;
 const GLYPH_PLUS: u32 = 11u;
 const GLYPH_MINUS: u32 = 12u;
