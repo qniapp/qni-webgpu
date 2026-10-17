@@ -26,7 +26,7 @@ struct PopupParams {
 @group(0) @binding(4) var<storage, read> selected_state_norm: array<vec4<f32>>;
 
 // --- Atlas / glyph constants (must mirror popup_glyph_atlas.rs) ---
-const GLYPH_COUNT: u32 = 20u;
+const GLYPH_COUNT: u32 = 23u;
 const GLYPH_DIGIT_0: u32 = 0u;
 const GLYPH_DOT: u32 = 10u;
 const GLYPH_PLUS: u32 = 11u;

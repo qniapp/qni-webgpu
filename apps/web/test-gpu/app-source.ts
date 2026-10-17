@@ -173,7 +173,7 @@ export function checkDrift(): void {
     }
   }
   compare('ProbabilityInstance', stripComments(wgsl('probability_aggregate').code), 'ProbabilityInstance')
-  if (rustStruct('ProbabilityInstance').size !== 32) drift('ProbabilityInstance stride')
+  if (rustStruct('ProbabilityInstance').size !== 40) drift('ProbabilityInstance stride')
   const normalizeLines = (source: string) => source.split('\n').map((line) => line.trim().replace(/\s+/g, ' ')).join('\n')
   for (const [file, snippet, count] of fingerprints)
     if (`\n${normalizeLines(text(file))}\n`.split(`\n${normalizeLines(snippet)}\n`).length - 1 !== count)

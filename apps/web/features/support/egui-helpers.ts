@@ -57,8 +57,8 @@ const DEFAULT_PALETTE_ROW_GAP = UI_CONSTANTS.PALETTE_ROW_GAP
 const DEFAULT_PALETTE_SECTION_GAP = UI_CONSTANTS.PALETTE_SECTION_GAP
 const DEFAULT_PALETTE_SEPARATOR_WIDTH = UI_CONSTANTS.PALETTE_SEPARATOR_WIDTH
 const DEFAULT_PALETTE_DISPLAY_COLUMNS = UI_CONSTANTS.PALETTE_DISPLAY_COLUMNS
-const DEFAULT_PALETTE_GATES_ROW2_INDICES = [13, 14, 15, 17, 18, 19, 26, 22, 23, 21, 27, 28, 29, 30]
-const DEFAULT_PALETTE_DISPLAY_INDICES = [16, 20, 24, 25]
+const DEFAULT_PALETTE_GATES_ROW2_INDICES = [13, 14, 15, 31, 32, 17, 18, 19, 26, 34, 35, 22, 23, 21, 27, 28, 29, 30]
+const DEFAULT_PALETTE_DISPLAY_INDICES = [16, 20, 33, 24, 25]
 const DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN = UI_CONSTANTS.STATE_CIRCLE_BOTTOM_MARGIN
 const DEFAULT_STATE_COUNT = 4
 
@@ -564,7 +564,9 @@ export const getPaletteGateCenter = (
   const displayWidth = displayColumns * gateSize + (displayColumns - 1) * gap
   const displayX = gatesWidth + sectionGap + separatorWidth + sectionGap
   const totalWidth = displayX + displayWidth
-  const paletteStartX = Math.round(cssWidth / 2 - totalWidth / 2)
+  const panelMargin = 8
+  const offset = (cssWidth - 2 * panelMargin - totalWidth) / 2
+  const paletteStartX = panelMargin + Math.sign(offset) * Math.round(Math.abs(offset))
 
   const row2Col = DEFAULT_PALETTE_GATES_ROW2_INDICES.indexOf(gateIndex)
   const displaySlot = DEFAULT_PALETTE_DISPLAY_INDICES.indexOf(gateIndex)

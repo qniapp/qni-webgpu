@@ -19,6 +19,11 @@ rules:
   - expected: 生存率
     pattern: /生存確率/
 
+  - expected: 検出器
+    patterns:
+      - /ディテクター/
+      - /ディテクタ(?!ー)/
+
   # ── 表示ブロック (Display blocks) 用語統一 ──
   - expected: 確率表示ブロック
     patterns:
@@ -39,6 +44,22 @@ rules:
       - /Amplitude Display/
       - /Amplitude display/
       - /amplitude display/
+
+  - expected: サンプル表示ブロック
+    patterns:
+      - /Sample Display/
+      - /Sample display/
+      - /sample display/
+      - /サンプル表示ゲート/
+
+  # ── パリティ制御 (Parity controls) 用語統一 ──
+  - expected: パリティ制御
+    patterns:
+      - /Parity Control/
+      - /Parity control/
+      - /parity control/
+      - /パリティコントロール/
+      - /パリティ制御ゲート/
 
   - expected: 表示ブロック
     patterns:

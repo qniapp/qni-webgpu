@@ -10,7 +10,10 @@ const ROUNDED_GATE_HOVER_GAP_RADIUS: u8 = 8;
 fn display_block_has_square_body(kind: GateKind) -> bool {
     matches!(
         kind,
-        GateKind::ProbabilityDisplay | GateKind::AmplitudeDisplay | GateKind::DensityMatrixDisplay
+        GateKind::SampleDisplay
+            | GateKind::ProbabilityDisplay
+            | GateKind::AmplitudeDisplay
+            | GateKind::DensityMatrixDisplay
     )
 }
 

@@ -218,13 +218,14 @@ fn start_intent(
                 original_column: Some(gate.column),
                 click_copy: None,
             },
-            starts_live_display_snap: matches!(
-                gate.kind,
-                crate::gates::GateKind::AmplitudeDisplay
-                    | crate::gates::GateKind::DensityMatrixDisplay
-                    | crate::gates::GateKind::BlochDisplay
-                    | crate::gates::GateKind::Measurement
-            ),
+            starts_live_display_snap: gate.kind.is_sampled_measurement()
+                || matches!(
+                    gate.kind,
+                    crate::gates::GateKind::SampleDisplay
+                        | crate::gates::GateKind::AmplitudeDisplay
+                        | crate::gates::GateKind::DensityMatrixDisplay
+                        | crate::gates::GateKind::BlochDisplay
+                ),
         })
     {
         return drag;

@@ -4,6 +4,10 @@ struct MeasureCollapseParams {
   state_count: u32,
   aux_slot: u32,
   _pad: u32,
+  control_mask: u32,
+  control_value: u32,
+  _pad_controls0: u32,
+  _pad_controls1: u32,
 };
 
 @group(0) @binding(0) var<storage, read> state_in: array<vec2<f32>>;
@@ -26,13 +30,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let aux_v = aux[params.aux_slot];
   let outcome: f32 = aux_v.z;
   let inv_norm: f32 = 1.0 / aux_v.w;
-  let a0 = state_in[i0];
-  let a1 = state_in[i1];
-  if (outcome < 0.5) {
-    state_out[i0] = a0 * inv_norm;
-    state_out[i1] = vec2<f32>(0.0, 0.0);
-  } else {
-    state_out[i0] = vec2<f32>(0.0, 0.0);
-    state_out[i1] = a1 * inv_norm;
-  }
+  let click0 = (i0 & params.control_mask) == params.control_value && (i0 & (1u << bit)) != 0u;
+  let click1 = (i1 & params.control_mask) == params.control_value && (i1 & (1u << bit)) != 0u;
+  state_out[i0] = select(vec2<f32>(0.0), state_in[i0] * inv_norm, click0 == (outcome >= 0.5));
+  state_out[i1] = select(vec2<f32>(0.0), state_in[i1] * inv_norm, click1 == (outcome >= 0.5));
 }

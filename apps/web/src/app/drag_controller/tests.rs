@@ -1012,6 +1012,69 @@ fn input_frame(app: &mut QniApp, ctx: &egui::Context, events: Vec<egui::Event>, 
 }
 
 #[test]
+fn sample_pickup_keeps_live_display_snap() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["Sample1"]]}"#);
+    start(&mut app, &ctx, &geometry, false);
+
+    assert!(app.dragging_live_display_snap);
+}
+
+#[test]
+fn sample_snapping_to_slot_keeps_live_display_snap() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["Sample1"]]}"#);
+    start(&mut app, &ctx, &geometry, false);
+    let target = egui::pos2(
+        geometry.metrics.slot_centers[1],
+        geometry.metrics.line_ys[0],
+    );
+    DragController::update_gate_drag_preview(&mut app, pointer(target, false), &geometry.metrics);
+
+    assert!(app.dragging_live_display_snap);
+}
+
+#[test]
+fn x_detector_pickup_keeps_live_display_snap() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["XDetector"]]}"#);
+    start(&mut app, &ctx, &geometry, false);
+
+    assert!(app.dragging_live_display_snap);
+}
+
+#[test]
+fn y_detector_pickup_keeps_live_display_snap() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["YDetector"]]}"#);
+    start(&mut app, &ctx, &geometry, false);
+
+    assert!(app.dragging_live_display_snap);
+}
+
+#[test]
+fn x_detector_snapping_to_slot_keeps_live_display_snap() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["XDetector"]]}"#);
+    start(&mut app, &ctx, &geometry, false);
+    let target = egui::pos2(
+        geometry.metrics.slot_centers[1],
+        geometry.metrics.line_ys[0],
+    );
+    DragController::update_gate_drag_preview(&mut app, pointer(target, false), &geometry.metrics);
+
+    assert!(app.dragging_live_display_snap);
+}
+
+#[test]
+fn y_detector_snapping_to_slot_keeps_live_display_snap() {
+    let (mut app, ctx, geometry) = fixture(r#"{"cols":[["YDetector"]]}"#);
+    start(&mut app, &ctx, &geometry, false);
+    let target = egui::pos2(
+        geometry.metrics.slot_centers[1],
+        geometry.metrics.line_ys[0],
+    );
+    DragController::update_gate_drag_preview(&mut app, pointer(target, false), &geometry.metrics);
+
+    assert!(app.dragging_live_display_snap);
+}
+
+#[test]
 fn shift_pickup_preserves_multi_wire_single_gate() {
     let (mut app, ctx, geometry) = fixture(r#"{"cols":[["QFT3"]]}"#);
     start(&mut app, &ctx, &geometry, true);

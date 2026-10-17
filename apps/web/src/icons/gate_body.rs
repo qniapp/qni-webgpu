@@ -81,6 +81,22 @@ fn draw_gate_body_with_fill(
     if kind == GateKind::X {
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
         painter.circle_filled(gate_rect.center(), radius, fill);
+    } else if kind == GateKind::SampleDisplay {
+        painter.rect_filled(gate_rect, egui::CornerRadius::ZERO, colors.surface);
+        painter.rect_stroke(
+            gate_rect,
+            egui::CornerRadius::ZERO,
+            egui::Stroke::new(1.0, colors.line),
+            egui::StrokeKind::Inside,
+        );
+        painter.text(
+            gate_rect.center(),
+            egui::Align2::CENTER_CENTER,
+            "010",
+            egui::FontId::monospace(crate::tailwind::TEXT_SM),
+            colors.text_strong,
+        );
+        return;
     } else if kind == GateKind::ProbabilityDisplay {
         draw_probability_preview_body(painter, gate_rect, colors);
         return;
@@ -128,7 +144,7 @@ fn draw_gate_body_with_fill(
     } else if kind != GateKind::Control
         && kind != GateKind::AntiControl
         && kind != GateKind::Swap
-        && kind != GateKind::Measurement
+        && !kind.is_sampled_measurement()
         && kind != GateKind::Spacer
         && kind != GateKind::Write0
         && kind != GateKind::Write1
@@ -155,7 +171,7 @@ fn draw_gate_icon_with_fallback(
             fill
         } else if kind == GateKind::BlochDisplay {
             colors.bloch_sphere_lines
-        } else if kind == GateKind::Measurement {
+        } else if kind.is_sampled_measurement() {
             // qni `measurement_gate.css`: icon color is semantic-color-intermediate (purple).
             colors.semantic_intermediate
         } else if kind == GateKind::Spacer {

@@ -238,9 +238,6 @@ fn palette_display_local_pos(index: usize, layout: &PaletteLayout) -> Option<egu
     ))
 }
 
-/// Returns gate top-left position relative to the palette panel top-left.
-/// Gates stay in the left section; Display widgets occupy a 2×2 grid on the
-/// right.
 fn palette_gate_local_pos(index: usize, layout: &PaletteLayout) -> Option<egui::Pos2> {
     if index >= PALETTE_GATE_COUNT {
         return None;

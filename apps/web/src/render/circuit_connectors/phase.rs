@@ -492,7 +492,11 @@ fn control_connection_sides(column: &AnalyzedColumn<'_>, gate: &PlacedGate) -> C
         .filter(|other| {
             matches!(
                 other.kind,
-                GateKind::Control | GateKind::AntiControl | GateKind::ZDetectControlReset
+                GateKind::Control
+                    | GateKind::AntiControl
+                    | GateKind::ZDetectControlReset
+                    | GateKind::ZParityControl
+                    | GateKind::XParityControl
             )
         })
         .count();
@@ -508,6 +512,8 @@ fn control_connection_sides(column: &AnalyzedColumn<'_>, gate: &PlacedGate) -> C
                 GateKind::Control
                     | GateKind::AntiControl
                     | GateKind::ZDetectControlReset
+                    | GateKind::ZParityControl
+                    | GateKind::XParityControl
                     | GateKind::Swap
             )
         })

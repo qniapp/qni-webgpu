@@ -102,13 +102,14 @@ impl DragController {
             gate.clamp_span_to_qubit_capacity(capacity);
             (gate.kind, gate.wire, gate.column, gate.span)
         };
-        let live_display_kind = matches!(
-            gate_kind,
-            GateKind::AmplitudeDisplay
-                | GateKind::DensityMatrixDisplay
-                | GateKind::BlochDisplay
-                | GateKind::Measurement
-        );
+        let live_display_kind = gate_kind.is_sampled_measurement()
+            || matches!(
+                gate_kind,
+                GateKind::SampleDisplay
+                    | GateKind::AmplitudeDisplay
+                    | GateKind::DensityMatrixDisplay
+                    | GateKind::BlochDisplay
+            );
         app.dragging_live_snap = live_snap;
         app.dragging_live_display_snap =
             live_display_kind && matches!(app.dragging_live_snap, Some(LiveDragSnap::Slot { .. }));

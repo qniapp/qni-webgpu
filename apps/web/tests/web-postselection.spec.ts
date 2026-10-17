@@ -163,6 +163,15 @@ test('measurement after impossible postselection has no defined outcome', async 
   await expect.poll(() => readMeasurementOutcomes(page)).toEqual([{ gateId: 3, outcome: -1 }])
 })
 
+for (const detector of ['XDetector', 'YDetector']) {
+  for (const control of [null, '•', '◦']) {
+    test(`${detector} after impossible postselection has no outcome with control ${control}`, async ({ page }) => {
+      await openCircuit(page, [['|1⟩⟨1|'], control ? [control, detector] : [detector]])
+      await expect.poll(async () => (await readMeasurementOutcomes(page)).map(result => result.outcome)).toEqual([-1])
+    })
+  }
+}
+
 test('selecting a column before impossible postselection restores its defined snapshot', async ({ page }) => {
   await openCircuit(page, [['X'], ['|0⟩⟨0|']])
   await page.mouse.click(170, 224)

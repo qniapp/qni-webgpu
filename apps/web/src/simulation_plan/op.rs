@@ -41,10 +41,12 @@ pub(crate) enum SimulationOp {
         gate_id: GateId,
         qubit_bit: QubitBit,
         output_slot: SlotIndex<Measurement>,
+        controls: ColumnControls,
     },
     MeasureCollapse {
         qubit_bit: QubitBit,
         aux_slot: SlotIndex<Measurement>,
+        controls: ColumnControls,
     },
     CaptureProbability {
         gate_id: GateId,

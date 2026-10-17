@@ -334,6 +334,24 @@ impl GateKind {
                 ],
                 transitions: &[],
             },
+            GateKind::ZParityControl | GateKind::XParityControl => GateInfo {
+                name: if self == GateKind::ZParityControl { "Z Parity Control" } else { "X Parity Control" },
+                paragraphs: &[
+                    "Applies the column when an odd number of parity controls are satisfied.",
+                    "Zpar uses the Z basis; Xpar uses the X basis. Ordinary controls are combined by AND.",
+                    "Available in local WebGPU mode only; the external Qiskit API does not support parity controls.",
+                ],
+                transitions: &[],
+            },
+            GateKind::SampleDisplay => GateInfo {
+                name: "Sample Display",
+                paragraphs: &[
+                    "Shows one sampled bit string without changing or collapsing the state.",
+                    "Use controls to see conditional samples. Resize to cover one to three wires.",
+                    "Available in local WebGPU mode only; the external Qiskit API does not support sampling displays.",
+                ],
+                transitions: &[],
+            },
             GateKind::BlochDisplay => GateInfo {
                 name: "Bloch Sphere Display",
                 paragraphs: &["Shows a wire's local state as a point on the Bloch sphere."],
@@ -394,6 +412,24 @@ impl GateKind {
             GateKind::PostSelectX => GateInfo {
                 name: "Postselect |−⟩",
                 paragraphs: &["Keeps only the |−⟩ outcome and renormalizes the surviving state."],
+                transitions: &[],
+            },
+            GateKind::XDetector => GateInfo {
+                name: "X Detector",
+                paragraphs: &[
+                    "Samples the negative X eigenstate, or its joint subspace with column controls.",
+                    "0 = no click; 1 = click. Without controls these mean +1 and -1 eigenvalues.",
+                    "Without controls, equivalent to H → Measurement → H.",
+                ],
+                transitions: &[],
+            },
+            GateKind::YDetector => GateInfo {
+                name: "Y Detector",
+                paragraphs: &[
+                    "Samples the negative Y eigenstate, or its joint subspace with column controls.",
+                    "0 = no click; 1 = click. Without controls these mean +1 and -1 eigenvalues.",
+                    "Without controls, equivalent to S† → H → Measurement → H → S.",
+                ],
                 transitions: &[],
             },
             GateKind::Measurement => GateInfo {

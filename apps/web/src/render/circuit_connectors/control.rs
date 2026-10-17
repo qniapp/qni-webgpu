@@ -42,7 +42,11 @@ pub(super) fn draw_control_connectors(
                 + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
             if matches!(
                 gate.kind,
-                GateKind::Control | GateKind::AntiControl | GateKind::ZDetectControlReset
+                GateKind::Control
+                    | GateKind::AntiControl
+                    | GateKind::ZDetectControlReset
+                    | GateKind::ZParityControl
+                    | GateKind::XParityControl
             ) {
                 controls.push(center);
                 if gate.kind == GateKind::AntiControl {

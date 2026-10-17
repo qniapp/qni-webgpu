@@ -41,14 +41,14 @@ pub(crate) const POPUP_GLYPH_CELL_W: u32 = 9;
 /// Height of one glyph cell in atlas pixels.
 pub(crate) const POPUP_GLYPH_CELL_H: u32 = 16;
 /// Number of cells in the atlas strip. Matches the glyph set below.
-pub(super) const POPUP_GLYPH_COUNT: u32 = 20;
+pub(super) const POPUP_GLYPH_COUNT: u32 = 23;
 pub(super) const POPUP_GLYPH_ATLAS_WIDTH: u32 = POPUP_GLYPH_CELL_W * POPUP_GLYPH_COUNT;
 pub(super) const POPUP_GLYPH_ATLAS_HEIGHT: u32 = POPUP_GLYPH_CELL_H;
 
 /// Glyphs in the order they appear in the atlas strip.
-pub(super) const POPUP_GLYPHS: [char; 20] = [
+pub(super) const POPUP_GLYPHS: [char; 23] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '+', '−', 'i', '%', '°', 'd', 'B', '∞',
-    '—',
+    '—', 'o', 'n', 'f',
 ];
 
 /// PxScale calibrated so the rasterised glyph height matches what egui
@@ -107,6 +107,19 @@ pub(super) fn rasterize_popup_glyph_atlas() -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shader_glyph_counts_match_atlas() {
+        let declaration = format!("const GLYPH_COUNT: u32 = {POPUP_GLYPH_COUNT}u;");
+        let shaders = [
+            include_str!("shaders/popup_value.wgsl"),
+            include_str!("shaders/bloch_popup_value.wgsl"),
+            include_str!("shaders/amplitude_popup_value.wgsl"),
+            include_str!("shaders/probability_popup_value.wgsl"),
+            include_str!("shaders/probability_render.wgsl"),
+        ];
+        assert!(shaders.iter().all(|shader| shader.contains(&declaration)));
+    }
 
     /// Atlas dimensions are derived from `POPUP_GLYPH_COUNT` * `CELL_W`
     /// — guard against the buffer length getting out of sync with

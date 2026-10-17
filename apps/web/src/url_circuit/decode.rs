@@ -371,6 +371,13 @@ fn base_token_to_gate(token: &str) -> Option<(GateKind, usize, Option<Parametric
         };
         return Some((GateKind::ProbabilityDisplay, span.min(16), None));
     }
+    if let Some(rest) = token.strip_prefix("Sample") {
+        let span: usize = rest.parse().ok()?;
+        if !(1..=3).contains(&span) {
+            return None;
+        }
+        return Some((GateKind::SampleDisplay, span, None));
+    }
     if let Some(rest) = token.strip_prefix("Amps") {
         let span: usize = rest.parse().ok()?;
         if !(1..=16).contains(&span) {
@@ -436,6 +443,30 @@ mod tests {
 
     fn qubit_count(value: usize) -> QubitCount {
         QubitCount::try_new(value).expect("test qubit count must be non-zero")
+    }
+
+    #[test]
+    fn sample_and_parity_ids_round_trip() {
+        let json = r#"{"cols":[["Sample1"],["Sample2"],["Sample3"],["zpar","xpar","X"]]}"#;
+        let circuit = parse_circuit_json(json);
+        assert_eq!(
+            crate::url_circuit::circuit_to_json(
+                &circuit.gates,
+                &circuit.blocks,
+                "",
+                qubit_count(3)
+            ),
+            json
+        );
+    }
+
+    #[test]
+    fn sample_spans_outside_one_to_three_are_rejected() {
+        assert!(
+            parse_circuit_json(r#"{"cols":[["Sample0"],["Sample4"],["Sample"]]}"#)
+                .gates
+                .is_empty()
+        );
     }
 
     #[test]
@@ -649,6 +680,46 @@ mod tests {
             &circuit.title,
             qubit_count(qubits),
         )
+    }
+
+    #[test]
+    fn x_detector_json_round_trip() {
+        let json = r#"{"cols":[["XDetector"]]}"#;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn x_detector_url_round_trip() {
+        let circuit = try_decode(r#"circuit={"cols":[["XDetector"]]}"#).unwrap();
+        assert_eq!(
+            crate::url_circuit::circuit_to_json(
+                &circuit.gates,
+                &circuit.blocks,
+                &circuit.title,
+                qubit_count(1)
+            ),
+            r#"{"cols":[["XDetector"]]}"#
+        );
+    }
+
+    #[test]
+    fn y_detector_json_round_trip() {
+        let json = r#"{"cols":[["YDetector"]]}"#;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn y_detector_url_round_trip() {
+        let circuit = try_decode(r#"circuit={"cols":[["YDetector"]]}"#).unwrap();
+        assert_eq!(
+            crate::url_circuit::circuit_to_json(
+                &circuit.gates,
+                &circuit.blocks,
+                &circuit.title,
+                qubit_count(1)
+            ),
+            r#"{"cols":[["YDetector"]]}"#
+        );
     }
 
     #[test]

@@ -3,9 +3,14 @@ pub(crate) enum GateKind {
     H,
     Control,
     AntiControl,
+    ZParityControl,
+    XParityControl,
+    SampleDisplay,
     BlochDisplay,
     Measurement,
     ZDetectControlReset,
+    XDetector,
+    YDetector,
     /// Quirk-compatible probability display. It has no unitary effect;
     /// a GPU compute pass marginalizes the live state vector into outcome
     /// bars and a render shader paints them without CPU readback.
@@ -70,7 +75,25 @@ pub(crate) struct GateSpec {
     pub(crate) resizable_span: bool,
 }
 
-const GATE_SPECS: [GateSpec; 31] = [
+const GATE_SPECS: [GateSpec; 36] = [
+    GateSpec {
+        kind: GateKind::ZParityControl,
+        label: "Zpar",
+        url_token: "zpar",
+        resizable_span: false,
+    },
+    GateSpec {
+        kind: GateKind::XParityControl,
+        label: "Xpar",
+        url_token: "xpar",
+        resizable_span: false,
+    },
+    GateSpec {
+        kind: GateKind::SampleDisplay,
+        label: "Sample",
+        url_token: "Sample",
+        resizable_span: true,
+    },
     GateSpec {
         kind: GateKind::H,
         label: "H",
@@ -257,12 +280,20 @@ const GATE_SPECS: [GateSpec; 31] = [
         url_token: "|-⟩⟨-|",
         resizable_span: false,
     },
+    GateSpec {
+        kind: GateKind::XDetector,
+        label: "X Detector",
+        url_token: "XDetector",
+        resizable_span: false,
+    },
+    GateSpec {
+        kind: GateKind::YDetector,
+        label: "Y Detector",
+        url_token: "YDetector",
+        resizable_span: false,
+    },
 ];
 
-// Split palette layout. The left Gates section keeps draggable operations and
-// placeholders; the right Display section is a 2×2 grid for visualization
-// widgets. Flat indices intentionally keep the pre-split IDs so hover, drag,
-// tooltip tests, and serialized UI helpers can keep addressing the same gate.
 pub(crate) const PALETTE_GATES_ROW1: [GateKind; 13] = [
     GateKind::H,
     GateKind::X,
@@ -278,14 +309,18 @@ pub(crate) const PALETTE_GATES_ROW1: [GateKind; 13] = [
     GateKind::Ry,
     GateKind::Rz,
 ];
-pub(crate) const PALETTE_GATES_ROW2: [GateKind; 14] = [
+pub(crate) const PALETTE_GATES_ROW2: [GateKind; 18] = [
     GateKind::Swap,
     GateKind::Control,
     GateKind::AntiControl,
+    GateKind::ZParityControl,
+    GateKind::XParityControl,
     GateKind::Write0,
     GateKind::Write1,
     GateKind::Measurement,
     GateKind::ZDetectControlReset,
+    GateKind::XDetector,
+    GateKind::YDetector,
     GateKind::QftGate,
     GateKind::QftDaggerGate,
     GateKind::Spacer,
@@ -294,18 +329,20 @@ pub(crate) const PALETTE_GATES_ROW2: [GateKind; 14] = [
     GateKind::PostSelectAntiX,
     GateKind::PostSelectX,
 ];
-pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 4] = [
+pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 5] = [
     GateKind::BlochDisplay,
     GateKind::ProbabilityDisplay,
+    GateKind::SampleDisplay,
     GateKind::AmplitudeDisplay,
     GateKind::DensityMatrixDisplay,
 ];
 pub(crate) const PALETTE_GATE_COUNT: usize =
     PALETTE_GATES_ROW1.len() + PALETTE_GATES_ROW2.len() + PALETTE_DISPLAY_GATES.len();
 pub(crate) const PALETTE_ROW1_COUNT: usize = PALETTE_GATES_ROW1.len();
-pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 14] =
-    [13, 14, 15, 17, 18, 19, 26, 22, 23, 21, 27, 28, 29, 30];
-pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 4] = [16, 20, 24, 25];
+pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 18] = [
+    13, 14, 15, 31, 32, 17, 18, 19, 26, 34, 35, 22, 23, 21, 27, 28, 29, 30,
+];
+pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 5] = [16, 20, 33, 24, 25];
 
 pub(crate) fn default_palette_angle(kind: GateKind) -> Option<ParametricAngle> {
     match kind {
@@ -340,6 +377,10 @@ impl GateKind {
         )
     }
 
+    pub(crate) fn is_sampled_measurement(self) -> bool {
+        matches!(self, Self::Measurement | Self::XDetector | Self::YDetector)
+    }
+
     pub(crate) fn spec(self) -> &'static GateSpec {
         GATE_SPECS
             .iter()
@@ -372,6 +413,7 @@ impl GateKind {
         match self {
             GateKind::ProbabilityDisplay | GateKind::AmplitudeDisplay => qubit_capacity.min(16),
             GateKind::DensityMatrixDisplay => qubit_capacity.min(8),
+            GateKind::SampleDisplay => qubit_capacity.min(3),
             _ => qubit_capacity,
         }
         .max(1)
@@ -417,10 +459,51 @@ mod tests {
     }
 
     #[test]
+    fn sample_info_explicitly_describes_no_collapse() {
+        assert!(GateKind::SampleDisplay
+            .info()
+            .paragraphs
+            .iter()
+            .any(|text| text.contains("without changing or collapsing")));
+    }
+
+    #[test]
+    fn sample_span_is_limited_to_three_wires() {
+        assert_eq!(GateKind::SampleDisplay.max_resizable_span(16), 3);
+    }
+
+    #[test]
+    fn new_palette_entries_have_stable_indices() {
+        assert_eq!(
+            [26, 31, 32, 33].map(palette_gate_kind),
+            [
+                Some(GateKind::ZDetectControlReset),
+                Some(GateKind::ZParityControl),
+                Some(GateKind::XParityControl),
+                Some(GateKind::SampleDisplay),
+            ]
+        );
+    }
+
+    #[test]
     fn postselection_does_not_accept_classical_flags() {
         assert_eq!(
             ["|0⟩⟨0|<a", "|1⟩⟨1|<a", "|+⟩⟨+|<a", "|-⟩⟨-|<a"].map(GateFlag::split_token),
             [None, None, None, None]
+        );
+    }
+
+    #[test]
+    fn detectors_do_not_accept_measurement_flags() {
+        let flag = GateFlag::Set(FlagName::parse("outcome").unwrap());
+        assert_eq!(
+            [
+                GateKind::Measurement,
+                GateKind::XDetector,
+                GateKind::YDetector
+            ]
+            .map(|kind| flag.fits(kind)),
+            [true, false, false]
         );
     }
 
@@ -435,6 +518,47 @@ mod tests {
             }),
             [Some(27), Some(28), Some(29), Some(30)]
         );
+    }
+
+    #[test]
+    fn detector_palette_ids_follow_historical_gates() {
+        assert_eq!(
+            [
+                palette_gate_kind(26),
+                palette_gate_kind(34),
+                palette_gate_kind(35),
+            ],
+            [
+                Some(GateKind::ZDetectControlReset),
+                Some(GateKind::XDetector),
+                Some(GateKind::YDetector),
+            ]
+        );
+    }
+
+    #[test]
+    fn sampled_measurements_include_both_detectors() {
+        assert_eq!(
+            [
+                GateKind::Measurement,
+                GateKind::XDetector,
+                GateKind::YDetector,
+                GateKind::H
+            ]
+            .map(GateKind::is_sampled_measurement),
+            [true, true, true, false]
+        );
+    }
+
+    #[test]
+    fn palette_contains_every_gate_spec_exactly_once() {
+        let mut palette: Vec<_> = (0..PALETTE_GATE_COUNT)
+            .map(|index| palette_gate_kind(index).unwrap().spec().url_token)
+            .collect();
+        let mut specs: Vec<_> = GATE_SPECS.iter().map(|spec| spec.url_token).collect();
+        palette.sort_unstable();
+        specs.sort_unstable();
+        assert_eq!(palette, specs);
     }
 
     #[test]

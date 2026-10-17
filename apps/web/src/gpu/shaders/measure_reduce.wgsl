@@ -4,6 +4,10 @@ struct MeasureReduceParams {
   state_count: u32,
   output_slot: u32,
   seed: u32,
+  control_mask: u32,
+  control_value: u32,
+  _pad0: u32,
+  _pad1: u32,
 };
 
 @group(0) @binding(0) var<storage, read> state: array<vec2<f32>>;
@@ -36,7 +40,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     let amp = state[i];
     let mass = dot(amp, amp);
     norm_partial += mass;
-    if ((i & qubit_mask) == 0u) {
+    if (!((i & params.control_mask) == params.control_value && (i & qubit_mask) != 0u)) {
       p_zero_partial += mass;
     }
     i = i + 64u;

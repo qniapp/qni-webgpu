@@ -102,11 +102,22 @@ fn supported_external_controlled_target(kind: GateKind) -> bool {
 }
 
 fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Option<String> {
+    if let Some(gate) = placed_gates.iter().find(|gate| {
+        matches!(
+            gate.kind,
+            GateKind::ZDetectControlReset
+                | GateKind::SampleDisplay
+                | GateKind::ZParityControl
+                | GateKind::XParityControl
+        )
+    }) {
+        return Some(gate.kind.label().to_owned());
+    }
     if let Some(gate) = placed_gates
         .iter()
-        .find(|gate| gate.kind == GateKind::ZDetectControlReset)
+        .find(|gate| matches!(gate.kind, GateKind::XDetector | GateKind::YDetector))
     {
-        return Some(gate.kind.label().to_owned());
+        return Some(gate.kind.spec().url_token.to_owned());
     }
     // The Qiskit backend has no classical flags: qni measurement variables
     // (`Measure>a`) and conditional gates (`X<a`) run only on local WebGPU.
@@ -603,6 +614,72 @@ mod gate_tests {
     use super::unsupported_external_gpu_gate_for_gates;
     use crate::app::PlacedGate;
     use crate::gates::GateKind;
+
+    #[test]
+    fn external_gpu_rejects_sample_and_parity_before_execution() {
+        let rejected: Vec<_> = [
+            GateKind::SampleDisplay,
+            GateKind::ZParityControl,
+            GateKind::XParityControl,
+        ]
+        .into_iter()
+        .map(|kind| {
+            let gates = [PlacedGate::new(
+                crate::app::GateId::from_u32(1),
+                kind,
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(0),
+                crate::gates::GateSpan::SINGLE,
+                None,
+            )];
+            unsupported_external_gpu_gate_for_gates(&gates)
+        })
+        .collect();
+        assert_eq!(
+            rejected,
+            vec![
+                Some("Sample".into()),
+                Some("Zpar".into()),
+                Some("Xpar".into())
+            ]
+        );
+    }
+
+    #[test]
+    fn external_gpu_rejects_x_detector() {
+        let gates = flagged_gates(r#"{"cols":[["XDetector"]]}"#);
+        assert_eq!(
+            unsupported_external_gpu_gate_for_gates(&gates),
+            Some("XDetector".to_owned())
+        );
+    }
+
+    #[test]
+    fn external_gpu_rejects_y_detector() {
+        let gates = flagged_gates(r#"{"cols":[["YDetector"]]}"#);
+        assert_eq!(
+            unsupported_external_gpu_gate_for_gates(&gates),
+            Some("YDetector".to_owned())
+        );
+    }
+
+    #[test]
+    fn external_gpu_rejects_x_detector_with_controls() {
+        let gates = flagged_gates(r#"{"cols":[["◦","XDetector"]]}"#);
+        assert_eq!(
+            unsupported_external_gpu_gate_for_gates(&gates),
+            Some("XDetector".to_owned())
+        );
+    }
+
+    #[test]
+    fn external_gpu_rejects_y_detector_with_controls() {
+        let gates = flagged_gates(r#"{"cols":[["•","YDetector"]]}"#);
+        assert_eq!(
+            unsupported_external_gpu_gate_for_gates(&gates),
+            Some("YDetector".to_owned())
+        );
+    }
 
     #[test]
     fn external_gpu_rejects_uncontrolled_postselection() {

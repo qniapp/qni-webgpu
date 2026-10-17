@@ -239,6 +239,9 @@ pub(crate) struct MeasureReduceParams {
     pub(crate) state_count: u32,
     pub(crate) output_slot: u32,
     pub(crate) seed: u32,
+    pub(crate) control_mask: u32,
+    pub(crate) control_value: u32,
+    pub(crate) _pad: [u32; 2],
 }
 
 #[repr(C)]
@@ -248,6 +251,9 @@ pub(crate) struct MeasureCollapseParams {
     pub(crate) state_count: u32,
     pub(crate) aux_slot: u32,
     pub(crate) _pad: u32,
+    pub(crate) control_mask: u32,
+    pub(crate) control_value: u32,
+    pub(crate) _pad_controls: [u32; 2],
 }
 
 #[repr(C)]
@@ -405,6 +411,7 @@ pub(crate) struct ProbabilityRenderParams {
     /// Logarithm hints for Probability5..16.
     pub(crate) log_hint: [f32; 4],
     pub(crate) bar: [f32; 4],
+    pub(crate) sample_on_fill: [f32; 4],
     pub(crate) bar_edge: [f32; 4],
     pub(crate) hover_border: [f32; 4],
     pub(crate) text_color: [f32; 4],
@@ -418,8 +425,14 @@ pub(crate) struct ProbabilityInstance {
     pub(crate) slot: u32,
     pub(crate) span: u32,
     pub(crate) hovered_outcome: i32,
-    /// 0 = sample probability buffer, 1 = pre-run placeholder.
     pub(crate) render_mode: u32,
+    pub(crate) seed: u32,
+    pub(crate) _pad: u32,
+}
+
+impl ProbabilityInstance {
+    pub(crate) const SAMPLED_BITSTRING: u32 = 2;
+    pub(crate) const SAMPLE_PREVIEW: u32 = 3;
 }
 
 /// Uniform for the Probability hover popup value text shader. The shader reads
@@ -592,6 +605,16 @@ pub(crate) struct PopupValueParams {
     pub(crate) hovered_display_index: u32,
     pub(crate) qubits: u32,
     pub(crate) _pad: [u32; 2],
+}
+
+#[cfg(test)]
+mod sample_display_tests {
+    use super::ProbabilityInstance;
+
+    #[test]
+    fn probability_instance_matches_storage_stride() {
+        assert_eq!(std::mem::size_of::<ProbabilityInstance>(), 40);
+    }
 }
 
 pub(crate) const MAX_POSTSELECTION_SLOTS: usize = 256;

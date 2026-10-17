@@ -72,7 +72,14 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 
 - **事後選択** — 指定した量子状態への射影によって、その条件を満たす試行だけを残す操作。コード識別子は `PostSelectOff` / `PostSelectOn` / `PostSelectAntiX` / `PostSelectX`。
 - **生存率** — 回路のある位置までのすべての事後選択を通過する累積確率。条件付き状態の正規化とは区別する。
+- **検出器** — 指定軸の負の固有状態を標本測定で検出し、検出結果に対応する部分空間へ射影する回路要素。
+  - 個別名: `X 軸検出器` / `Y 軸検出器`
+  - コード識別子と Quirk 互換のシリアライズ ID: `XDetector` / `YDetector`。
 
 - **表示ブロック** — 量子状態を可視化するが状態を変えない回路要素の総称 (Quirk が `Display` と呼ぶカテゴリに対応)。ユニタリ変換を行わないため厳密にはゲートではない。
   - 個別名: `ブロッホ球表示ブロック` / `確率表示ブロック` / `振幅表示ブロック`
   - コード識別子: `GateKind::BlochDisplay` / `GateKind::ProbabilityDisplay` / `GateKind::AmplitudeDisplay` (`Display` サフィックス) はそのまま維持。Quirk 互換のシリアライズ ID (`"Bloch"` / `"Probability"` / `"Amps"` ほか) もそのまま。
+- **サンプル表示ブロック** — 状態を収縮させずに 1 つのビット列をサンプリングして表示する表示ブロック。
+  - コード識別子: `GateKind::SampleDisplay`。シリアライズ ID は `"Sample1"` / `"Sample2"` / `"Sample3"`。
+- **パリティ制御** — 同じ列で条件を満たすものが奇数個のときに列の操作を適用する制御。個別名は `Z パリティ制御` / `X パリティ制御`。
+  - コード識別子: `GateKind::ZParityControl` / `GateKind::XParityControl`。シリアライズ ID は `"zpar"` / `"xpar"`。

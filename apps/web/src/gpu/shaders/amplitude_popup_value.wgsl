@@ -1,7 +1,7 @@
 
 const MAX_OUTCOMES: u32 = 65536u;
 const VALUES_PER_SLOT: u32 = MAX_OUTCOMES * 3u;
-const GLYPH_COUNT: u32 = 20u;
+const GLYPH_COUNT: u32 = 23u;
 const GLYPH_CELL_W: u32 = 9u;
 const GLYPH_CELL_H: u32 = 16u;
 const GLYPH_BLANK: u32 = 0xFFFFu;
