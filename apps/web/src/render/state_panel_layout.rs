@@ -10,6 +10,8 @@ mod hit_rects;
 
 use eframe::egui;
 
+pub(crate) use geometry::vertical_default_aspect_index;
+
 pub(crate) struct StatePanelLayout {
     pub(super) state_count: usize,
     pub(super) qubits: usize,

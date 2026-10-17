@@ -217,11 +217,10 @@ test('destroy is idempotent and the same canvas can restart', async ({ page }) =
     w.runner.destroy()
     w.runner = await w.startEmbed(w.canvas, '{"cols":[["X"]]}', {showStatePanel: true})
   })
-  await page.waitForFunction(async () => {
-    try { return (await (window as any).readState())[2] === 1 } catch { return false }
-  })
-  expect(await page.evaluate(async () => Array.from(await (window as any).readState())))
-    .toEqual([0, 0, 1, 0])
+  // Poll the resolved readback, not an async waitForFunction predicate's Promise.
+  await expect.poll(() => page.evaluate(async () => {
+    try { return Array.from(await (window as any).readState()) } catch { return null }
+  })).toEqual([0, 0, 1, 0])
 })
 
 test('invalid embed circuit rejects before runner startup', async ({ page }) => {

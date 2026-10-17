@@ -40,21 +40,17 @@ impl QniApp {
             return;
         }
         // `local_pos` is the cursor in *circuit space* — the same
-        // coordinate frame the gate draw position lives in. We undo the horizontal
-        // scroll and the restricted-palette shift here once so every
-        // downstream hit-test (gate body, slot snap, step preview,
-        // palette drop on circuit) gets a cursor it can compare directly
-        // against the gate draw position. Palette pickup itself uses `pos` (screen)
-        // so it isn't affected by the offset.
-        let circuit_origin = self.circuit_origin(content_rect, self.circuit_scroll_x);
-        let local_pos = pos.map(|p| (p - circuit_origin).to_pos2());
-        let geometry = CircuitInputGeometry::new(
-            content_rect,
-            screen_rect,
-            self.layout_qubits(),
-            self.min_circuit_slots(),
-            &self.palette,
-        );
+        // coordinate frame the gate draw position lives in. We undo the
+        // projection (time scroll, restricted-palette shift, and the
+        // vertical layout's rotation) here once so every downstream
+        // hit-test (gate body, slot snap, step preview, palette drop on
+        // circuit) gets a cursor it can compare directly against the gate
+        // draw position. Palette pickup itself uses `pos` (screen) so it
+        // isn't affected by the projection.
+        let projection = self.circuit_projection(content_rect, self.circuit_scroll_time);
+        let local_pos = pos.map(|p| projection.to_local(p));
+        let geometry = CircuitInputGeometry::for_app(self, content_rect, screen_rect);
+        let circuit_hit_allowed = geometry.circuit_hit_allowed(pos);
         let drag_pointer = DragPointer {
             screen_pos: pos,
             local_pos,
@@ -62,9 +58,10 @@ impl QniApp {
             start: pointer_start,
             released: pointer_released,
             shift_at_start: None,
+            snap_allowed: circuit_hit_allowed,
         };
 
-        let angle_label_gate_id = (!self.library.active_locked())
+        let angle_label_gate_id = (!self.library.active_locked() && circuit_hit_allowed)
             .then(|| {
                 self.angle_label_at_local_pos(
                     local_pos,
@@ -95,6 +92,7 @@ impl QniApp {
             .is_some_and(|rect| pos.is_some_and(|pos| rect.contains(pos)));
         let no_gesture = self.dragging.is_none()
             && self.span_resize_drag.is_none()
+            && self.circuit_pan.is_none()
             && self.circuit_block_drag.is_none();
         if (pointer_over_picker || pointer_over_state_panel) && no_gesture {
             DragController::clear_idle_hover(self, ctx);
@@ -108,6 +106,14 @@ impl QniApp {
             drag_pointer.screen_pos,
             &geometry.metrics,
         );
+        if DragController::update_circuit_pan(
+            self,
+            drag_pointer,
+            self.max_circuit_scroll(content_rect, &geometry.metrics),
+            ctx,
+        ) {
+            return;
+        }
         if self.angle_editor.is_some() && self.dragging.is_none() && self.span_resize_drag.is_none()
         {
             if drag_pointer.start {
@@ -165,7 +171,7 @@ impl QniApp {
             shift_at_start: press.map(|(_, shift)| shift),
             screen_pos: press_pos.or(drag_pointer.screen_pos),
             local_pos: press_pos
-                .map(|p| (p - circuit_origin).to_pos2())
+                .map(|p| projection.to_local(p))
                 .or(drag_pointer.local_pos),
             ..drag_pointer
         };
@@ -173,6 +179,15 @@ impl QniApp {
             && no_gesture
             && DragController::handle_pointer_start(self, start_pointer, &geometry, ctx)
         {
+            if self.circuit_pan.is_some() {
+                DragController::update_circuit_pan(
+                    self,
+                    drag_pointer,
+                    self.max_circuit_scroll(content_rect, &geometry.metrics),
+                    ctx,
+                );
+                return;
+            }
             self.clear_click_copy_after_motion(ctx, true);
             if self.dragging.is_some() {
                 DragController::update_gate_drag_preview(self, drag_pointer, &geometry.metrics);

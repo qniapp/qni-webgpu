@@ -11,34 +11,64 @@ use eframe::egui;
 
 use crate::app::{GateId, QniApp};
 use crate::colors::Colors;
-use crate::layout::LayoutMetrics;
+use crate::layout::{CircuitProjection, LayoutMetrics};
 
 // 4px. Use the same even-width body for all vertical
 // gate connectors (Control / Swap / same-angle Phase) so the connector shares
 // the exact same center coordinate as the 40px gate grid.
 pub(super) const CONNECTOR_STROKE_WIDTH: f32 = crate::tailwind::SPACING_1;
 
-pub(super) fn draw_vertical_connector(
+/// Screen coordinate of `point` along the wire axis (across the wires).
+pub(super) fn along_wires(projection: CircuitProjection, point: egui::Pos2) -> f32 {
+    if projection.is_vertical() {
+        point.x
+    } else {
+        point.y
+    }
+}
+
+/// Screen coordinate of `point` along the time axis.
+pub(super) fn along_time(projection: CircuitProjection, point: egui::Pos2) -> f32 {
+    if projection.is_vertical() {
+        point.y
+    } else {
+        point.x
+    }
+}
+
+/// Screen coordinate along the time axis of circuit-space time `x`.
+pub(super) fn screen_time(projection: CircuitProjection, x: f32) -> f32 {
+    along_time(projection, projection.to_screen(egui::pos2(x, 0.0)))
+}
+
+/// Connector across the wires at screen time `time`, from screen
+/// coordinate `start` to `end` along the wire axis.
+pub(super) fn draw_wire_connector(
     painter: &egui::Painter,
-    x: f32,
-    start_y: f32,
-    end_y: f32,
+    projection: CircuitProjection,
+    time: f32,
+    start: f32,
+    end: f32,
     color: egui::Color32,
 ) {
-    let (top, bottom) = if start_y <= end_y {
-        (start_y, end_y)
+    let (low, high) = if start <= end {
+        (start, end)
     } else {
-        (end_y, start_y)
+        (end, start)
     };
     let half_width = CONNECTOR_STROKE_WIDTH * 0.5;
-    painter.rect_filled(
+    let rect = if projection.is_vertical() {
         egui::Rect::from_min_max(
-            egui::pos2(x - half_width, top),
-            egui::pos2(x + half_width, bottom),
-        ),
-        egui::CornerRadius::ZERO,
-        color,
-    );
+            egui::pos2(low, time - half_width),
+            egui::pos2(high, time + half_width),
+        )
+    } else {
+        egui::Rect::from_min_max(
+            egui::pos2(time - half_width, low),
+            egui::pos2(time + half_width, high),
+        )
+    };
+    painter.rect_filled(rect, egui::CornerRadius::ZERO, color);
 }
 
 impl QniApp {
@@ -47,7 +77,7 @@ impl QniApp {
         painter: &egui::Painter,
         metrics: &LayoutMetrics,
         colors: &Colors,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
         dragging_gate_id: Option<GateId>,
     ) {
         // Connector lines are computed every frame, including mid-drag, so a
@@ -59,23 +89,16 @@ impl QniApp {
             painter,
             metrics,
             colors,
-            circuit_origin,
+            projection,
             dragging_gate_id,
         );
-        swap::draw_swap_connectors(
-            self,
-            painter,
-            metrics,
-            colors,
-            circuit_origin,
-            dragging_gate_id,
-        );
+        swap::draw_swap_connectors(self, painter, metrics, colors, projection, dragging_gate_id);
         phase::draw_phase_connectors_and_labels(
             self,
             painter,
             metrics,
             colors,
-            circuit_origin,
+            projection,
             self.dragging
                 .filter(|drag| Some(drag.id) == dragging_gate_id),
         );

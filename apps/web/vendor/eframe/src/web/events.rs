@@ -534,6 +534,11 @@ fn install_pointerdown(runner_ref: &WebRunner, target: &EventTarget) -> Result<(
         target,
         "pointerdown",
         |event: web_sys::PointerEvent, runner: &mut AppRunner| {
+            if event.pointer_type() == "touch" {
+                // The touchstart handler already reports touch presses.
+                event.stop_propagation();
+                return;
+            }
             let modifiers = modifiers_from_mouse_event(&event);
             runner.input.raw.modifiers = modifiers;
             let mut should_stop_propagation = true;

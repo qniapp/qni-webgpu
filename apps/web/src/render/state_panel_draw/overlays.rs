@@ -19,7 +19,9 @@ pub(super) fn paint_state_panel_overlays(
 ) {
     state_panel_chrome::draw_state_minimap(painter, colors, layout, viewport_rect, grid_origin);
     paint_aspect_popover(app, painter, colors, layout, _offset, state_rect);
-    paint_resize_handles(app, painter, colors, state_rect);
+    if !app.orientation.is_vertical() {
+        paint_resize_handles(app, painter, colors, state_rect);
+    }
     paint_cell_popup(app, painter, colors, layout, grid_origin, screen_rect);
 }
 
