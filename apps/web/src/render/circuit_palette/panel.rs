@@ -7,8 +7,10 @@ use crate::constants::{
     PALETTE_PADDING_Y, PALETTE_ROW_Y, PALETTE_SIZE,
 };
 use crate::gates::GateKind;
-use crate::icons::{draw_bloch_vector, draw_density_palette_icon, draw_gate_body};
-use crate::layout::{palette_start_x, PaletteCarousel};
+use crate::icons::{
+    draw_bloch_vector, draw_circuit_block_palette_icon, draw_density_palette_icon, draw_gate_body,
+};
+use crate::layout::{palette_start_x, PaletteCarousel, PaletteItem};
 
 use super::super::hover_frame::{hover_frame_corner_radius, hover_frame_inner_corner_radius};
 
@@ -69,8 +71,25 @@ impl QniApp {
         gate_rect: egui::Rect,
         colors: &Colors,
     ) {
-        let Some(gate) = self.palette.entry(index).map(|entry| entry.kind) else {
-            return;
+        let gate = match self.palette.item(index) {
+            Some(PaletteItem::Gate(entry)) => entry.kind,
+            Some(PaletteItem::CircuitBlock) => {
+                if self.hovered_palette_index == Some(index) {
+                    painter.rect_filled(
+                        gate_rect.expand(4.0),
+                        egui::CornerRadius::ZERO,
+                        colors.gate_hover_border,
+                    );
+                    painter.rect_filled(
+                        gate_rect.expand(2.0),
+                        egui::CornerRadius::ZERO,
+                        colors.surface,
+                    );
+                }
+                draw_circuit_block_palette_icon(painter, gate_rect, colors);
+                return;
+            }
+            None => return,
         };
         if self.hovered_palette_index == Some(index) {
             let hover_outer = gate_rect.expand(4.0);

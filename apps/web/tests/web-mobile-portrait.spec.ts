@@ -83,9 +83,9 @@ test('phone portrait uses the vertical layout', async ({ page }) => {
   expect(layout.orientation).toBe('vertical')
 })
 
-test('palette carousel starts on the first of nine pages', async ({ page }) => {
+test('palette carousel starts on the first of ten pages', async ({ page }) => {
   const carousel = carouselOf(await openPhone(page, EMPTY))
-  expect({ page: carousel.page, pageCount: carousel.pageCount }).toEqual({ page: 0, pageCount: 9 })
+  expect({ page: carousel.page, pageCount: carousel.pageCount }).toEqual({ page: 0, pageCount: 10 })
 })
 
 test('palette carousel sits below the circuit area', async ({ page }) => {
@@ -134,6 +134,33 @@ test('tapping a page dot jumps to that page', async ({ page }) => {
   const carousel = carouselOf(await openPhone(page, EMPTY))
   await page.touchscreen.tap(carousel.dots[5].x, carousel.dots[5].y)
   await expect.poll(() => readPage(page)).toBe(5)
+})
+
+test('touch drag of the last carousel item creates a comment block', async ({ page }) => {
+  const layout = await openPhone(page, `#${encodeURIComponent('{"cols":[["H"]]}')}`)
+  const carousel = carouselOf(layout)
+  const lastPage = carousel.pageCount - 1
+  await page.touchscreen.tap(carousel.dots[lastPage].x, carousel.dots[lastPage].y)
+  await waitForValue(() => readPage(page), current => current === lastPage, 'last page was not shown')
+  await touchDrag(page, center(carousel.slots[0]), layout.cells[0][0])
+
+  await expect.poll(() => readHashCols(page)).toEqual([['{comment'], ['H'], ['}']])
+})
+
+test('portrait comment label opens the upright editor and commits text', async ({ page }) => {
+  await openPhone(page, `#${encodeURIComponent('{"cols":[["{comment"],["H"],["}"]]}')}`)
+  const geometry = await waitForValue(
+    () => page.evaluate(() => JSON.parse(String(Reflect.get(window, '__qniCircuitBlockGeometryJson') ?? 'null'))),
+    value => value?.blocks.length === 1,
+    'comment geometry was not published',
+  )
+  const label = center(geometry.blocks[0].labels[0])
+  await page.touchscreen.tap(label.x, label.y)
+  await page.waitForFunction(() => document.activeElement?.tagName === 'INPUT')
+  await page.keyboard.type('portrait')
+  await page.keyboard.press('Enter')
+
+  await expect.poll(() => readHashCols(page)).toEqual([['{portrait'], ['H'], ['}']])
 })
 
 test('mouse drag of H from the palette onto wire 0 places it', async ({ page }) => {
@@ -225,4 +252,17 @@ test.describe('phone landscape', () => {
     const layout = await waitForValue(() => readLayout(page), value => value != null, 'layout geometry was not published')
     expect(layout.orientation).toBe('horizontal')
   })
+})
+
+test('dragging the portrait comment label along time moves rather than deletes the block', async ({ page }) => {
+  const layout = await openPhone(page, `#${encodeURIComponent('{"cols":[["{comment"],["H"],["}"],["X"]]}')}`)
+  const geometry = await waitForValue(
+    () => page.evaluate(() => JSON.parse(String(Reflect.get(window, '__qniCircuitBlockGeometryJson') ?? 'null'))),
+    value => value?.blocks.length === 1,
+    'comment geometry was not published',
+  )
+  const label = center(geometry.blocks[0].labels[0])
+  await touchDrag(page, label, { x: label.x, y: label.y + layout.cells[1][0].y - layout.cells[0][0].y })
+
+  await expect.poll(() => readHashCols(page)).toEqual([['H'], ['{comment'], ['X'], ['}']])
 })

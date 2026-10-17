@@ -136,6 +136,7 @@ impl QniApp {
             self.circuit_scroll_time,
             pointer_over_state_panel || pointer_over_picker || pointer_over_vertical_panels,
         );
+        self.show_circuit_block_editor(ui, rect, &metrics, colors, self.circuit_scroll_time);
     }
 
     /// Circuit area of the vertical layout: between the state panel (or

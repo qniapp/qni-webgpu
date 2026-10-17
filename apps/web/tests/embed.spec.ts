@@ -707,6 +707,40 @@ test('embed angle editor accepts typed text through the text agent', async ({ pa
   await expect.poll(() => circuitJSON(page)).toBe('{"cols":[["P(π_4)"]]}')
 })
 
+// A one-row palette lifts q0 by 48px and the block pushes it down by 58px, so
+// q0 sits at 8 + 256 - 48 + 58 = 274. The block wraps slot 1 (x = 8 + 218) and
+// its upper label is centred 10px above the body top (274 - 62).
+const COMMENT_BLOCK = '{"cols":[["|0>","|0>"],["{量子もつれ"],["H"],["}"],["•","X"]]}'
+const COMMENT_LABEL = { x: 226, y: 202 }
+
+const textAgentFocused = (page: Page) => page.evaluate(() => {
+  const root = document.querySelector('qni-webgpu-test')!.shadowRoot!
+  return root.activeElement === root.querySelector('input')
+})
+
+test('restricted embed palette without the comment block keeps block labels read-only', async ({ page }) => {
+  await hostEmbed(page, COMMENT_BLOCK, { settings: { palette: ['H', 'X'] } })
+  await waitForStepZero(page)
+  await page.locator('qni-webgpu-test canvas').click({ position: COMMENT_LABEL })
+  await page.evaluate(async () => {
+    for (let i = 0; i < 10; i++) await new Promise(requestAnimationFrame)
+  })
+  expect(await textAgentFocused(page)).toBe(false)
+})
+
+test('restricted embed palette with the comment block token edits block labels', async ({ page }) => {
+  await hostEmbed(page, COMMENT_BLOCK, { settings: { palette: ['H', '{}'] } })
+  await waitForStepZero(page)
+  await page.locator('qni-webgpu-test canvas').click({ position: COMMENT_LABEL })
+  await page.waitForFunction(() => {
+    const root = document.querySelector('qni-webgpu-test')!.shadowRoot!
+    return root.activeElement === root.querySelector('input')
+  }, null, { timeout: 5000 })
+  await page.keyboard.type('abc')
+  await page.keyboard.press('Enter')
+  await expect.poll(() => circuitJSON(page)).toBe('{"cols":[["|0>","|0>"],["{abc"],["H"],["}"],["•","X"]]}')
+})
+
 for (const showStatePanel of [true, false]) {
   test(`selectStep -1 immediately reads initial state (panel=${showStatePanel})`, async ({ page }) => {
     await hostEmbed(page, SELECT_BELL, { settings: { showStatePanel } })

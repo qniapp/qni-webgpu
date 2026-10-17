@@ -171,6 +171,8 @@ impl QniApp {
             batch.paint_overlays(&painter.with_clip_rect(gpu_clip));
         }
 
+        self.draw_circuit_block_handles(painter, metrics, colors, projection);
+
         let gutters = self.circuit_gutters(rect);
         for (index, &line_y) in metrics.line_ys.iter().enumerate() {
             // Labels live in circuit space (anchored to the wire's

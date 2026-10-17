@@ -7,6 +7,7 @@ use crate::constants::{
 };
 use crate::gates::{PALETTE_DISPLAY_INDICES, PALETTE_GATES_ROW2_INDICES, PALETTE_ROW1_COUNT};
 
+use super::palette::PALETTE_CIRCUIT_BLOCK_INDEX;
 use super::Palette;
 
 /// What a press on the palette carousel lands on.
@@ -182,12 +183,13 @@ impl PaletteCarousel {
 impl Palette {
     /// Palette entry index at carousel position `position`. The full
     /// palette follows its desktop reading order: the first gate row, the
-    /// second gate row, then the display blocks.
+    /// second gate row, then the display blocks and comment block.
     pub(crate) fn carousel_entry(&self, position: usize) -> Option<usize> {
         match self {
             Self::Full => (0..PALETTE_ROW1_COUNT)
                 .chain(PALETTE_GATES_ROW2_INDICES)
                 .chain(PALETTE_DISPLAY_INDICES)
+                .chain(std::iter::once(PALETTE_CIRCUIT_BLOCK_INDEX))
                 .nth(position),
             Self::Restricted(entries) => (position < entries.len()).then_some(position),
         }
@@ -198,6 +200,7 @@ impl Palette {
 mod tests {
     use super::*;
     use crate::gates::GateKind;
+    use crate::layout::PaletteItem;
 
     fn carousel() -> PaletteCarousel {
         PaletteCarousel::new(
@@ -209,13 +212,16 @@ mod tests {
     fn page_kinds(page: usize) -> Vec<GateKind> {
         (0..CAROUSEL_GATES_PER_PAGE)
             .filter_map(|slot| Palette::Full.carousel_entry(page * CAROUSEL_GATES_PER_PAGE + slot))
-            .filter_map(|index| Palette::Full.entry(index).map(|entry| entry.kind))
+            .filter_map(|index| match Palette::Full.item(index) {
+                Some(PaletteItem::Gate(entry)) => Some(entry.kind),
+                _ => None,
+            })
             .collect()
     }
 
     #[test]
-    fn full_palette_has_nine_pages() {
-        assert_eq!(carousel().page_count(), 9);
+    fn full_palette_has_ten_pages() {
+        assert_eq!(carousel().page_count(), 10);
     }
 
     #[test]
@@ -259,7 +265,7 @@ mod tests {
     }
 
     #[test]
-    fn last_page_is_the_display_blocks_after_bloch() {
+    fn ninth_page_is_the_display_blocks_after_bloch() {
         assert_eq!(
             page_kinds(8),
             vec![
@@ -301,7 +307,10 @@ mod tests {
 
         assert_eq!(
             hit.and_then(|hit| match hit {
-                CarouselHit::Gate(index) => Palette::Full.entry(index).map(|entry| entry.kind),
+                CarouselHit::Gate(index) => match Palette::Full.item(index) {
+                    Some(PaletteItem::Gate(entry)) => Some(entry.kind),
+                    _ => None,
+                },
                 _ => None,
             }),
             Some(GateKind::SqrtX)
@@ -378,8 +387,18 @@ mod tests {
     }
 
     #[test]
+    fn last_page_hits_the_comment_block() {
+        let carousel = carousel();
+
+        assert_eq!(
+            carousel.hit_test(&Palette::Full, 9, carousel.slot_rect(0).center()),
+            Some(CarouselHit::Gate(PALETTE_CIRCUIT_BLOCK_INDEX))
+        );
+    }
+
+    #[test]
     fn next_on_last_page_stays() {
-        assert_eq!(carousel().page_after(8, CarouselHit::Next), 8);
+        assert_eq!(carousel().page_after(9, CarouselHit::Next), 9);
     }
 
     #[test]

@@ -3,6 +3,9 @@
 //! The submodules keep qni's SNAP / DROP / RESIZE style event boundaries
 //! explicit while `gate_input` stays a thin egui adapter.
 
+mod circuit_block;
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod circuit_block_tests;
 mod drop;
 mod hover;
 pub(super) mod pan;

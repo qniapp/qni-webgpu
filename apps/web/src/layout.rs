@@ -17,7 +17,7 @@ pub(crate) use geometry::{
     LayoutMetrics,
 };
 pub(crate) use orientation::CircuitOrientation;
-pub(crate) use palette::{palette_start_x, Palette, PaletteLayout};
+pub(crate) use palette::{palette_start_x, Palette, PaletteItem, PaletteLayout};
 pub(crate) use palette_carousel::{CarouselHit, PaletteCarousel};
 pub(crate) use projection::CircuitProjection;
 pub(crate) use snap::{nearest_circuit_snap, CircuitSnap};

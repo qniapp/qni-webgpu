@@ -103,6 +103,7 @@ impl QniApp {
         }
         if let Some(content_rect) = circuit_frame.content_rect {
             let projection = self.circuit_projection(content_rect, self.circuit_scroll_time);
+            self.draw_circuit_block_drag_overlay(&overlay_painter, projection, colors);
             // Paint display popovers in the foreground overlay so they sit above
             // the palette. Use the full screen rect as the GPU value viewport:
             // scrolled circuit content can have a negative rect origin, while

@@ -454,7 +454,11 @@ mod tests {
     #[test]
     fn resize_in_shrunk_embed_starts_from_visible_viewport() {
         let mut app = embed_app(r#"{"cols":[["|0>","|0>"],["H"],["•","X"]]}"#, None);
-        let layout = app.state_panel_layout(small_embed_rect(), 4);
+        // Leave room to shrink by 10px above the minimum viewport height,
+        // even when the full palette wraps after adding the comment block.
+        let mut rect = small_embed_rect();
+        rect.max.y += 16.0;
+        let layout = app.state_panel_layout(rect, 4);
         let pointer = layout.state_rect.right_bottom();
         app.begin_resize_drag(
             crate::app::ResizeCorner::BottomRight,

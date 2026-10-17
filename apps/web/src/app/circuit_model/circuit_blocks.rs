@@ -45,6 +45,8 @@ pub(crate) enum CircuitBlockError {
     /// The block starts before the previous block ends. Blocks never nest or
     /// overlap.
     Overlap,
+    /// No block has the given index.
+    Missing,
 }
 
 /// Ordered, non-overlapping, non-empty circuit blocks.
@@ -70,6 +72,102 @@ impl CircuitBlocks {
         }
         self.blocks.push(CircuitBlock { label, start, end });
         Ok(())
+    }
+
+    /// Insert a block anywhere between the existing ones and return its index.
+    pub(crate) fn insert(
+        &mut self,
+        label: String,
+        start: CircuitColumnIndex,
+        end: CircuitColumnIndex,
+    ) -> Result<usize, CircuitBlockError> {
+        let (start, end) = (start.as_usize(), end.as_usize());
+        if start >= end {
+            return Err(CircuitBlockError::Empty);
+        }
+        if !self.is_free(start, end) {
+            return Err(CircuitBlockError::Overlap);
+        }
+        let index = self.blocks.partition_point(|block| block.end <= start);
+        self.blocks
+            .insert(index, CircuitBlock { label, start, end });
+        Ok(index)
+    }
+
+    /// Whether no block covers any of the columns `[start, end)`.
+    pub(crate) fn is_free(&self, start: usize, end: usize) -> bool {
+        self.blocks
+            .iter()
+            .all(|block| block.end <= start || end <= block.start)
+    }
+
+    pub(crate) fn set_label(
+        &mut self,
+        index: usize,
+        label: String,
+    ) -> Result<(), CircuitBlockError> {
+        let block = self
+            .blocks
+            .get_mut(index)
+            .ok_or(CircuitBlockError::Missing)?;
+        block.label = label;
+        Ok(())
+    }
+
+    /// Change the column range of a block without passing its neighbours.
+    pub(crate) fn resize(
+        &mut self,
+        index: usize,
+        start: CircuitColumnIndex,
+        end: CircuitColumnIndex,
+    ) -> Result<(), CircuitBlockError> {
+        let (start, end) = (start.as_usize(), end.as_usize());
+        if index >= self.blocks.len() {
+            return Err(CircuitBlockError::Missing);
+        }
+        if start >= end {
+            return Err(CircuitBlockError::Empty);
+        }
+        let previous_end = index
+            .checked_sub(1)
+            .map_or(0, |previous| self.blocks[previous].end);
+        let next_start = self
+            .blocks
+            .get(index + 1)
+            .map_or(usize::MAX, |next| next.start);
+        if start < previous_end || end > next_start {
+            return Err(CircuitBlockError::Overlap);
+        }
+        let block = &mut self.blocks[index];
+        block.start = start;
+        block.end = end;
+        Ok(())
+    }
+
+    /// Move a block so it starts at `start`, keeping its width, and return its
+    /// new index. The block may jump over a neighbour but never overlap one.
+    pub(crate) fn move_to(
+        &mut self,
+        index: usize,
+        start: CircuitColumnIndex,
+    ) -> Result<usize, CircuitBlockError> {
+        let block = self.remove(index).ok_or(CircuitBlockError::Missing)?;
+        let end = start.checked_add(block.end - block.start);
+        let moved = end
+            .ok_or(CircuitBlockError::Overlap)
+            .and_then(|end| self.insert(block.label.clone(), start, end));
+        if moved.is_err() {
+            self.blocks.insert(index, block);
+        }
+        moved
+    }
+
+    pub(crate) fn remove(&mut self, index: usize) -> Option<CircuitBlock> {
+        (index < self.blocks.len()).then(|| self.blocks.remove(index))
+    }
+
+    pub(crate) fn get(&self, index: usize) -> Option<&CircuitBlock> {
+        self.blocks.get(index)
     }
 
     pub(crate) fn iter(&self) -> impl DoubleEndedIterator<Item = &CircuitBlock> {
@@ -192,6 +290,152 @@ mod tests {
         let mut blocks = blocks(&[(0, 3)]);
 
         assert_eq!(blocks.push("b".to_owned(), col(3), col(4)), Ok(()));
+    }
+
+    #[test]
+    fn insert_places_block_between_existing_blocks() {
+        let mut blocks = blocks(&[(0, 1), (4, 5)]);
+        blocks
+            .insert("new".to_owned(), col(2), col(3))
+            .expect("the gap is free");
+
+        assert_eq!(ranges(&blocks), vec![(0, 1), (2, 3), (4, 5)]);
+    }
+
+    #[test]
+    fn insert_returns_the_new_block_index() {
+        let mut blocks = blocks(&[(0, 1), (4, 5)]);
+
+        assert_eq!(blocks.insert("new".to_owned(), col(2), col(3)), Ok(1));
+    }
+
+    #[test]
+    fn insert_rejects_overlap_with_a_later_block() {
+        let mut blocks = blocks(&[(0, 1), (4, 6)]);
+
+        assert_eq!(
+            blocks.insert("new".to_owned(), col(3), col(5)),
+            Err(CircuitBlockError::Overlap)
+        );
+    }
+
+    #[test]
+    fn insert_rejects_overlap_with_an_earlier_block() {
+        let mut blocks = blocks(&[(0, 3)]);
+
+        assert_eq!(
+            blocks.insert("new".to_owned(), col(2), col(4)),
+            Err(CircuitBlockError::Overlap)
+        );
+    }
+
+    #[test]
+    fn insert_rejects_empty_range() {
+        assert_eq!(
+            CircuitBlocks::default().insert("new".to_owned(), col(1), col(1)),
+            Err(CircuitBlockError::Empty)
+        );
+    }
+
+    #[test]
+    fn insert_accepts_blocks_adjacent_on_both_sides() {
+        let mut blocks = blocks(&[(0, 2), (3, 5)]);
+
+        assert_eq!(blocks.insert("new".to_owned(), col(2), col(3)), Ok(1));
+    }
+
+    #[test]
+    fn set_label_replaces_the_label() {
+        let mut blocks = blocks(&[(0, 1)]);
+        blocks
+            .set_label(0, "量子もつれ".to_owned())
+            .expect("block 0 exists");
+
+        assert_eq!(blocks.get(0).map(CircuitBlock::label), Some("量子もつれ"));
+    }
+
+    #[test]
+    fn set_label_rejects_missing_block() {
+        assert_eq!(
+            CircuitBlocks::default().set_label(0, "a".to_owned()),
+            Err(CircuitBlockError::Missing)
+        );
+    }
+
+    #[test]
+    fn resize_changes_the_range() {
+        let mut blocks = blocks(&[(1, 2)]);
+        blocks.resize(0, col(0), col(3)).expect("no neighbours");
+
+        assert_eq!(ranges(&blocks), vec![(0, 3)]);
+    }
+
+    #[test]
+    fn resize_stops_at_the_next_block() {
+        let mut blocks = blocks(&[(0, 1), (2, 3)]);
+
+        assert_eq!(
+            blocks.resize(0, col(0), col(3)),
+            Err(CircuitBlockError::Overlap)
+        );
+    }
+
+    #[test]
+    fn resize_stops_at_the_previous_block() {
+        let mut blocks = blocks(&[(0, 2), (2, 3)]);
+
+        assert_eq!(
+            blocks.resize(1, col(1), col(3)),
+            Err(CircuitBlockError::Overlap)
+        );
+    }
+
+    #[test]
+    fn resize_rejects_less_than_one_column() {
+        let mut blocks = blocks(&[(1, 3)]);
+
+        assert_eq!(
+            blocks.resize(0, col(3), col(3)),
+            Err(CircuitBlockError::Empty)
+        );
+    }
+
+    #[test]
+    fn move_to_keeps_the_width() {
+        let mut blocks = blocks(&[(0, 2)]);
+        blocks.move_to(0, col(3)).expect("no neighbours");
+
+        assert_eq!(ranges(&blocks), vec![(3, 5)]);
+    }
+
+    #[test]
+    fn move_to_past_a_neighbour_returns_the_new_index() {
+        let mut blocks = blocks(&[(0, 1), (1, 2)]);
+
+        assert_eq!(blocks.move_to(0, col(4)), Ok(1));
+    }
+
+    #[test]
+    fn move_to_rejects_overlap() {
+        let mut blocks = blocks(&[(0, 1), (2, 4)]);
+
+        assert_eq!(blocks.move_to(0, col(3)), Err(CircuitBlockError::Overlap));
+    }
+
+    #[test]
+    fn rejected_move_keeps_the_block_in_place() {
+        let mut blocks = blocks(&[(0, 1), (2, 4)]);
+        let _ = blocks.move_to(0, col(3));
+
+        assert_eq!(ranges(&blocks), vec![(0, 1), (2, 4)]);
+    }
+
+    #[test]
+    fn remove_drops_only_that_block() {
+        let mut blocks = blocks(&[(0, 1), (2, 3)]);
+        blocks.remove(0);
+
+        assert_eq!(ranges(&blocks), vec![(2, 3)]);
     }
 
     #[test]

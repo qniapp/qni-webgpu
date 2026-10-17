@@ -3,20 +3,28 @@ use eframe::egui;
 use super::pan::CircuitPan;
 use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
 use crate::app::{
-    CircuitColumnIndex, ClickCopy, DragState, LiveDragSnap, PlacedGate, QniApp, SpanResizeDrag,
-    WireIndex,
+    CircuitBlockDrag, CircuitBlockEdge, CircuitBlockLabelSlot, CircuitColumnIndex, ClickCopy,
+    DragState, LiveDragSnap, PlacedGate, QniApp, SpanResizeDrag, WireIndex,
 };
 use crate::constants::GATE_SIZE;
 use crate::gates::GateSpan;
-use crate::layout::{gate_visible_rect, gate_width_cols, CarouselHit};
+use crate::layout::{gate_visible_rect, gate_width_cols, CarouselHit, PaletteItem};
 use crate::span_resize::SpanResizeHandles;
 
 #[derive(Clone, Copy, Debug)]
 enum DragStartIntent {
+    CircuitBlockResize {
+        index: usize,
+        edge: CircuitBlockEdge,
+    },
     SpanResize(SpanResizeDrag),
     ExistingGate {
         drag: DragState,
         starts_live_display_snap: bool,
+    },
+    CircuitBlockLabel {
+        index: usize,
+        slot: CircuitBlockLabelSlot,
     },
     PaletteGate {
         index: usize,
@@ -51,7 +59,24 @@ impl DragController {
         geometry: &CircuitInputGeometry,
         ctx: &egui::Context,
     ) -> bool {
-        match start_intent(app, pointer, geometry) {
+        match start_intent(app, pointer, geometry, ctx) {
+            DragStartIntent::CircuitBlockResize { index, edge } => {
+                app.begin_circuit_commit();
+                app.circuit_block_drag = Some(CircuitBlockDrag::Resize { index, edge });
+                Self::clear_idle_hover(app, ctx);
+                ctx.request_repaint();
+                true
+            }
+            DragStartIntent::CircuitBlockLabel { index, slot } => {
+                let Some(cursor) = pointer.local_pos else {
+                    return false;
+                };
+                app.begin_circuit_commit();
+                Self::start_circuit_block_label_drag(app, index, slot, cursor, &geometry.metrics);
+                Self::clear_idle_hover(app, ctx);
+                ctx.request_repaint();
+                true
+            }
             DragStartIntent::SpanResize(resize) => {
                 if app.library.active_locked() {
                     return false;
@@ -128,10 +153,21 @@ impl DragController {
                 if app.library.active_locked() {
                     return false;
                 }
-                app.begin_circuit_commit();
-                let Some(entry) = app.palette.entry(index) else {
-                    return false;
+                let entry = match app.palette.item(index) {
+                    Some(PaletteItem::Gate(entry)) => entry,
+                    Some(PaletteItem::CircuitBlock) => {
+                        let Some(cursor) = pointer.local_pos else {
+                            return false;
+                        };
+                        app.begin_circuit_commit();
+                        Self::start_circuit_block_palette_drag(app, cursor, &geometry.metrics);
+                        Self::clear_idle_hover(app, ctx);
+                        ctx.request_repaint();
+                        return true;
+                    }
+                    None => return false,
                 };
+                app.begin_circuit_commit();
                 let new_id = app.gate_ids.allocate();
                 let new_gate = PlacedGate::new(
                     new_id,
@@ -194,11 +230,11 @@ fn start_intent(
     app: &QniApp,
     pointer: DragPointer,
     geometry: &CircuitInputGeometry,
+    ctx: &egui::Context,
 ) -> DragStartIntent {
     let Some(cursor) = pointer.local_pos else {
         return DragStartIntent::None;
     };
-
     // The vertical layout's carousel sits over the circuit area's
     // extension, so it takes presses before any gate.
     if let Some((carousel, hit)) = pointer
@@ -215,6 +251,16 @@ fn start_intent(
     }
     if !geometry.circuit_hit_allowed(pointer.screen_pos) {
         return DragStartIntent::None;
+    }
+
+    let block_hover = app
+        .circuit_block_editing_allowed()
+        .then(|| app.circuit_block_hover_at(cursor, &geometry.metrics, ctx))
+        .flatten();
+    if let Some((index, edge)) =
+        block_hover.and_then(|hover| hover.handle.map(|edge| (hover.index, edge)))
+    {
+        return DragStartIntent::CircuitBlockResize { index, edge };
     }
 
     // Resizable-span handles take priority over gate bodies for press events,
@@ -265,6 +311,12 @@ fn start_intent(
         })
     {
         return drag;
+    }
+
+    if let Some((index, slot)) =
+        block_hover.and_then(|hover| hover.label.map(|slot| (hover.index, slot)))
+    {
+        return DragStartIntent::CircuitBlockLabel { index, slot };
     }
 
     if let Some(index) = pointer
