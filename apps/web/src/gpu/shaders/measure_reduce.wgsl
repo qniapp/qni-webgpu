@@ -15,6 +15,7 @@ struct MeasureReduceParams {
 @group(0) @binding(2) var<uniform> params: MeasureReduceParams;
 
 var<workgroup> shared_pzero: array<f32, 64>;
+var<workgroup> shared_norm: array<f32, 64>;
 
 fn rand_unit(seed: u32) -> f32 {
   // Deterministic xorshift-mix used for GPU-side measurement sampling.
@@ -32,21 +33,26 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
   let total: u32 = params.state_count;
 
   var p_zero_partial: f32 = 0.0;
+  var norm_partial: f32 = 0.0;
   var i: u32 = tid;
   loop {
     if (i >= total) { break; }
+    let amp = state[i];
+    let mass = dot(amp, amp);
+    norm_partial += mass;
     if (!((i & params.control_mask) == params.control_value && (i & qubit_mask) != 0u)) {
-      let amp = state[i];
-      p_zero_partial = p_zero_partial + (amp.x * amp.x + amp.y * amp.y);
+      p_zero_partial += mass;
     }
     i = i + 64u;
   }
   shared_pzero[tid] = p_zero_partial;
+  shared_norm[tid] = norm_partial;
   workgroupBarrier();
 
   for (var step: u32 = 32u; step > 0u; step = step >> 1u) {
     if (tid < step) {
       shared_pzero[tid] = shared_pzero[tid] + shared_pzero[tid + step];
+      shared_norm[tid] += shared_norm[tid + step];
     }
     workgroupBarrier();
   }
@@ -54,6 +60,10 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
   if (tid == 0u) {
     let p_zero: f32 = shared_pzero[0];
     let r: f32 = rand_unit(params.seed);
+    if (shared_norm[0] <= 1.0e-12) {
+      aux_out[params.output_slot] = vec4<f32>(0.0, r, -1.0, 1.0);
+      return;
+    }
     var outcome: f32 = 1.0;
     var sqrt_p_kept: f32 = sqrt(max(1.0 - p_zero, 1.0e-30));
     if (r <= p_zero) {

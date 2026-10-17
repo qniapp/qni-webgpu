@@ -433,3 +433,9 @@ pub fn circuit_library_delete(id: &str) -> Result<(), wasm_bindgen::JsValue> {
 pub fn circuit_library_clear() -> Result<(), wasm_bindgen::JsValue> {
     circuit_library::clear()
 }
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn read_postselection_rates() -> Result<js_sys::Float32Array, wasm_bindgen::JsValue> {
+    gpu::read_postselection_rates_impl().await
+}

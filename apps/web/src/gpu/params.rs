@@ -411,7 +411,11 @@ pub(crate) struct ProbabilityRenderParams {
     /// Logarithm hints for Probability5..16.
     pub(crate) log_hint: [f32; 4],
     pub(crate) bar: [f32; 4],
+    pub(crate) sample_on_core: [f32; 4],
     pub(crate) sample_on_fill: [f32; 4],
+    pub(crate) sample_on_glow: [f32; 4],
+    pub(crate) sample_off_fill: [f32; 4],
+    pub(crate) sample_off_edge: [f32; 4],
     pub(crate) bar_edge: [f32; 4],
     pub(crate) hover_border: [f32; 4],
     pub(crate) text_color: [f32; 4],
@@ -433,6 +437,10 @@ pub(crate) struct ProbabilityInstance {
 impl ProbabilityInstance {
     pub(crate) const SAMPLED_BITSTRING: u32 = 2;
     pub(crate) const SAMPLE_PREVIEW: u32 = 3;
+    /// A lit Sample tile's halo spills past the gate edge, so Sample quads are
+    /// the gate rect grown by this much on every side (`SAMPLE_GLOW_PAD` in
+    /// `probability_render.wgsl`). Hit testing keeps using the gate rect.
+    pub(crate) const SAMPLE_GLOW_PAD: f32 = crate::tailwind::SPACING_2;
 }
 
 /// Uniform for the Probability hover popup value text shader. The shader reads
@@ -535,6 +543,16 @@ pub(crate) struct MeasurementDigitInstance {
     pub(crate) slot: u32,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct SurvivalLabelInstance {
+    pub(crate) center: [f32; 2],
+    pub(crate) half_extent: f32,
+    pub(crate) first_slot: u32,
+    pub(crate) last_slot: u32,
+    pub(crate) mode: u32,
+}
+
 /// Uniform for `CONDITIONAL_GATE_BODY_SHADER`.
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
@@ -605,4 +623,22 @@ mod sample_display_tests {
     fn probability_instance_matches_storage_stride() {
         assert_eq!(std::mem::size_of::<ProbabilityInstance>(), 40);
     }
+
+    #[test]
+    fn sample_glow_pad_matches_shader() {
+        let declaration = format!(
+            "const SAMPLE_GLOW_PAD: f32 = {:.1};",
+            ProbabilityInstance::SAMPLE_GLOW_PAD
+        );
+        assert!(include_str!("shaders/probability_render.wgsl").contains(&declaration));
+    }
+}
+
+pub(crate) const MAX_POSTSELECTION_SLOTS: usize = 256;
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct PostselectionParams {
+    pub(crate) state_count: u32,
+    pub(crate) output_slot: u32,
+    pub(crate) _pad: [u32; 2],
 }

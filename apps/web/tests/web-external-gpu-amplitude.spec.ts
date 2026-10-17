@@ -16,6 +16,8 @@ import {
 const EXEC_MODE_GPU_FILL: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
 const DISPLAY_PLACEHOLDER_FILL: CanvasPixel = [236, 225, 243, 255] // Flexoki purple-100 #ECE1F3
 const DISPLAY_PLACEHOLDER_GUIDE: CanvasPixel = [218, 216, 206, 255] // Flexoki ui-2 #DAD8CE
+const CIRCUIT_BACKGROUND: CanvasPixel = [242, 240, 229, 255] // Flexoki bg-2 #F2F0E5
+const SAMPLE_UNLIT_FILL: CanvasPixel = [218, 216, 206, 255] // Flexoki ui-2 #DAD8CE
 const RUN_GPU_BUTTON_POINT: Point = { x: 334, y: 22 }
 const circuitHash = (cols: unknown[]): string => encodeURIComponent(JSON.stringify({ cols }))
 
@@ -143,6 +145,43 @@ test('GPU mode shows pre-run Probability placeholder before Qiskit results', asy
   ])
 
   expect(pixelRgbDistance(pixel.placeholder, DISPLAY_PLACEHOLDER_FILL)).toBeLessThan(32)
+})
+
+test('GPU mode Sample placeholder stays inside the gate', async ({ page }) => {
+  await page.goto(`/#${circuitHash([['H'], ['Sample1']])}`)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await switchToGpuMode(page)
+
+  const gateLeft = amplitudeFirstCellCenterX(1) - UI_CONSTANTS.GATE_SIZE / 2
+  const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'outside', x: gateLeft - 4, y: probabilityRowCenterY(1, 0) },
+  ])
+
+  expect(pixelRgbDistance(pixel.outside, CIRCUIT_BACKGROUND)).toBeLessThan(8)
+})
+
+test('GPU mode Sample shows unlit grey tiles before Qiskit results', async ({ page }) => {
+  await page.goto(`/#${circuitHash([['H', 'H'], ['Sample2']])}`)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await switchToGpuMode(page)
+
+  const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'tile', x: amplitudeFirstCellCenterX(1), y: UI_CONSTANTS.LINE_Y },
+  ])
+
+  expect(pixelRgbDistance(pixel.tile, SAMPLE_UNLIT_FILL)).toBeLessThan(8)
+})
+
+test('GPU mode Sample keeps the gap between tiles transparent', async ({ page }) => {
+  await page.goto(`/#${circuitHash([['H', 'H'], ['Sample2']])}`)
+  await waitForStartupReady(page, { waitForStateVector: true })
+  await switchToGpuMode(page)
+
+  const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+    { name: 'gap', x: amplitudeFirstCellCenterX(1), y: UI_CONSTANTS.LINE_Y + UI_CONSTANTS.LINE_GAP / 2 },
+  ])
+
+  expect(pixelRgbDistance(pixel.gap, CIRCUIT_BACKGROUND)).toBeLessThan(8)
 })
 
 test('GPU mode Probability placeholder shows row guide lines', async ({ page }) => {

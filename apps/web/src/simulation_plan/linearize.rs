@@ -51,6 +51,7 @@ pub(crate) fn linearize_ops(
     let mut measurement_slots = SlotAllocator::<Measurement>::new();
     let mut probability_slots = SlotAllocator::<Probability>::new();
     let mut amplitude_slots = SlotAllocator::<Amplitude>::new();
+    let mut postselection_slots = SlotAllocator::<crate::gpu::Postselection>::new();
     let mut density_slots = SlotAllocator::<Density>::new();
     for column in analysis.columns() {
         while next_snapshot_slot < column.slot && next_snapshot_slot < snapshot_slot_count {
@@ -225,6 +226,12 @@ pub(crate) fn linearize_ops(
                 Some(FlagSource::NeverSet) => continue,
             };
             ops.push(SimulationOp::ApplyGate(params));
+            if target.kind.is_postselection() {
+                ops.push(SimulationOp::Postselect {
+                    gate_id: target.id,
+                    output_slot: postselection_slots.allocate(),
+                });
+            }
         }
 
         // Controls-only step ⇒ multi-controlled-Z (CZ / CCZ / …).
@@ -1982,6 +1989,75 @@ mod tests {
         assert_eq!(
             (params.bit(), params.control_mask(), params.condition_slot()),
             (1, 0b100, 0)
+        );
+    }
+    #[test]
+    fn projector_normalizes_before_snapshot() {
+        let gates = [PlacedGate::new(
+            crate::app::GateId::from_u32(7),
+            GateKind::PostSelectOn,
+            crate::app::CircuitColumnIndex::new(0),
+            crate::app::WireIndex::new(0),
+            crate::gates::GateSpan::SINGLE,
+            None,
+        )];
+        assert!(
+            matches!(linearize_ops(&gates, qubit_count(1), 1).as_slice(),
+            [SimulationOp::ApplyGate(_), SimulationOp::Postselect { gate_id, output_slot }, SimulationOp::SnapshotState { .. }]
+            if gate_id.as_u32() == 7 && output_slot.as_u32() == 0)
+        );
+    }
+    #[test]
+    fn successive_projectors_have_dedicated_slots() {
+        let gates = flagged_gates(r#"{"cols":[["|0⟩⟨0|"],["|1⟩⟨1|"]]}"#);
+        let slots: Vec<_> = linearize_ops(&gates, qubit_count(1), 0)
+            .iter()
+            .filter_map(|op| match op {
+                SimulationOp::Postselect { output_slot, .. } => Some(output_slot.as_u32()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(slots, vec![0, 1]);
+    }
+    #[test]
+    fn same_column_projectors_normalize_sequentially_before_measurement_and_capture() {
+        let gates = flagged_gates(r#"{"cols":[["|0⟩⟨0|","|1⟩⟨1|","Measure","Probability"]]}"#);
+        assert!(
+            matches!(linearize_ops(&gates, qubit_count(4), 1).as_slice(), [
+            SimulationOp::ApplyGate(_), SimulationOp::Postselect { output_slot: first, .. },
+            SimulationOp::ApplyGate(_), SimulationOp::Postselect { output_slot: second, .. },
+            SimulationOp::MeasureReduceSample { .. }, SimulationOp::MeasureCollapse { .. },
+            SimulationOp::CaptureProbability { .. }, SimulationOp::SnapshotState { .. },
+        ] if first.as_u32() == 0 && second.as_u32() == 1)
+        );
+    }
+
+    #[test]
+    fn parity_projection_normalizes_before_scattering_and_snapshot() {
+        let gates = flagged_gates(r#"{"cols":[["zpar","zpar","|0⟩⟨0|"]]}"#);
+        assert!(matches!(
+            linearize_ops(&gates, qubit_count(3), 1).as_slice(),
+            [SimulationOp::ApplyGate(gather), SimulationOp::ApplyGate(projector),
+             SimulationOp::Postselect { .. }, SimulationOp::ApplyGate(scatter),
+             SimulationOp::SnapshotState { .. }]
+            if gather.bit() == 0 && gather.control_mask() == 2
+                && projector.bit() == 2 && projector.control_mask() == 1
+                && scatter.bit() == gather.bit()
+                && scatter.control_mask() == gather.control_mask()
+                && scatter.control_value() == gather.control_value()
+                && scatter.matrix() == gather.matrix()
+        ));
+    }
+
+    #[test]
+    fn all_projector_kinds_emit_normalization() {
+        let gates = flagged_gates(r#"{"cols":[["|0⟩⟨0|"],["|1⟩⟨1|"],["|+⟩⟨+|"],["|-⟩⟨-|"]]}"#);
+        assert_eq!(
+            linearize_ops(&gates, qubit_count(1), 0)
+                .iter()
+                .filter(|op| matches!(op, SimulationOp::Postselect { .. }))
+                .count(),
+            4
         );
     }
 }

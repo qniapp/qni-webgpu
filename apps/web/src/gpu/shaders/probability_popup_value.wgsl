@@ -21,7 +21,7 @@ struct ProbabilityPopupParams {
 @group(0) @binding(3) var atlas_sampler: sampler;
 
 const MAX_PROBABILITY_OUTCOMES: u32 = 65536u;
-const GLYPH_COUNT: u32 = 23u;
+const GLYPH_COUNT: u32 = 20u;
 const GLYPH_DOT: u32 = 10u;
 const GLYPH_MINUS: u32 = 12u;
 const GLYPH_PERCENT: u32 = 14u;
@@ -184,6 +184,9 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
     glyph = glyph_raw(char_index, prob);
   } else {
     glyph = glyph_log(char_index, prob);
+  }
+  if (probability_data[params.slot * MAX_PROBABILITY_OUTCOMES + params.outcome] < 0.0) {
+    glyph = select(GLYPH_BLANK, 19u, char_index == 0u);
   }
   if (glyph == GLYPH_BLANK) { discard; }
 

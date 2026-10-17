@@ -169,7 +169,17 @@ impl StateVectorUpdate {
             resources.last_preview_step = None;
             resources.plan_revision = Some(self.plan_revision);
         }
+        let previous_active = resources.active_state;
+        let previous_step = resources.last_preview_step;
         self.select_preview_state(encoder, resources);
+        if recomputed
+            || previous_active != resources.active_state
+            || previous_step != resources.last_preview_step
+        {
+            resources
+                .state_status
+                .encode(queue, encoder, resources.active_state, self.state_count);
+        }
         #[cfg(target_arch = "wasm32")]
         publish_readback_handles(device, queue, resources);
         true
@@ -244,6 +254,13 @@ fn publish_readback_handles(
             ],
             state_count: resources.state_count,
             active_state: resources.active_state,
+        });
+    });
+    super::super::readback::POSTSELECTION_GPU_HANDLE.with(|slot| {
+        *slot.borrow_mut() = Some(MeasurementGpuHandle {
+            device: device.clone(),
+            queue: queue.clone(),
+            aux_buffer: resources.postselection.output_buffer.clone(),
         });
     });
     BLOCH_GPU_HANDLE.with(|slot| {

@@ -22,7 +22,7 @@ use crate::gpu::{
 use crate::grid_cell::GridCell;
 use crate::icons::{
     conditional_gate_body_shape, draw_bloch_vector, draw_gate_body, draw_gate_body_filled,
-    draw_gate_glyph, draw_sampled_measurement_icon,
+    draw_gate_glyph, draw_sample_placeholder_tiles, draw_sampled_measurement_icon,
 };
 use crate::layout::{amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect};
 use crate::simulation_plan::FlagSource;
@@ -276,9 +276,9 @@ impl QniApp {
                     egui::StrokeKind::Inside,
                 );
             }
-            if matches!(gate.kind, GateKind::Write0 | GateKind::Write1) {
-                // Write gates have no fill, so the wire would otherwise show
-                // through the brackets. Mask just the wire under the gate.
+            if matches!(gate.kind, GateKind::Write0 | GateKind::Write1)
+                || gate.kind.is_postselection()
+            {
                 painter.rect_filled(gate_rect, egui::CornerRadius::ZERO, colors.background);
             }
             if measurement_has_slot {
@@ -305,6 +305,12 @@ impl QniApp {
                         painter.add(callback.clone());
                         draw_gate_glyph(painter, gate_rect, gate.kind, colors);
                     }
+                }
+            } else if gate.kind == GateKind::SampleDisplay {
+                // The GPU overlay paints the sample tiles with transparent gaps
+                // between wires; a CPU body underneath would show through.
+                if self.probability_display_slot(gate.id).is_none() {
+                    draw_sample_placeholder_tiles(painter, body_rect, colors);
                 }
             } else {
                 draw_gate_body(painter, body_rect, gate.kind, colors);
@@ -504,7 +510,8 @@ impl QniApp {
                             PROBABILITY_RENDER_MODE_SAMPLE
                         },
                     )
-                } else if self.external_gpu_display_placeholders_active()
+                } else if gate.kind == GateKind::ProbabilityDisplay
+                    && self.external_gpu_display_placeholders_active()
                     && (next_probability_placeholder_slot as usize)
                         < crate::gpu::MAX_PROBABILITY_SLOTS
                 {
@@ -525,9 +532,14 @@ impl QniApp {
                     .filter(|(id, _)| *id == gate.id)
                     .map(|(_, outcome)| outcome as i32)
                     .unwrap_or(-1);
+                let draw_rect = if render_mode == ProbabilityInstance::SAMPLED_BITSTRING {
+                    gate_rect.expand(ProbabilityInstance::SAMPLE_GLOW_PAD)
+                } else {
+                    gate_rect
+                };
                 Some(ProbabilityInstance {
-                    rect_min: [gate_rect.min.x, gate_rect.min.y],
-                    rect_size: [gate_rect.width(), gate_rect.height()],
+                    rect_min: [draw_rect.min.x, draw_rect.min.y],
+                    rect_size: [draw_rect.width(), draw_rect.height()],
                     slot,
                     span,
                     hovered_outcome: if render_mode == PROBABILITY_RENDER_MODE_PLACEHOLDER {
@@ -552,7 +564,11 @@ impl QniApp {
                 border: colors.line.to_normalized_gamma_f32(),
                 log_hint: colors.probability_log_hint.to_normalized_gamma_f32(),
                 bar: colors.state_fill.to_normalized_gamma_f32(),
+                sample_on_core: colors.sample_on_core.to_normalized_gamma_f32(),
                 sample_on_fill: colors.sample_on_fill.to_normalized_gamma_f32(),
+                sample_on_glow: colors.sample_on_glow.to_normalized_gamma_f32(),
+                sample_off_fill: colors.sample_off_fill.to_normalized_gamma_f32(),
+                sample_off_edge: colors.sample_off_edge.to_normalized_gamma_f32(),
                 bar_edge: colors.popup_icon.to_normalized_gamma_f32(),
                 hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
                 text_color: colors.text_strong.to_normalized_gamma_f32(),
@@ -841,6 +857,79 @@ impl QniApp {
             shapes.push(egui::Shape::Callback(paint_callback));
         }
         shapes
+    }
+
+    pub(crate) fn draw_survival_labels(
+        &self,
+        painter: &egui::Painter,
+        callback_rect: egui::Rect,
+        circuit_origin: egui::Pos2,
+        colors: &Colors,
+        panel_rect: Option<egui::Rect>,
+    ) {
+        if !callback_rect.is_positive() {
+            return;
+        }
+        let dragging_gate_id = self.dragging.map(|drag| drag.id);
+        let mut columns = std::collections::BTreeMap::new();
+        for gate in &self.placed_gates {
+            if dragging_gate_id == Some(gate.id) && !self.dragging_live_display_snap {
+                continue;
+            }
+            let Some(slot) = self.gpu_plan.postselection_slot(gate.id) else {
+                continue;
+            };
+            let slot = slot.as_u32();
+            let pos = circuit_origin
+                + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2();
+            let entry = columns.entry(gate.column).or_insert((slot, slot, pos.x));
+            entry.0 = entry.0.min(slot);
+            entry.1 = entry.1.max(slot);
+        }
+        let mut postselection_instances: Vec<crate::gpu::SurvivalLabelInstance> = columns
+            .values()
+            .map(
+                |&(first_slot, last_slot, x)| crate::gpu::SurvivalLabelInstance {
+                    center: [
+                        x + GATE_SIZE * 0.5,
+                        self.circuit_bottom_y(callback_rect) - crate::tailwind::SPACING_4,
+                    ],
+                    half_extent: crate::tailwind::SPACING_8,
+                    first_slot,
+                    last_slot,
+                    mode: 0,
+                },
+            )
+            .collect();
+        if let Some(panel) = panel_rect {
+            if let Some(last_slot) = columns.values().map(|entry| entry.1).max() {
+                postselection_instances.push(crate::gpu::SurvivalLabelInstance {
+                    center: [
+                        panel.center().x,
+                        panel.bottom() + crate::tailwind::SPACING_2,
+                    ],
+                    half_extent: crate::tailwind::SPACING_16,
+                    first_slot: 0,
+                    last_slot,
+                    mode: 1,
+                });
+            }
+        }
+        if !postselection_instances.is_empty() {
+            let callback = crate::gpu::PostselectionCallback {
+                instances: postselection_instances.into(),
+                viewport_min: [callback_rect.min.x, callback_rect.min.y],
+                viewport_size: [callback_rect.width(), callback_rect.height()],
+                zero_color: colors.semantic_off.to_normalized_gamma_f32(),
+                one_color: colors.semantic_off.to_normalized_gamma_f32(),
+            };
+            painter.add(egui::Shape::Callback(
+                egui_wgpu::Callback::new_paint_callback(
+                    callback_rect,
+                    FrameCallback::new(callback),
+                ),
+            ));
+        }
     }
 
     pub(crate) fn draw_bloch_hover_popup(
