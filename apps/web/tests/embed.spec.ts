@@ -761,3 +761,37 @@ test('selectedStep reports initial state as a numeric minus one', async ({ page 
   })
   expect(selected).toBe(-1)
 })
+
+test('embed wide display shifts step count with the decoded columns', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["Amps1"],["Probability"]]}')
+  expect(await page.evaluate(() => (window as any).runner.stepCount())).toBe(3)
+})
+
+test('embed wide display allows selecting the shifted final column', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["Amps1"],["Probability"]]}')
+  const step = await page.evaluate(() => {
+    const runner = (window as any).runner
+    runner.selectStep(2)
+    return runner.selectedStep()
+  })
+  expect(step).toBe(2)
+})
+
+for (const width of [960, 354]) {
+  test(`embed Amps1 then Probability remains readable at ${width}`, async ({ page }) => {
+    await hostEmbed(page, '{"cols":[["H"],["P(π/2)"],["H"],["Amps1"],["Probability"]]}', {
+      width, height: 592,
+      settings: {
+        showStatePanel: true, maxWireCount: 1,
+        palette: ['H', 'Z', 'P(π/4)', 'P(π/2)', 'P(π)', 'Amps1', 'Probability', 'Density'],
+      },
+    })
+    await waitForHState(page)
+    if (width === 354) {
+      // The six-column circuit needs horizontal scrolling on tutorial phones.
+      await page.locator('qni-webgpu-test canvas').hover({ position: { x: 300, y: 264 } })
+      await page.mouse.wheel(400, 0)
+    }
+    await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot(`embed-amps1-then-probability-${width}x592.png`)
+  })
+}
