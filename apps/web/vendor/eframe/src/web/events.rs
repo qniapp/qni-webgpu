@@ -1111,49 +1111,22 @@ impl ResizeObserverContext {
     }
 }
 
-// Code ported to Rust from:
-// https://webglfundamentals.org/webgl/lessons/webgl-resizing-the-canvas.html
 fn get_display_size(resize_observer_entries: &js_sys::Array) -> Result<(u32, u32), JsValue> {
-    let width;
-    let height;
-    let mut dpr = web_sys::window().unwrap().device_pixel_ratio();
-
     let entry: web_sys::ResizeObserverEntry = resize_observer_entries.at(0).dyn_into()?;
-    if JsValue::from_str("devicePixelContentBoxSize").js_in(entry.as_ref()) {
-        // NOTE: Only this path gives the correct answer for most browsers.
-        // Unfortunately this doesn't work perfectly everywhere.
-        let size: web_sys::ResizeObserverSize =
-            entry.device_pixel_content_box_size().at(0).dyn_into()?;
-        width = size.inline_size();
-        height = size.block_size();
-        dpr = 1.0; // no need to apply
-
-        if DEBUG_RESIZE {
-            // log::info!("devicePixelContentBoxSize {width}x{height}");
-        }
-    } else if JsValue::from_str("contentBoxSize").js_in(entry.as_ref()) {
-        let content_box_size = entry.content_box_size();
-        let idx0 = content_box_size.at(0);
-        if idx0.is_undefined() {
-            // legacy
-            let size = JsValue::clone(content_box_size.as_ref());
-            let size: web_sys::ResizeObserverSize = size.dyn_into()?;
-            width = size.inline_size();
-            height = size.block_size();
-        } else {
-            let size: web_sys::ResizeObserverSize = idx0.dyn_into()?;
-            width = size.inline_size();
-            height = size.block_size();
-        }
-        if DEBUG_RESIZE {
-            log::info!("contentBoxSize {width}x{height}");
-        }
+    let rect = entry.content_rect();
+    let device = if JsValue::from_str("devicePixelContentBoxSize").js_in(entry.as_ref()) {
+        entry
+            .device_pixel_content_box_size()
+            .at(0)
+            .dyn_into::<web_sys::ResizeObserverSize>()
+            .ok()
+            .map(|size| (size.inline_size(), size.block_size()))
     } else {
-        // legacy
-        let content_rect = entry.content_rect();
-        width = content_rect.width();
-        height = content_rect.height();
-    }
-
-    Ok(((width.round() * dpr) as u32, (height.round() * dpr) as u32))
+        None
+    };
+    Ok(crate::backing_size::choose_backing_size(
+        (rect.width(), rect.height()),
+        f64::from(native_pixels_per_point()),
+        device,
+    ))
 }
