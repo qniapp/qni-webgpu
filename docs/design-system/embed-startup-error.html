@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>埋め込みの起動エラー画面</title>
+  <style>
+    :root { color-scheme: light; background: #fffcf0; color: #100f0f; font: 16px/24px system-ui, sans-serif; }
+    body { margin: 24px; }
+    h1 { font-size: 24px; line-height: 32px; }
+    h2 { font-size: 18px; line-height: 28px; }
+    .variants { display: flex; flex-wrap: wrap; align-items: start; gap: 24px; margin-bottom: 32px; }
+    .frame { width: 960px; height: 480px; max-width: 100%; outline: 1px solid #cecdc3; }
+    .phone { width: 343px; height: 520px; }
+    .short { height: 200px; }
+  </style>
+</head>
+<body>
+  <h1>埋め込みの起動エラー画面</h1>
+  <p>各原因をパソコン幅とスマートフォン幅で表示します。低い枠では中をスクロールできます。</p>
+  <main id="examples"></main>
+  <script type="module">
+    import { STARTUP_ERROR_CODES, QniStartupError, renderStartupError } from '../../apps/web/qni-embed-error.mjs'
+    const main = document.querySelector('#examples')
+    const desktop = { os: 'windows', browser: 'chrome', version: 140, mobile: false }
+    const mobile = { os: 'android', browser: 'chrome', version: 140, mobile: true }
+    function example(code, label, variants) {
+      const section = document.createElement('section')
+      const heading = document.createElement('h2')
+      heading.textContent = label
+      section.append(heading)
+      const row = document.createElement('div')
+      row.className = 'variants'
+      for (const { size, platform } of variants) {
+        const frame = document.createElement('div')
+        frame.className = `frame ${size}`
+        row.append(frame)
+        const render = () => renderStartupError(frame, new QniStartupError(code, `表示確認: ${code}`), {
+          platform, onRetry: render,
+        })
+        render()
+      }
+      section.append(row)
+      main.append(section)
+    }
+    for (const code of STARTUP_ERROR_CODES) {
+      example(code, code, [{ size: '', platform: desktop }, { size: 'phone', platform: mobile }])
+    }
+    example('webgpu-unsupported', 'iPhone と Linux', [
+      { size: 'phone', platform: { os: 'ios', browser: 'safari', version: 26, mobile: true } },
+      { size: '', platform: { os: 'linux', browser: 'firefox', version: 147, mobile: false } },
+    ])
+    const reloadHeading = document.createElement('h2')
+    reloadHeading.textContent = 'onRetry を省いた場合'
+    const reloadFrame = document.createElement('div')
+    reloadFrame.className = 'frame phone'
+    main.append(reloadHeading, reloadFrame)
+    renderStartupError(reloadFrame, new QniStartupError('unknown', '表示確認'), { platform: mobile })
+    example('gpu-adapter-unavailable', 'Firefox と低い枠', [
+      { size: '', platform: { os: 'windows', browser: 'firefox', version: 147, mobile: false } },
+      { size: 'short', platform: desktop },
+    ])
+  </script>
+</body>
+</html>
