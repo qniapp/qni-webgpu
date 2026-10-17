@@ -102,7 +102,11 @@ fn parse_bloch_upload_batch_impl(
                 vector.get(0).as_f64()? as f32,
                 vector.get(1).as_f64()? as f32,
                 vector.get(2).as_f64()? as f32,
-                0.0,
+                super::display_defined_marker(
+                    js_sys::Reflect::get(&value, &wasm_bindgen::JsValue::from_str("defined"))
+                        .ok()
+                        .and_then(|value| value.as_bool()),
+                ),
             ],
         });
     }

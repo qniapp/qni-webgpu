@@ -6,7 +6,7 @@
 //! 役割で、確率値を CPU で再計算するものではない。
 //!
 //! 生の `Arc<[f32]>` のままだと次の不正がコンパイラにも実行時にも素通りしていた:
-//! - NaN / ±Inf / 範囲外（負値・1 超過）の要素
+//! - NaN / ±Inf / 範囲外の要素（全要素が未定義を表す -1 の場合を除く）
 //! - 長さが 2 のべき乗でない（= 2^span に対応しない）配列
 //! - 上限 [`MAX_PROBABILITY_OUTCOMES`] を超える長さ（GPU バッファで隣スロットを破壊しうる）
 //!
@@ -24,7 +24,7 @@ use super::params::MAX_PROBABILITY_OUTCOMES;
 /// - 空でない
 /// - 長さが 2 のべき乗（= ある span に対する 2^span 個の測定結果）
 /// - 長さが [`MAX_PROBABILITY_OUTCOMES`] 以下
-/// - 各要素が有限（NaN / ±Inf でない）かつ概ね `0.0..=1.0`
+/// - 全要素が未定義を表す `-1.0`、または各要素が有限かつ概ね `0.0..=1.0`
 ///   （f64→f32 丸めや外部バックエンドの誤差を吸収するため [`UNIT_TOLERANCE`] の余裕を許す）
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ProbabilityDistribution {
@@ -61,6 +61,10 @@ impl ProbabilityDistribution {
                 len,
                 max: MAX_PROBABILITY_OUTCOMES,
             });
+        }
+        // ローカル WebGPU と同じ未定義分布。部分的な負値は許可しない。
+        if values.iter().all(|&value| value == -1.0) {
+            return Ok(Self { values });
         }
         for (index, &value) in values.iter().enumerate() {
             if !value.is_finite() || !(-UNIT_TOLERANCE..=1.0 + UNIT_TOLERANCE).contains(&value) {
@@ -128,6 +132,16 @@ mod tests {
     fn accepts_max_probability_outcomes_length() {
         // ちょうど上限 (span=16 の Probability16)。`>` を `>=` に取り違える退行を捕捉する。
         assert!(try_new(vec![0.0; super::MAX_PROBABILITY_OUTCOMES]).is_ok());
+    }
+
+    #[test]
+    fn external_gpu_accepts_undefined_probability_distribution() {
+        assert_eq!(try_new(vec![-1.0, -1.0]).unwrap().as_slice(), &[-1.0, -1.0]);
+    }
+
+    #[test]
+    fn external_gpu_rejects_partially_undefined_probability_distribution() {
+        assert!(try_new(vec![-1.0, 0.0]).is_err());
     }
 
     #[test]
