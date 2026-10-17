@@ -496,8 +496,31 @@ mod tests {
         insta::assert_debug_snapshot!(output.shapes);
     }
 
+    fn arithmetic_icon_ink_center(kind: GateKind) -> egui::Pos2 {
+        let ctx = egui::Context::default();
+        let rect = egui::Rect::from_min_size(egui::pos2(16.0, 16.0), egui::Vec2::splat(GATE_SIZE));
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            draw_gate_body(ui.painter(), rect, kind, &Colors::new());
+        });
+        output
+            .shapes
+            .iter()
+            .skip(1)
+            .map(|shape| shape.shape.visual_bounding_rect())
+            .fold(egui::Rect::NOTHING, |ink, bounds| ink.union(bounds))
+            .center()
+    }
+
     #[test]
-    fn increment_placeholder_body_snapshot() {
+    fn arithmetic_icons_are_centred_in_the_gate() {
+        let centers = [GateKind::Increment, GateKind::Decrement].map(|kind| {
+            (arithmetic_icon_ink_center(kind) - egui::pos2(36.0, 36.0)).length() < 0.01
+        });
+        assert_eq!(centers, [true, true]);
+    }
+
+    #[test]
+    fn increment_body_snapshot() {
         let ctx = egui::Context::default();
         let output = ctx.run_ui(egui::RawInput::default(), |ui| {
             draw_gate_body(
@@ -514,7 +537,7 @@ mod tests {
     }
 
     #[test]
-    fn decrement_placeholder_body_snapshot() {
+    fn decrement_body_snapshot() {
         let ctx = egui::Context::default();
         let output = ctx.run_ui(egui::RawInput::default(), |ui| {
             draw_gate_body(
