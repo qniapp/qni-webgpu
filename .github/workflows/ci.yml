@@ -36,7 +36,64 @@ jobs:
       - name: Deployment config tests
         run: node --test test-node/*.test.cjs
 
-  web:
+  web-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: '9'
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "true"
+          cache-all-crates: "true"
+          workspaces: |
+            apps/web
+
+      - name: Install trunk and cargo-insta
+        uses: taiki-e/install-action@v2
+        with:
+          tool: trunk,cargo-insta
+
+      - name: Install Web deps
+        run: pnpm install --frozen-lockfile
+        working-directory: apps/web
+
+      - name: Web Playwright dev trunk build
+        run: env -u NO_COLOR TRUNK_COLOR=never trunk build --dist playwright-dist
+        working-directory: apps/web
+
+      - name: Web embed build
+        run: pnpm run build:embed
+        working-directory: apps/web
+
+      - name: Upload Web Playwright bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-playwright-bundle
+          path: |
+            apps/web/playwright-dist
+            apps/web/embed-dist
+          retention-days: 1
+          if-no-files-found: error
+
+  web-check:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -106,9 +163,139 @@ jobs:
           QNI_WEB_EXTERNAL_SERVER=1 QNI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:bdd
         working-directory: apps/web
 
-      - name: Web Playwright legacy
-        run: pnpm run test:pw-legacy
+  web-playwright:
+    needs: web-build
+    name: web-playwright (${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: '9'
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install Web deps
+        run: pnpm install --frozen-lockfile
         working-directory: apps/web
+
+      - name: Download Web Playwright bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: web-playwright-bundle
+          path: apps/web
+
+      - name: Web Playwright shard
+        run: |
+          node -r ts-node/register/transpile-only scripts/serve-static.ts playwright-dist 4174 >/tmp/web-playwright-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          python3 - <<'PY'
+          import time
+          import urllib.request
+
+          url = 'http://127.0.0.1:4174/'
+          deadline = time.time() + 20
+          while time.time() < deadline:
+              try:
+                  with urllib.request.urlopen(url) as response:
+                      response.read()
+                  break
+              except Exception:
+                  time.sleep(0.25)
+          else:
+              raise SystemExit('Timed out waiting for Playwright static server')
+          PY
+          QNI_WEB_EXTERNAL_SERVER=1 QNI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm exec playwright test --shard=${{ matrix.shard }}/4 --reporter=dot,blob
+        working-directory: apps/web
+
+      - name: Upload Playwright blob report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: apps/web/blob-report
+          retention-days: 7
+
+      - name: Upload Playwright test results
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-test-results-${{ matrix.shard }}
+          path: apps/web/test-results
+          retention-days: 7
+
+  web-playwright-report:
+    needs: web-playwright
+    if: always() && needs.web-playwright.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: '9'
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install Web deps
+        run: pnpm install --frozen-lockfile
+        working-directory: apps/web
+
+      - name: Download Playwright blob reports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: blob-report-*
+          merge-multiple: true
+          path: apps/web/all-blob-reports
+
+      - name: Merge Playwright reports
+        run: pnpm exec playwright merge-reports --reporter html ./all-blob-reports
+        working-directory: apps/web
+
+      - name: Upload Playwright HTML report
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7
+
+  web:
+    needs: [web-build, web-check, web-playwright]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check Web job results
+        env:
+          BUILD_RESULT: ${{ needs.web-build.result }}
+          CHECK_RESULT: ${{ needs.web-check.result }}
+          PLAYWRIGHT_RESULT: ${{ needs.web-playwright.result }}
+        run: |
+          test "$BUILD_RESULT" = success
+          test "$CHECK_RESULT" = success
+          test "$PLAYWRIGHT_RESULT" = success
 
   qiskit-backend:
     runs-on: ubuntu-latest
