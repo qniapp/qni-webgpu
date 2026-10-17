@@ -472,6 +472,37 @@ mod tests {
     }
 
     #[test]
+    fn sample_body_rect_uses_whole_gate_rect() {
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(GATE_SIZE, 152.0));
+
+        assert_eq!(
+            span_resize_body_rect(GateKind::SampleDisplay, 3, rect),
+            rect
+        );
+    }
+
+    #[test]
+    fn sample_span_three_bottom_handle_cannot_grow() {
+        let gate = placed_gate(1, GateKind::SampleDisplay, 0, 3);
+
+        assert!(!can_grow_from_bottom(&gate, std::slice::from_ref(&gate), 5));
+    }
+
+    #[test]
+    fn sample_span_three_top_handle_cannot_grow() {
+        let gate = placed_gate(1, GateKind::SampleDisplay, 2, 3);
+
+        assert!(!can_grow_from_top(&gate, std::slice::from_ref(&gate), 5));
+    }
+
+    #[test]
+    fn sample_span_two_bottom_handle_can_grow() {
+        let gate = placed_gate(1, GateKind::SampleDisplay, 0, 2);
+
+        assert!(can_grow_from_bottom(&gate, std::slice::from_ref(&gate), 5));
+    }
+
+    #[test]
     fn handle_width_keeps_probability_display_minimum() {
         let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(GATE_SIZE, GATE_SIZE));
 

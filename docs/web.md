@@ -43,6 +43,11 @@ QNI_WEB_BROWSER=/usr/bin/google-chrome-stable ./scripts/open-web.sh
 - `QNI_WEB_PORT`: 接続先ポートを変更
 - `QNI_WEB_URL`: 接続先 URL を直接指定
 
+## チュートリアル
+
+上部ツールバーの Local/GPU 切り替えの左にある `Tutorial` をクリックすると、[チュートリアル](https://qniapp.github.io/qni-tutorial-webgpu/)が新しいタブで開く。
+埋め込み表示では、このリンクは表示しない。
+
 ## Agent browser / visual workflow
 
 アプリ内ブラウザは `http://127.0.0.1:4174/` を開ける。
@@ -174,6 +179,12 @@ legacy Playwright と BDD の両方が同じ shared source of truth を使う。
 
 repo root の `scripts/check-all.sh` でも staged rollout を維持し、
 `test:preflight` → `test:bdd` → `test:pw-legacy` の順で Web の gate を通す。
+
+GitHub Actions では、`web-build` が開発用の Trunk 成果物とリリース用の埋め込み成果物を一度ずつビルドし、`web-playwright` の 4 並列ジョブで共有する。
+各ジョブは `scripts/serve-static.ts` による SPA フォールバック付きの静的サーバで開発用の成果物を配信し、`test:pw-legacy` の代わりに `playwright test --shard` で全テストを分割して実行する。
+並行して `web-check` が Rust の検査、リリース用の Trunk ビルド、BDD テストを実行する。
+`web` はこの 3 種類のジョブすべての成功を必須とし、`web-playwright-report` による HTML レポートの統合結果には依存しない。
+`web-preflight` は他の Web ジョブに依存せず独立して実行し、`web` の成否判定には含まれない。
 
 ### 起動の固まりとテストの不安定さ
 

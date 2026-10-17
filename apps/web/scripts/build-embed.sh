@@ -12,5 +12,6 @@ env -u NO_COLOR -C "$web_dir" trunk build --verbose --release --cargo-profile em
 # Fonts and shaders are compiled into wasm; the standalone bootstrap is not used.
 cp "$stage/qni-web.js" "$stage/qni-web_bg.wasm" "$output/"
 cp "$web_dir/embed.mjs" "$output/qni-embed.mjs"
+cp "$web_dir/qni-embed-error.mjs" "$output/"
 printf 'Embed bundle: %s\n' "$output"
-wc -c "$output/qni-embed.mjs" "$output/qni-web.js" "$output/qni-web_bg.wasm"
+wc -c "$output/qni-embed-error.mjs" "$output/qni-embed.mjs" "$output/qni-web.js" "$output/qni-web_bg.wasm"

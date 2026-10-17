@@ -1012,6 +1012,82 @@ fn input_frame(app: &mut QniApp, ctx: &egui::Context, events: Vec<egui::Event>, 
     let _ = ctx.end_pass();
 }
 
+fn drag_sample_span(
+    json: &str,
+    edge: crate::app::SpanResizeEdge,
+    wire_delta: f32,
+    released: bool,
+) -> QniApp {
+    let (mut app, ctx, _) = fixture(json);
+    let gate = app.placed_gates[0].clone();
+    app.span_resize_drag = Some(crate::app::SpanResizeDrag {
+        gate_id: gate.id,
+        edge,
+        start_pointer_y: 0.0,
+        start_wire: gate.wire.as_usize(),
+        start_span: gate.span.get(),
+    });
+    ctx.begin_pass(egui::RawInput::default());
+    let cursor = egui::pos2(0.0, wire_delta * crate::constants::LINE_GAP);
+    DragController::update_active_span_resize(&mut app, pointer(cursor, released), &ctx);
+    let _ = ctx.end_pass();
+    app
+}
+
+#[test]
+fn sample_bottom_resize_grows_two_wires() {
+    let app = drag_sample_span(
+        r#"{"cols":[["Sample1"],[1,1,"H"]]}"#,
+        crate::app::SpanResizeEdge::Bottom,
+        2.0,
+        false,
+    );
+
+    assert_eq!(app.placed_gates[0].span.get(), 3);
+}
+
+#[test]
+fn sample_bottom_resize_stops_at_three_wires() {
+    let app = drag_sample_span(
+        r#"{"cols":[["Sample1"],[1,1,1,1,"H"]]}"#,
+        crate::app::SpanResizeEdge::Bottom,
+        4.0,
+        false,
+    );
+
+    assert_eq!(app.placed_gates[0].span.get(), 3);
+}
+
+#[test]
+fn sample_top_resize_stops_at_three_wires() {
+    let app = drag_sample_span(
+        r#"{"cols":[[1,1,1,1,"Sample1"]]}"#,
+        crate::app::SpanResizeEdge::Top,
+        -4.0,
+        false,
+    );
+
+    assert_eq!(
+        (
+            app.placed_gates[0].wire.as_usize(),
+            app.placed_gates[0].span.get()
+        ),
+        (2, 3)
+    );
+}
+
+#[test]
+fn sample_resize_release_commits_the_sample3_token() {
+    let app = drag_sample_span(
+        r#"{"cols":[["Sample1"],[1,1,"H"]]}"#,
+        crate::app::SpanResizeEdge::Bottom,
+        2.0,
+        true,
+    );
+
+    assert_eq!(circuit_json(&app), r#"{"cols":[["Sample3"],[1,1,"H"]]}"#);
+}
+
 #[test]
 fn sample_pickup_keeps_live_display_snap() {
     let (mut app, ctx, geometry) = fixture(r#"{"cols":[["Sample1"]]}"#);

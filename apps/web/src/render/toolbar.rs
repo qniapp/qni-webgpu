@@ -6,6 +6,9 @@ use crate::constants::SECTION_DIVIDER_WIDTH;
 
 use super::gpu_status_pill::gpu_status_pill;
 
+const TUTORIAL_URL: &str = "https://qniapp.github.io/qni-tutorial-webgpu/";
+const TUTORIAL_TOOLTIP: &str = "Open tutorial in a new tab";
+
 const TOOL_SIZE: egui::Vec2 = egui::vec2(crate::tailwind::SPACING_8, crate::tailwind::SPACING_8);
 const ICON_SIZE: egui::Vec2 = egui::vec2(18.0, 18.0); // Lucide 24×24 viewBox scaled to 18px.
 
@@ -26,11 +29,9 @@ impl QniApp {
             self.poll_external_gpu_run(ctx);
         }
         let viewport = ctx.content_rect();
-        // The vertical layout's phone-width canvas tightens the strip so
-        // every tool still fits in one row.
         let compact = self.orientation.is_vertical();
         let (padding_x, item_spacing) = if compact {
-            (crate::tailwind::SPACING_2, crate::tailwind::SPACING_1)
+            (crate::tailwind::SPACING_2, crate::tailwind::SPACING_0)
         } else {
             (crate::tailwind::SPACING_3, crate::tailwind::SPACING_2)
         };
@@ -54,6 +55,9 @@ impl QniApp {
                         }
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             self.show_exec_mode_toggle(ui, colors);
+                            if self.mode.uses_browser_state() {
+                                tutorial_link(ui, colors, compact);
+                            }
                         });
                     });
                 });
@@ -71,6 +75,7 @@ impl QniApp {
             ui,
             colors,
             ToolbarIcon::Undo,
+            self.orientation.is_vertical(),
             ButtonState {
                 enabled: edit_allowed && self.can_undo_circuit(),
                 toggle_on: false,
@@ -85,6 +90,7 @@ impl QniApp {
             ui,
             colors,
             ToolbarIcon::Redo,
+            self.orientation.is_vertical(),
             ButtonState {
                 enabled: edit_allowed && self.can_redo_circuit(),
                 toggle_on: false,
@@ -100,6 +106,7 @@ impl QniApp {
                 ui,
                 colors,
                 ToolbarIcon::Trash,
+                self.orientation.is_vertical(),
                 ButtonState {
                     enabled: edit_allowed,
                     toggle_on: false,
@@ -117,6 +124,7 @@ impl QniApp {
             ui,
             colors,
             ToolbarIcon::Copy,
+            self.orientation.is_vertical(),
             ButtonState {
                 enabled: true,
                 toggle_on: false,
@@ -143,6 +151,7 @@ impl QniApp {
             ui,
             colors,
             icon,
+            self.orientation.is_vertical(),
             ButtonState {
                 enabled: !example,
                 toggle_on: locked,
@@ -178,6 +187,7 @@ impl QniApp {
             ui,
             colors,
             ToolbarIcon::Play,
+            self.orientation.is_vertical(),
             ButtonState {
                 enabled: !running,
                 toggle_on: false,
@@ -190,8 +200,66 @@ impl QniApp {
         if run.clicked() {
             self.start_external_gpu_run(ctx);
         }
-        let _ = gpu_status_pill(ui, self.external_gpu.view().status);
+        if let Some(status) = gpu_status_pill(
+            ui,
+            self.external_gpu.view().status,
+            self.orientation.is_vertical(),
+        ) {
+            publish_toolbar_button_debug_json("GPU status", status.rect, status.hovered());
+        }
     }
+}
+
+fn tutorial_link(ui: &mut egui::Ui, colors: &Colors, compact: bool) -> egui::Response {
+    let text = ui
+        .painter()
+        .layout_job(egui::text::LayoutJob::single_section(
+            "Tutorial".to_owned(),
+            egui::TextFormat {
+                font_id: egui::FontId::proportional(crate::tailwind::TEXT_SM),
+                line_height: Some(crate::tailwind::LEADING_5),
+                color: colors.toolbar_icon,
+                ..Default::default()
+            },
+        ));
+    let padding_x = if compact {
+        crate::tailwind::SPACING_0
+    } else {
+        crate::tailwind::SPACING_2
+    };
+    let (rect, response) = ui.allocate_exact_size(
+        egui::vec2(text.size().x + 2.0 * padding_x, crate::tailwind::SPACING_8),
+        egui::Sense::click(),
+    );
+    let response = response
+        .on_hover_text(TUTORIAL_TOOLTIP)
+        .on_hover_cursor(egui::CursorIcon::PointingHand);
+    let hovered = response.hovered();
+    publish_toolbar_button_debug_json(TUTORIAL_TOOLTIP, rect, hovered);
+    let hover_t = ui
+        .ctx()
+        .animate_bool_with_time(response.id.with("hover"), hovered, 0.12);
+    if hover_t > 0.0 {
+        ui.painter().rect_filled(
+            rect,
+            egui::CornerRadius::same(crate::tailwind::ROUNDED_MD),
+            with_alpha(colors.toolbar_hover_bg, (255.0 * hover_t) as u8),
+        );
+    }
+    ui.painter().galley_with_override_text_color(
+        rect.center() - text.size() / 2.0,
+        text,
+        if hovered {
+            colors.toolbar_icon_hover
+        } else {
+            colors.toolbar_icon
+        },
+    );
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Link, true, "Tutorial"));
+    if response.clicked() {
+        ui.ctx().open_url(egui::OpenUrl::new_tab(TUTORIAL_URL));
+    }
+    response
 }
 
 fn toolbar_frame(colors: &Colors, padding_x: f32) -> egui::Frame {
@@ -220,6 +288,7 @@ fn icon_button(
     ui: &mut egui::Ui,
     colors: &Colors,
     icon: ToolbarIcon,
+    compact: bool,
     state: ButtonState,
     tooltip: &'static str,
 ) -> egui::Response {
@@ -228,7 +297,12 @@ fn icon_button(
     } else {
         egui::Sense::hover()
     };
-    let (rect, response) = ui.allocate_exact_size(TOOL_SIZE, sense);
+    let size = if compact {
+        egui::vec2(crate::tailwind::SPACING_6, TOOL_SIZE.y)
+    } else {
+        TOOL_SIZE
+    };
+    let (rect, response) = ui.allocate_exact_size(size, sense);
     let response = response.on_hover_text(tooltip);
     let hovered = response.hovered() && state.enabled;
     publish_toolbar_button_debug_json(tooltip, rect, hovered);
@@ -281,6 +355,9 @@ fn icon_button(
 #[cfg(all(target_arch = "wasm32", debug_assertions))]
 fn publish_toolbar_button_debug_json(tooltip: &str, rect: egui::Rect, hovered: bool) {
     let target = match tooltip {
+        TUTORIAL_TOOLTIP => Some(crate::test_hooks::QNI_TOOLBAR_TUTORIAL_GEOMETRY_JSON),
+        "Run on GPU" => Some(crate::test_hooks::QNI_TOOLBAR_RUN_GEOMETRY_JSON),
+        "GPU status" => Some(crate::test_hooks::QNI_TOOLBAR_GPU_STATUS_GEOMETRY_JSON),
         "Duplicate circuit" => Some(crate::test_hooks::QNI_TOOLBAR_DUPLICATE_GEOMETRY_JSON),
         "Lock circuit" | "Unlock circuit" | "Locked (sample) — duplicate to edit" => {
             Some(crate::test_hooks::QNI_TOOLBAR_LOCK_GEOMETRY_JSON)
@@ -546,4 +623,61 @@ fn icon_point(icon_rect: egui::Rect, x: f32, y: f32) -> egui::Pos2 {
         icon_rect.left() + icon_rect.width() * x / 24.0,
         icon_rect.top() + icon_rect.height() * y / 24.0,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tutorial_link_snapshot() {
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            tutorial_link(ui, &Colors::new(), false);
+        });
+        insta::assert_debug_snapshot!(output.shapes);
+    }
+
+    #[test]
+    fn tutorial_click_requests_a_new_tab() {
+        let ctx = egui::Context::default();
+        let mut rect = egui::Rect::NOTHING;
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            rect = tutorial_link(ui, &Colors::new(), false).rect;
+        });
+        let position = rect.center();
+        let mut output = egui::FullOutput::default();
+        for pressed in [true, false] {
+            output = ctx.run_ui(
+                egui::RawInput {
+                    events: vec![
+                        egui::Event::PointerMoved(position),
+                        egui::Event::PointerButton {
+                            pos: position,
+                            button: egui::PointerButton::Primary,
+                            pressed,
+                            modifiers: egui::Modifiers::NONE,
+                        },
+                    ],
+                    ..Default::default()
+                },
+                |ui| {
+                    tutorial_link(ui, &Colors::new(), false);
+                },
+            );
+        }
+        let urls: Vec<_> = output
+            .platform_output
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                egui::OutputCommand::OpenUrl(url) => Some((url.url.as_str(), url.new_tab)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            urls,
+            vec![("https://qniapp.github.io/qni-tutorial-webgpu/", true)]
+        );
+    }
 }

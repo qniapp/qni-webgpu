@@ -22,7 +22,7 @@ use crate::gpu::{
 use crate::grid_cell::GridCell;
 use crate::icons::{
     conditional_gate_body_shape, draw_bloch_vector, draw_gate_body, draw_gate_body_filled,
-    draw_gate_glyph, draw_sampled_measurement_icon,
+    draw_gate_glyph, draw_sample_placeholder_tiles, draw_sampled_measurement_icon,
 };
 #[cfg(test)]
 use crate::layout::gate_visible_rect;
@@ -327,6 +327,12 @@ impl QniApp {
                         draw_gate_glyph(painter, gate_rect, gate.kind, colors);
                     }
                 }
+            } else if gate.kind == GateKind::SampleDisplay {
+                // The GPU overlay paints the sample tiles with transparent gaps
+                // between wires; a CPU body underneath would show through.
+                if self.probability_display_slot(gate.id).is_none() {
+                    draw_sample_placeholder_tiles(painter, body_rect, colors);
+                }
             } else {
                 draw_gate_body(painter, body_rect, gate.kind, colors);
                 if gate.kind == GateKind::AntiControl {
@@ -531,7 +537,8 @@ impl QniApp {
                             PROBABILITY_RENDER_MODE_SAMPLE
                         },
                     )
-                } else if self.external_gpu_display_placeholders_active()
+                } else if gate.kind == GateKind::ProbabilityDisplay
+                    && self.external_gpu_display_placeholders_active()
                     && (next_probability_placeholder_slot as usize)
                         < crate::gpu::MAX_PROBABILITY_SLOTS
                 {
@@ -551,9 +558,14 @@ impl QniApp {
                     .filter(|(id, _)| *id == gate.id)
                     .map(|(_, outcome)| outcome as i32)
                     .unwrap_or(-1);
+                let draw_rect = if render_mode == ProbabilityInstance::SAMPLED_BITSTRING {
+                    gate_rect.expand(ProbabilityInstance::SAMPLE_GLOW_PAD)
+                } else {
+                    gate_rect
+                };
                 Some(ProbabilityInstance {
-                    rect_min: [gate_rect.min.x, gate_rect.min.y],
-                    rect_size: [gate_rect.width(), gate_rect.height()],
+                    rect_min: [draw_rect.min.x, draw_rect.min.y],
+                    rect_size: [draw_rect.width(), draw_rect.height()],
                     slot,
                     span,
                     hovered_outcome: if render_mode == PROBABILITY_RENDER_MODE_PLACEHOLDER {
@@ -578,7 +590,11 @@ impl QniApp {
                 border: colors.line.to_normalized_gamma_f32(),
                 log_hint: colors.probability_log_hint.to_normalized_gamma_f32(),
                 bar: colors.state_fill.to_normalized_gamma_f32(),
+                sample_on_core: colors.sample_on_core.to_normalized_gamma_f32(),
                 sample_on_fill: colors.sample_on_fill.to_normalized_gamma_f32(),
+                sample_on_glow: colors.sample_on_glow.to_normalized_gamma_f32(),
+                sample_off_fill: colors.sample_off_fill.to_normalized_gamma_f32(),
+                sample_off_edge: colors.sample_off_edge.to_normalized_gamma_f32(),
                 bar_edge: colors.popup_icon.to_normalized_gamma_f32(),
                 hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
                 text_color: colors.text_strong.to_normalized_gamma_f32(),
