@@ -42,6 +42,11 @@ QNI_WEB_BROWSER=/usr/bin/google-chrome-stable ./scripts/open-web.sh
 - `QNI_WEB_PORT`: 接続先ポートを変更
 - `QNI_WEB_URL`: 接続先 URL を直接指定
 
+## チュートリアル
+
+上部ツールバーの Local/GPU 切り替えの左にある `Tutorial` をクリックすると、[チュートリアル](https://qniapp.github.io/qni-tutorial-webgpu/)が新しいタブで開く。
+埋め込み表示では、このリンクは表示しない。
+
 ## Agent browser / visual workflow
 
 アプリ内ブラウザは `http://127.0.0.1:4174/` を開ける。
