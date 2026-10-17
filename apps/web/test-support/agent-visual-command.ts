@@ -42,8 +42,8 @@ const DEFAULT_PALETTE_ROW_GAP = UI_CONSTANTS.PALETTE_ROW_GAP
 const DEFAULT_PALETTE_SECTION_GAP = UI_CONSTANTS.PALETTE_SECTION_GAP
 const DEFAULT_PALETTE_SEPARATOR_WIDTH = UI_CONSTANTS.PALETTE_SEPARATOR_WIDTH
 const DEFAULT_PALETTE_DISPLAY_COLUMNS = UI_CONSTANTS.PALETTE_DISPLAY_COLUMNS
-const DEFAULT_PALETTE_GATES_ROW2_INDICES = [13, 14, 15, 27, 28, 17, 18, 19, 26, 30, 31, 22, 23, 21]
-const DEFAULT_PALETTE_DISPLAY_INDICES = [16, 20, 29, 24, 25]
+const DEFAULT_PALETTE_GATES_ROW2_INDICES = [13, 14, 15, 31, 32, 17, 18, 19, 26, 34, 35, 22, 23, 21, 27, 28, 29, 30]
+const DEFAULT_PALETTE_DISPLAY_INDICES = [16, 20, 33, 24, 25]
 const DEFAULT_CIRCUIT_PADDING = UI_CONSTANTS.CIRCUIT_PADDING
 const DEFAULT_QUBIT_LABEL_WIDTH = UI_CONSTANTS.QUBIT_LABEL_WIDTH
 const DEFAULT_QUBIT_LABEL_GAP = UI_CONSTANTS.QUBIT_LABEL_GAP
@@ -110,16 +110,13 @@ const GATE_ALIASES = new Map([
   ['meter', 19],
   ['zdetectcontrolreset', 26],
   ['z-detect-control-reset', 26],
-  ['xdetector', 30],
-  ['x-detector', 30],
-  ['ydetector', 31],
-  ['y-detector', 31],
+  ['xdetector', 34],
+  ['x-detector', 34],
+  ['ydetector', 35],
+  ['y-detector', 35],
   ['probability', 20],
   ['probability-display', 20],
   ['probabilitydisplay', 20],
-  ['probability_display', 20],
-  ['probability', 20],
-  ['probability-display', 20],
   ['probability_display', 20],
   ['spacer', 21],
   ['…', 21],
@@ -135,10 +132,12 @@ const GATE_ALIASES = new Map([
   ['amplitude-display', 24],
   ['amplitudedisplay', 24],
   ['amplitude_display', 24],
-  ['zpar', 27],
-  ['xpar', 28],
-  ['sample', 29],
-  ['sample-display', 29],
+  ['zpar', 31],
+  ['zparitycontrol', 31],
+  ['xpar', 32],
+  ['xparitycontrol', 32],
+  ['sample', 33],
+  ['sample-display', 33],
   ['density', 25],
   ['density-matrix', 25],
   ['density_matrix', 25],
@@ -148,6 +147,16 @@ const GATE_ALIASES = new Map([
   ['density-matrix-display', 25],
   ['densitymatrixdisplay', 25],
   ['density_matrix_display', 25],
+  ['postselect0', 27],
+  ['postselect-0', 27],
+  ['|0⟩⟨0|', 27],
+  ['postselect1', 28],
+  ['postselect-1', 28],
+  ['|1⟩⟨1|', 28],
+  ['postselect-plus', 29],
+  ['|+⟩⟨+|', 29],
+  ['postselect-minus', 30],
+  ['|-⟩⟨-|', 30],
 ])
 
 const normalizeGateName = (gate: unknown): string => String(gate || '').trim().toLowerCase()
@@ -229,7 +238,9 @@ export const buildDragOperation = ({
   const displayWidth = paletteDisplayColumns * gateSize + (paletteDisplayColumns - 1) * paletteGap
   const displayX = gatesWidth + paletteSectionGap + paletteSeparatorWidth + paletteSectionGap
   const totalWidth = displayX + displayWidth
-  const paletteStartX = Math.round(cssWidth / 2 - totalWidth / 2)
+  const panelMargin = 8
+  const offset = (cssWidth - 2 * panelMargin - totalWidth) / 2
+  const paletteStartX = panelMargin + Math.sign(offset) * Math.round(Math.abs(offset))
   const row2Col = DEFAULT_PALETTE_GATES_ROW2_INDICES.indexOf(gateIndex)
   const displaySlot = DEFAULT_PALETTE_DISPLAY_INDICES.indexOf(gateIndex)
   const paletteLocal = (() => {

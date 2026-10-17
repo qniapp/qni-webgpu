@@ -44,6 +44,16 @@ pub(super) fn create_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroup
                 ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                 count: None,
             },
+            wgpu::BindGroupLayoutEntry {
+                binding: 4,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
         ],
     })
 }
@@ -84,6 +94,10 @@ pub(super) fn create_bind_groups(
                 wgpu::BindGroupEntry {
                     binding: 3,
                     resource: wgpu::BindingResource::Sampler(&atlas.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: common.selected_state_norm_buffer.as_entire_binding(),
                 },
             ],
         })

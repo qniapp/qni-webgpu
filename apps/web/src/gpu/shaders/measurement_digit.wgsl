@@ -49,6 +49,7 @@ fn vs_main(input: VsIn) -> VsOut {
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let aux = aux_data[input.slot];
   let outcome: f32 = aux.z;
+  if (outcome < 0.0) { discard; }
   // Map local coords ([-half_extent, +half_extent]^2) into the right cell
   // of a 1x2 atlas (top half = "0", bottom half = "1"). UV.y picks the row.
   let cell_u = (input.local.x / input.half_extent) * 0.5 + 0.5;

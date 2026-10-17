@@ -47,7 +47,7 @@
 <section class="block" id="vocabulary">
   <h2>§ 02 qni がサポートするゲート語彙</h2>
   <div class="card">
-    <p>qni-webgpu が現在受理するトークンは次の 26 種類（<code>GateKind</code> のバリアント）に対応する。</p>
+    <p>qni-webgpu が現在受理するトークンは次の 30 種類（<code>GateKind</code> のバリアント）に対応する。</p>
     <table class="spec">
       <thead><tr><th>分類</th><th>トークン</th></tr></thead>
       <tbody>
@@ -57,6 +57,7 @@
         <tr><th>制御</th><td><code>•</code>（制御） <code>◦</code>（反制御）。いずれも Z 軸のみ</td></tr>
         <tr><th>書き込み</th><td><code>|0&gt;</code> <code>|1&gt;</code></td></tr>
         <tr><th>測定</th><td><code>Measure</code></td></tr>
+        <tr><th>事後選択</th><td><code>|0⟩⟨0|</code> <code>|1⟩⟨1|</code> <code>|+⟩⟨+|</code> <code>|-⟩⟨-|</code></td></tr>
         <tr><th>表示ブロック</th><td><code>Bloch</code>（ブロッホ球表示ブロック） <code>Probability&lt;n&gt;</code>（確率表示ブロック） <code>Amps&lt;n&gt;</code>（振幅表示ブロック） <code>Density&lt;n&gt;</code>（密度行列表示ブロック）</td></tr>
         <tr><th>区切り</th><td><code>…</code></td></tr>
       </tbody>
@@ -65,7 +66,7 @@
     <ul>
       <li><code>⊖</code> / <code>⊕</code> — X 軸の制御 / 反制御</li>
       <li><code>X^¼</code> / <code>X^-¼</code> など X・Y のルート族</li>
-      <li><code>|0⟩⟨0|</code> など — ポストセレクション（事後選択）</li>
+      <li><code>|X⟩⟨X|</code> / <code>|/⟩⟨/|</code> — Y 基底の事後選択</li>
       <li><code>+=A</code> / <code>*A</code> / <code>*BToAmodR</code> / <code>inputA</code> / <code>setR</code> など — 算術・モジュラー演算と入力レジスタ</li>
       <li><code>Counting</code> — 時間で値が進む入力レジスタ</li>
       <li><code>e^-iYt</code> / <code>X^t</code> など — 時間依存ゲート</li>
@@ -124,6 +125,7 @@
       <thead><tr><th>回路</th><th>不足するゲート</th><th>備考</th></tr></thead>
       <tbody>
         <tr><td>CHSH テスト（CHSH Test）</td><td><code>X^-¼</code>（X のルート族）</td><td>測定確率だけを見るなら <code>Rx(-π_4)</code> で近似できる。厳密に再現するには X のルート族の追加が要る</td></tr>
+        <tr><td>魔法状態蒸留（Distillation）</td><td><code>⊖</code>（X 軸制御）</td><td><code>|0⟩⟨0|</code>（事後選択）は対応済み</td></tr>
       </tbody>
     </table>
 
@@ -132,7 +134,6 @@
       <thead><tr><th>回路</th><th>不足するゲート</th><th>規模感</th></tr></thead>
       <tbody>
         <tr><td>ショアのアルゴリズム（Shor）</td><td><code>*BToAmodR</code>（モジュラー冪乗） <code>inputA</code> <code>setR</code> <code>setB</code></td><td>算術ゲート族の一式。最大の工事</td></tr>
-        <tr><td>魔法状態蒸留（Distillation）</td><td><code>⊖</code>（X 軸制御）＋ <code>|0⟩⟨0|</code>（ポストセレクション）</td><td>2 系統の新機能が要る</td></tr>
       </tbody>
     </table>
   </div>
@@ -169,7 +170,6 @@
     <h3>新ゲートの追加候補（優先順）</h3>
     <ol>
       <li><code>⊖</code> / <code>⊕</code>（X 軸の制御）— Grover や蒸留の拡散変換を素直に書けるようになる汎用機能</li>
-      <li><code>|0⟩⟨0|</code> など — ポストセレクション</li>
       <li><code>X^¼</code> ほか — X・Y のルート族</li>
       <li>モジュラー算術（<code>*BToAmodR</code> ほか）— ショアのアルゴリズム向け。最も大きな工事</li>
     </ol>

@@ -175,7 +175,10 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let char_index = u32(floor(input.cell_uv.x));
   let cell_local = vec2<f32>(fract(input.cell_uv.x), input.cell_uv.y);
   let bloch = bloch_data[params.slot].xyz;
-  let glyph = glyph_for_cell(input.cell, char_index, bloch);
+  var glyph = glyph_dash(char_index);
+  if (bloch_data[params.slot].w >= 0.0) {
+    glyph = glyph_for_cell(input.cell, char_index, bloch);
+  }
   if (glyph == GLYPH_BLANK) { discard; }
 
   let atlas_u = (f32(glyph) + cell_local.x) / f32(GLYPH_COUNT);

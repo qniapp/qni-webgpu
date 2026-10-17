@@ -59,6 +59,30 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
             m10: [0.0, 0.0],
             m11: [1.0, 0.0],
         },
+        GateKind::PostSelectOff => GateMatrix {
+            m00: [1.0, 0.0],
+            m01: [0.0, 0.0],
+            m10: [0.0, 0.0],
+            m11: [0.0, 0.0],
+        },
+        GateKind::PostSelectOn => GateMatrix {
+            m00: [0.0, 0.0],
+            m01: [0.0, 0.0],
+            m10: [0.0, 0.0],
+            m11: [1.0, 0.0],
+        },
+        GateKind::PostSelectAntiX => GateMatrix {
+            m00: [0.5, 0.0],
+            m01: [0.5, 0.0],
+            m10: [0.5, 0.0],
+            m11: [0.5, 0.0],
+        },
+        GateKind::PostSelectX => GateMatrix {
+            m00: [0.5, 0.0],
+            m01: [-0.5, 0.0],
+            m10: [-0.5, 0.0],
+            m11: [0.5, 0.0],
+        },
         GateKind::X => GateMatrix {
             m00: [0.0, 0.0],
             m01: [1.0, 0.0],
@@ -354,5 +378,46 @@ pub(crate) fn rz_params(
         mode: gate_mode(GateKind::Rz),
         condition_slot: GATE_UNCONDITIONAL,
         _pad: [0; 2],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn postselection_off_matrix() {
+        let kind = GateKind::from_url_token("|0⟩⟨0|").unwrap();
+        let matrix = gate_matrix(kind);
+        assert_eq!(
+            [matrix.m00, matrix.m01, matrix.m10, matrix.m11],
+            [[1.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
+        );
+    }
+    #[test]
+    fn postselection_on_matrix() {
+        let kind = GateKind::from_url_token("|1⟩⟨1|").unwrap();
+        let matrix = gate_matrix(kind);
+        assert_eq!(
+            [matrix.m00, matrix.m01, matrix.m10, matrix.m11],
+            [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [1.0, 0.0]]
+        );
+    }
+    #[test]
+    fn postselection_plus_matrix() {
+        let kind = GateKind::from_url_token("|+⟩⟨+|").unwrap();
+        let matrix = gate_matrix(kind);
+        assert_eq!(
+            [matrix.m00, matrix.m01, matrix.m10, matrix.m11],
+            [[0.5, 0.0], [0.5, 0.0], [0.5, 0.0], [0.5, 0.0]]
+        );
+    }
+    #[test]
+    fn postselection_minus_matrix() {
+        let kind = GateKind::from_url_token("|-⟩⟨-|").unwrap();
+        let matrix = gate_matrix(kind);
+        assert_eq!(
+            [matrix.m00, matrix.m01, matrix.m10, matrix.m11],
+            [[0.5, 0.0], [-0.5, 0.0], [-0.5, 0.0], [0.5, 0.0]]
+        );
     }
 }

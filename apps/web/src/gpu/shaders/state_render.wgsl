@@ -26,6 +26,7 @@ struct RenderParams {
 
 @group(0) @binding(0) var<storage, read> state: array<vec2<f32>>;
 @group(0) @binding(1) var<uniform> params: RenderParams;
+@group(0) @binding(2) var<storage, read> selected_state_norm: array<vec4<f32>>;
 
 struct VsIn {
   @location(0) position: vec2<f32>,  // unit quad in -1..1
@@ -167,6 +168,15 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   // Amplitude / Density Display's tightened SDF AA width so the state panel
   // circles read with the same sharpness.
   let edge = max(0.5, length(fwidth(input.panel_local)) * 0.65);
+  if (!(selected_state_norm[0].x > 0.000000000001)) {
+    if (any(input.panel_local < vec2<f32>(0.0)) || any(input.panel_local >= params.panel_size)) {
+      discard;
+    }
+    if (fract((input.panel_local.x + input.panel_local.y) / 8.0) >= 0.125) {
+      discard;
+    }
+    return vec4<f32>(params.outline_zero.rgb * params.outline_zero.a, params.outline_zero.a);
+  }
   let half_gap = (params.cell_pitch - 2.0 * params.radius) * 0.5;
   let col_f = floor((input.panel_local.x + half_gap) / params.cell_pitch);
   let row_f = floor((input.panel_local.y + half_gap) / params.cell_pitch);

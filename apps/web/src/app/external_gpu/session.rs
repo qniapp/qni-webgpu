@@ -131,6 +131,12 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
             flag.token_suffix()
         ));
     }
+    if let Some(gate) = placed_gates
+        .iter()
+        .find(|gate| gate.kind.is_postselection())
+    {
+        return Some(gate.kind.spec().url_token.to_owned());
+    }
     let max_column = placed_gates
         .iter()
         .map(|gate| gate.column.as_usize())
@@ -673,6 +679,73 @@ mod gate_tests {
             unsupported_external_gpu_gate_for_gates(&gates),
             Some("YDetector".to_owned())
         );
+    }
+
+    #[test]
+    fn external_gpu_rejects_uncontrolled_postselection() {
+        let tokens = ["|0⟩⟨0|", "|1⟩⟨1|", "|+⟩⟨+|", "|-⟩⟨-|"];
+        let rejected = tokens.map(|token| {
+            let gates = vec![PlacedGate::new(
+                crate::app::GateId::from_u32(1),
+                GateKind::from_url_token(token).unwrap(),
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(0),
+                crate::gates::GateSpan::SINGLE,
+                None,
+            )];
+            unsupported_external_gpu_gate_for_gates(&gates)
+        });
+        assert_eq!(rejected, tokens.map(|token| Some(token.to_owned())));
+    }
+
+    #[test]
+    fn external_gpu_rejects_controlled_postselection() {
+        let tokens = ["|0⟩⟨0|", "|1⟩⟨1|", "|+⟩⟨+|", "|-⟩⟨-|"];
+        let rejected = tokens.map(|token| {
+            let mut gates = vec![PlacedGate::new(
+                crate::app::GateId::from_u32(1),
+                GateKind::from_url_token(token).unwrap(),
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(0),
+                crate::gates::GateSpan::SINGLE,
+                None,
+            )];
+            gates.push(PlacedGate::new(
+                crate::app::GateId::from_u32(2),
+                GateKind::Control,
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(1),
+                crate::gates::GateSpan::SINGLE,
+                None,
+            ));
+            unsupported_external_gpu_gate_for_gates(&gates)
+        });
+        assert_eq!(rejected, tokens.map(|token| Some(token.to_owned())));
+    }
+
+    #[test]
+    fn external_gpu_rejects_anti_controlled_postselection() {
+        let tokens = ["|0⟩⟨0|", "|1⟩⟨1|", "|+⟩⟨+|", "|-⟩⟨-|"];
+        let rejected = tokens.map(|token| {
+            let mut gates = vec![PlacedGate::new(
+                crate::app::GateId::from_u32(1),
+                GateKind::from_url_token(token).unwrap(),
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(0),
+                crate::gates::GateSpan::SINGLE,
+                None,
+            )];
+            gates.push(PlacedGate::new(
+                crate::app::GateId::from_u32(2),
+                GateKind::AntiControl,
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::WireIndex::new(1),
+                crate::gates::GateSpan::SINGLE,
+                None,
+            ));
+            unsupported_external_gpu_gate_for_gates(&gates)
+        });
+        assert_eq!(rejected, tokens.map(|token| Some(token.to_owned())));
     }
 
     #[test]

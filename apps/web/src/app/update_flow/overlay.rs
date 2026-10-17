@@ -27,6 +27,21 @@ impl QniApp {
             ctx,
         ) || circuit_frame.recompute;
 
+        if let Some(content_rect) = circuit_frame.content_rect {
+            let circuit_origin = self.circuit_origin(content_rect, self.circuit_scroll_x);
+            self.draw_survival_labels(
+                &overlay_painter,
+                screen_rect,
+                circuit_origin,
+                colors,
+                self.state_panel_visible().then(|| {
+                    state_frame
+                        .layout
+                        .state_rect
+                        .translate(self.state_panel.offset)
+                }),
+            );
+        }
         self.draw_palette(&overlay_painter, screen_rect, colors);
         if self.state_panel_visible() {
             let svp_t0 = now_seconds();

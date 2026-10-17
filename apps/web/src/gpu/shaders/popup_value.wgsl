@@ -23,6 +23,7 @@ struct PopupParams {
 @group(0) @binding(1) var<uniform> params: PopupParams;
 @group(0) @binding(2) var atlas: texture_2d<f32>;
 @group(0) @binding(3) var atlas_sampler: sampler;
+@group(0) @binding(4) var<storage, read> selected_state_norm: array<vec4<f32>>;
 
 // --- Atlas / glyph constants (must mirror popup_glyph_atlas.rs) ---
 const GLYPH_COUNT: u32 = 20u;
@@ -33,6 +34,7 @@ const GLYPH_MINUS: u32 = 12u;
 const GLYPH_I: u32 = 13u;
 const GLYPH_PERCENT: u32 = 14u;
 const GLYPH_DEGREE: u32 = 15u;
+const GLYPH_EM_DASH: u32 = 19u;
 const GLYPH_BLANK: u32 = 0xFFFFu;
 
 // --- Per-row character counts ---
@@ -233,7 +235,9 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let phase_deg = atan2(im, re) * (180.0 / 3.14159265359);
 
   var glyph: u32 = GLYPH_BLANK;
-  if (input.row == 0u) {
+  if (!(selected_state_norm[0].x > 0.000000000001)) {
+    glyph = select(GLYPH_BLANK, GLYPH_EM_DASH, char_index == 0u);
+  } else if (input.row == 0u) {
     glyph = glyph_amplitude(char_index, re, im);
   } else if (input.row == 1u) {
     glyph = glyph_probability(char_index, prob);

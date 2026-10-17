@@ -182,7 +182,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     }
 
     var glyph = GLYPH_BLANK;
-    if (incoherent && (in.row == 0u || in.row == 2u)) {
+    if (amp_meta.w < 0.0 || (incoherent && (in.row == 0u || in.row == 2u))) {
         glyph = glyph_dash_only(char_index);
     } else if (in.row == 0u) {
         glyph = glyph_amplitude(char_index, re, im);

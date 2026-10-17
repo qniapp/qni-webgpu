@@ -62,6 +62,16 @@ fn create_render_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayo
                 },
                 count: None,
             },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
         ],
     })
 }
@@ -84,6 +94,10 @@ fn create_render_bind_groups(
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: params_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: common.selected_state_norm_buffer.as_entire_binding(),
                 },
             ],
         })
