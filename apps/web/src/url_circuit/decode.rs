@@ -3,6 +3,7 @@
 use crate::app::{CircuitBlocks, CircuitColumnIndex, GateId, GateIdAllocator, PlacedGate};
 use crate::gates::GateSpan;
 use crate::gates::{GateFlag, GateKind, ParametricAngle};
+use crate::layout::gate_width_cols;
 
 use super::parser::{parse_circuit_document, CircuitDocument};
 
@@ -17,8 +18,8 @@ use super::parser::{parse_circuit_document, CircuitDocument};
 //
 //  Tokens (`"H"`, `"•"`, `"QFT3"`, …) are mapped back to `GateKind`
 //  via `token_to_gate`. The semantic column index (= qni step index)
-//  and wire index (= qubit number) are restored directly; the derived
-//  draw position is then synchronised from that grid.
+//  and wire index (= qubit number) are restored from the grid. Columns
+//  colliding with earlier wide displays, and all later columns, shift right.
 //
 //  qni circuit-block markers are split out before that: a column holding
 //  only `"{<label>"` (or qni's `"[<label>"`) opens a block and `"}"` (or
@@ -96,10 +97,11 @@ pub(crate) fn current_url_has_circuit_payload() -> bool {
 /// `next_gate_id = 1`. Malformed JSON (including malformed block markers)
 /// also decodes to the empty circuit.
 pub(crate) fn parse_circuit_json(json: &str) -> DecodedCircuit {
-    let Some((columns, title)) = parse_circuit_document(json).and_then(split_document) else {
+    let Some((mut columns, title)) = parse_circuit_document(json).and_then(split_document) else {
         return DecodedCircuit::default();
     };
-    with_gate_ids(build_gates(&columns.cols), columns.blocks, title)
+    let (gates, _) = build_gates(&columns.cols, &mut columns.blocks);
+    with_gate_ids(gates, columns.blocks, title)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -113,10 +115,11 @@ pub(crate) struct CircuitJsonSummary {
 /// Used by browser-local persistence metadata; state-vector / Bloch /
 /// measurement values remain GPU-only.
 pub(crate) fn summarize_circuit_json(json: &str) -> Option<CircuitJsonSummary> {
-    let cols = split_block_markers(parse_circuit_document(json)?.cols)?.cols;
+    let mut parsed = split_block_markers(parse_circuit_document(json)?.cols)?;
+    let cols = &parsed.cols;
     let mut qubits = 0usize;
     let mut gate_count = 0usize;
-    for col in &cols {
+    for col in cols {
         for (wire, entry) in col.iter().enumerate() {
             if let Some(token) = entry.as_deref() {
                 let gate = token_to_gate(token)?;
@@ -125,9 +128,10 @@ pub(crate) fn summarize_circuit_json(json: &str) -> Option<CircuitJsonSummary> {
             }
         }
     }
+    let (_, columns) = build_gates(cols, &mut parsed.blocks);
     Some(CircuitJsonSummary {
         qubits,
-        columns: cols.len(),
+        columns,
         gate_count,
     })
 }
@@ -163,8 +167,8 @@ fn try_decode(payload: &str) -> Option<DecodedCircuit> {
     if !json.starts_with('{') {
         return None;
     }
-    let (columns, title) = split_document(parse_circuit_document(json)?)?;
-    let gates = build_gates(&columns.cols);
+    let (mut columns, title) = split_document(parse_circuit_document(json)?)?;
+    let (gates, _) = build_gates(&columns.cols, &mut columns.blocks);
     let has_gate_tokens = columns.cols.iter().flatten().any(Option::is_some);
     if gates.is_empty() && has_gate_tokens {
         None
@@ -264,11 +268,19 @@ fn decode_percent(s: &str) -> Option<String> {
 }
 
 /// Walk the parsed columns and place each non-empty entry as a
-/// `PlacedGate`. The URL columns become semantic gate columns; pixel
-/// position is derived by `PlacedGate::new`.
-fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
+/// `PlacedGate`. Preserve URL column spacing except where a column overlaps
+/// an earlier wide display on intersecting wires. Move that entire column and
+/// all later columns together, remapping block boundaries with the same grid.
+fn build_gates(
+    cols: &[Vec<Option<String>>],
+    blocks: &mut CircuitBlocks,
+) -> (Vec<PlacedGate>, usize) {
     let mut gates = Vec::new();
+    let mut wire_ends = Vec::<usize>::new();
+    let mut offset = 0;
+    let mut column_map = Vec::with_capacity(cols.len() + 1);
     for (col_idx, col) in cols.iter().enumerate() {
+        let first_gate = gates.len();
         for (wire_idx, entry) in col.iter().enumerate() {
             let Some(token) = entry.as_deref() else {
                 continue;
@@ -301,8 +313,38 @@ fn build_gates(cols: &[Vec<Option<String>>]) -> Vec<PlacedGate> {
             };
             gates.push(gate);
         }
+        let current = &mut gates[first_gate..];
+        let mut column = col_idx + offset;
+        for gate in current.iter() {
+            let end_wire = gate.wire.as_usize() + gate.span.get();
+            wire_ends.resize(wire_ends.len().max(end_wire), 0);
+            for &end in &wire_ends[gate.wire.as_usize()..end_wire] {
+                column = column.max(end);
+            }
+        }
+        offset = column - col_idx;
+        column_map.push(column);
+        // Update occupancy only after choosing one column for the whole group.
+        for gate in current {
+            gate.column = CircuitColumnIndex::new(column);
+            let end = column + gate_width_cols(gate.kind, gate.span.get());
+            let end_wire = gate.wire.as_usize() + gate.span.get();
+            for wire_end in &mut wire_ends[gate.wire.as_usize()..end_wire] {
+                *wire_end = (*wire_end).max(end);
+            }
+        }
     }
-    gates
+    column_map.push(cols.len() + offset);
+    let mut remapped_blocks = CircuitBlocks::default();
+    for block in blocks.iter() {
+        let _ = remapped_blocks.push(
+            block.label().to_owned(),
+            CircuitColumnIndex::new(column_map[block.start().as_usize()]),
+            CircuitColumnIndex::new(column_map[block.end().as_usize()]),
+        );
+    }
+    *blocks = remapped_blocks;
+    (gates, cols.len() + offset)
 }
 
 /// Decodes one palette entry token with the circuit JSON vocabulary, so an
@@ -443,6 +485,120 @@ mod tests {
 
     fn qubit_count(value: usize) -> QubitCount {
         QubitCount::try_new(value).expect("test qubit count must be non-zero")
+    }
+
+    #[test]
+    fn adjacent_amplitude_shifts_probability() {
+        let circuit = parse_circuit_json(r#"{"cols":[["Amps1"],["Probability"]]}"#);
+        assert_eq!(
+            circuit
+                .gates
+                .iter()
+                .map(|gate| gate.column.as_usize())
+                .collect::<Vec<_>>(),
+            vec![0, 2]
+        );
+    }
+
+    #[test]
+    fn amplitude_keeps_disjoint_wire_column() {
+        let circuit = parse_circuit_json(r#"{"cols":[["Amps1"],[1,"H"]]}"#);
+        assert_eq!(
+            circuit
+                .gates
+                .iter()
+                .map(|gate| gate.column.as_usize())
+                .collect::<Vec<_>>(),
+            vec![0, 1]
+        );
+    }
+
+    #[test]
+    fn amplitude_padding_keeps_columns() {
+        let circuit = parse_circuit_json(r#"{"cols":[["Amps1"],[1],["Probability"]]}"#);
+        assert_eq!(
+            circuit
+                .gates
+                .iter()
+                .map(|gate| gate.column.as_usize())
+                .collect::<Vec<_>>(),
+            vec![0, 2]
+        );
+    }
+
+    #[test]
+    fn density_shifts_intersecting_span() {
+        let circuit = parse_circuit_json(r#"{"cols":[["Density2"],[1,"H"],["X"]]}"#);
+        assert_eq!(
+            circuit
+                .gates
+                .iter()
+                .map(|gate| gate.column.as_usize())
+                .collect::<Vec<_>>(),
+            vec![0, 2, 3]
+        );
+    }
+
+    #[test]
+    fn collision_shifts_whole_column() {
+        let circuit = parse_circuit_json(r#"{"cols":[["Amps1"],["Probability","H"],[1,"X"]]}"#);
+        assert_eq!(
+            circuit
+                .gates
+                .iter()
+                .map(|gate| gate.column.as_usize())
+                .collect::<Vec<_>>(),
+            vec![0, 2, 2, 3]
+        );
+    }
+
+    #[test]
+    fn amplitude_multiwire_shifts_intersecting_gate() {
+        let circuit = parse_circuit_json(r#"{"cols":[["Amps3"],[1,1,"H"]]}"#);
+        assert_eq!(
+            circuit
+                .gates
+                .iter()
+                .map(|gate| gate.column.as_usize())
+                .collect::<Vec<_>>(),
+            vec![0, 2]
+        );
+    }
+
+    #[test]
+    fn summary_counts_shifted_columns_and_trailing_empty_columns() {
+        let summary =
+            summarize_circuit_json(r#"{"cols":[["Amps1"],["Probability"],[1],[1]]}"#).unwrap();
+        assert_eq!(summary.columns, 5);
+    }
+
+    #[test]
+    fn padded_amplitude_round_trips_unchanged() {
+        let json = r#"{"cols":[["Amps1"],[1],["Probability"]]}"#;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn amplitude_shifts_incoming_intersecting_span() {
+        let circuit = parse_circuit_json(r#"{"cols":[[1,"Amps4"],["QFT2"]]}"#);
+        assert_eq!(circuit.gates[1].column.as_usize(), 4);
+    }
+
+    #[test]
+    fn url_payload_shifts_after_wide_display() {
+        let circuit = try_decode(r#"{"cols":[["Amps1"],["Probability"]]}"#).unwrap();
+        assert_eq!(circuit.gates[1].column.as_usize(), 2);
+    }
+
+    #[test]
+    fn wide_collision_remaps_block_boundaries() {
+        let circuit = parse_circuit_json(
+            r#"{"cols":[["{a"],["Amps1"],["}"],["{b"],["Probability"],["H"],["}"]]}"#,
+        );
+        assert_eq!(
+            block_ranges(&circuit),
+            vec![("a".to_owned(), 0, 2), ("b".to_owned(), 2, 4)]
+        );
     }
 
     #[test]
