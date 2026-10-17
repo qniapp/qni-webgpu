@@ -6,6 +6,7 @@ use crate::gates::{ColumnControls, GateKind};
 #[cfg(target_arch = "wasm32")]
 use crate::gpu::ExternalBlochUpload;
 use crate::gpu::ExternalBlochUploadBatch;
+use crate::qubit_count::QubitCount;
 use crate::simulation_plan::SimulationColumnAnalysis;
 
 pub(super) struct ExternalBlochRequest {
@@ -17,6 +18,7 @@ pub(super) struct ExternalBlochRequest {
 
 pub(super) fn collect_bloch_requests(
     analysis: &SimulationColumnAnalysis<'_>,
+    qubits: QubitCount,
 ) -> Vec<ExternalBlochRequest> {
     let mut requests = Vec::new();
     for column in analysis.columns() {
@@ -25,7 +27,7 @@ pub(super) fn collect_bloch_requests(
                 gate_id: display.id.as_u32(),
                 column: CircuitColumnIndex::new(column.slot),
                 wire: display.wire,
-                controls: column.controls(),
+                controls: super::display_controls(column.gates(), column.controls(), qubits),
             });
         }
     }
@@ -166,7 +168,7 @@ mod tests {
 
     fn requests(gates: &[PlacedGate], qubits: QubitCount) -> Vec<super::ExternalBlochRequest> {
         let columns = crate::simulation_plan::SimulationColumnAnalysis::from_gates(gates, qubits);
-        collect_bloch_requests(&columns)
+        collect_bloch_requests(&columns, qubits)
     }
 
     #[test]

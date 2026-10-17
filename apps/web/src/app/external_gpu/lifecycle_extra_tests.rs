@@ -41,26 +41,33 @@ fn validation_failure(
 }
 
 #[test]
-fn sample_and_parity_are_rejected_before_backend_start() {
-    let results: Vec<_> = [
-        GateKind::SampleDisplay,
-        GateKind::ZParityControl,
-        GateKind::XParityControl,
-    ]
-    .into_iter()
-    .map(|kind| {
-        let (mut app, ctx) = app();
-        app.placed_gates = vec![gate(kind, 1, 0, 0)];
-        with_times(&[], || app.start_external_gpu_run(&ctx));
-        state(&app).status
-    })
-    .collect();
+fn sample_is_rejected_before_backend_start() {
+    let (mut app, ctx) = app();
+    app.placed_gates = vec![gate(GateKind::SampleDisplay, 1, 0, 0)];
+    with_times(&[], || app.start_external_gpu_run(&ctx));
+    assert_eq!(
+        state(&app).status,
+        StatusState::Failed(GpuFailure::UnsupportedGate("Sample".into()))
+    );
+}
+
+#[test]
+fn parity_reaches_backend_start() {
+    let results: Vec<_> = [GateKind::ZParityControl, GateKind::XParityControl]
+        .into_iter()
+        .map(|kind| {
+            let (mut app, ctx) = app();
+            app.placed_gates = vec![gate(kind, 1, 0, 0)];
+            app.external_gpu.transport_handle().queue_start(Ok(RUN_ID));
+            let (_, remaining) = with_times(&[5.0], || app.start_external_gpu_run(&ctx));
+            (state(&app).status, state(&app).run_id, remaining)
+        })
+        .collect();
     assert_eq!(
         results,
         vec![
-            StatusState::Failed(GpuFailure::UnsupportedGate("Sample".into())),
-            StatusState::Failed(GpuFailure::UnsupportedGate("Zpar".into())),
-            StatusState::Failed(GpuFailure::UnsupportedGate("Xpar".into())),
+            (StatusState::Running, Some(RUN_ID), 0),
+            (StatusState::Running, Some(RUN_ID), 0),
         ]
     );
 }

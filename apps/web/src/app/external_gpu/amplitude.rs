@@ -41,7 +41,7 @@ pub(super) fn collect_amplitude_requests(
                 column: CircuitColumnIndex::new(column.slot),
                 span: span.get(),
                 base_bit,
-                controls: column.controls(),
+                controls: super::display_controls(column.gates(), column.controls(), qubits),
                 phase_lock_enabled: span.get() != n,
             });
         }

@@ -108,12 +108,10 @@ fn supported_external_controlled_target(kind: GateKind) -> bool {
 }
 
 fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Option<String> {
-    if let Some(gate) = placed_gates.iter().find(|gate| {
-        matches!(
-            gate.kind,
-            GateKind::SampleDisplay | GateKind::ZParityControl | GateKind::XParityControl
-        )
-    }) {
+    if let Some(gate) = placed_gates
+        .iter()
+        .find(|gate| gate.kind == GateKind::SampleDisplay)
+    {
         return Some(gate.kind.label().to_owned());
     }
     let max_column = placed_gates
@@ -129,7 +127,11 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
         {
             if matches!(
                 gate.kind,
-                GateKind::Control | GateKind::AntiControl | GateKind::ZDetectControlReset
+                GateKind::Control
+                    | GateKind::AntiControl
+                    | GateKind::ZDetectControlReset
+                    | GateKind::ZParityControl
+                    | GateKind::XParityControl
             ) {
                 has_control = true;
             } else if supported_external_controlled_target(gate.kind)
@@ -488,7 +490,7 @@ impl ExternalGpuSession {
         let columns =
             crate::simulation_plan::SimulationColumnAnalysis::from_gates(input.gates, qubits);
         let amplitude_requests = collect_amplitude_requests(&columns, qubits);
-        let bloch_requests = collect_bloch_requests(&columns);
+        let bloch_requests = collect_bloch_requests(&columns, qubits);
         let probability_requests = collect_probability_requests(&columns, qubits);
         let density_requests = collect_density_requests(&columns, qubits);
         let amplitudes_json = amplitude_requests_json(&amplitude_requests);
@@ -598,7 +600,7 @@ mod gate_tests {
     use crate::gates::GateKind;
 
     #[test]
-    fn external_gpu_rejects_sample_and_parity_before_execution() {
+    fn external_gpu_rejects_only_sample_before_execution() {
         let rejected: Vec<_> = [
             GateKind::SampleDisplay,
             GateKind::ZParityControl,
@@ -617,32 +619,19 @@ mod gate_tests {
             unsupported_external_gpu_gate_for_gates(&gates)
         })
         .collect();
-        assert_eq!(
-            rejected,
-            vec![
-                Some("Sample".into()),
-                Some("Zpar".into()),
-                Some("Xpar".into())
-            ]
-        );
+        assert_eq!(rejected, vec![Some("Sample".into()), None, None]);
     }
 
     #[test]
-    fn external_gpu_rejects_detector_with_zpar() {
+    fn external_gpu_accepts_detector_with_zpar() {
         let gates = flagged_gates(r#"{"cols":[["XDetector","zpar"]]}"#);
-        assert_eq!(
-            unsupported_external_gpu_gate_for_gates(&gates),
-            Some("Zpar".to_owned())
-        );
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]
-    fn external_gpu_rejects_detect_control_reset_with_zpar() {
+    fn external_gpu_accepts_detect_control_reset_with_zpar() {
         let gates = flagged_gates(r#"{"cols":[["ZDetectControlReset","zpar"]]}"#);
-        assert_eq!(
-            unsupported_external_gpu_gate_for_gates(&gates),
-            Some("Zpar".to_owned())
-        );
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]
@@ -686,6 +675,69 @@ mod gate_tests {
         assert_eq!(
             payload,
             r#"{"qubits":1,"columns":[["XDetector"],["YDetector"]],"shots":1024,"outputs":{"histogram":true}}"#
+        );
+    }
+
+    #[test]
+    fn external_gpu_payload_preserves_parity_tokens() {
+        let gates = flagged_gates(r#"{"cols":[["zpar"],["xpar"]]}"#);
+        let columns = crate::url_circuit::circuit_columns_to_json(
+            &gates,
+            crate::qubit_count::QubitCount::try_new(1).unwrap(),
+        );
+        let payload = super::qiskit_run_payload_with_display_outputs(
+            1,
+            &columns,
+            super::Shots::DEFAULT,
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+        );
+        assert_eq!(
+            payload,
+            r#"{"qubits":1,"columns":[["zpar"],["xpar"]],"shots":1024,"outputs":{"histogram":true}}"#
+        );
+    }
+
+    #[test]
+    fn external_gpu_accepts_parity_with_supported_targets_and_controls() {
+        let targets = [
+            "XDetector",
+            "ZDetectControlReset",
+            "|0⟩⟨0|",
+            "|1⟩⟨1|",
+            "|+⟩⟨+|",
+            "|-⟩⟨-|",
+            "X<a",
+        ];
+        let results: Vec<_> = ["zpar", "xpar"]
+            .into_iter()
+            .flat_map(|parity| {
+                targets.map(|target| {
+                    let gates = flagged_gates(&format!(
+                        r#"{{"cols":[["Measure>a"],["{parity}","•","◦","{target}"]]}}"#
+                    ));
+                    (gates.len(), unsupported_external_gpu_gate_for_gates(&gates))
+                })
+            })
+            .collect();
+        assert_eq!(results, vec![(5, None); 14]);
+    }
+
+    #[test]
+    fn external_gpu_still_rejects_sample_with_ordinary_or_parity_controls() {
+        let results = ["•", "zpar", "xpar"].map(|control| {
+            let gates = flagged_gates(&format!(r#"{{"cols":[["{control}","Sample1"]]}}"#));
+            unsupported_external_gpu_gate_for_gates(&gates)
+        });
+        assert_eq!(
+            results,
+            [
+                Some("Sample".to_owned()),
+                Some("Sample".to_owned()),
+                Some("Sample".to_owned())
+            ]
         );
     }
 

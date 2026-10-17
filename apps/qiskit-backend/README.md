@@ -14,6 +14,12 @@ Production deployment must start the server with `--runner qiskit-gpu --allowed-
 
 All runners return bounded histogram output and optional Amplitude / Bloch / Probability / Density Matrix display payloads only. The API accepts 1–32 qubits, rejects full statevector / full probability requests, and currently limits exact Amplitude display extraction to <=16 qubits. Bloch display extraction uses per-axis expectation values when uncontrolled, and controlled Bloch display requests carry `control_mask` / `control_value` for conditional extraction; target plus controls must stay within 8 saved bits. Probability display extraction uses bounded subsystem probability vectors for the requested display span, and controlled Probability display requests carry `control_mask` / `control_value` for conditional extraction; `span + non-display control count` must stay within 16 saved bits. Density Matrix display extraction uses bounded subsystem density matrices for Quirk-compatible span 1–8 displays, and controlled Density Matrix display requests carry `control_mask` / `control_value` for conditional extraction; `span + non-display control count` must stay within 8 saved bits. The web state-vector panel, when refreshed for <=16-qubit GPU-mode runs, is recomputed locally in WebGPU after a successful run rather than transferred from this backend.
 
+## 対応ゲート
+
+単一量子ビットゲート、制御・反制御、パリティ制御 (`zpar` / `xpar`)、書き込み、Swap、QFT / QFT†、測定、X 軸検出器・Y 軸検出器、Z Detect-Control-Reset、事後選択、測定変数・条件付きゲートに対応する。安全に変換できない制御付き書き込みなどの制限は引き続き適用する。サンプル表示ブロックは非対応である。
+
+パリティ制御は `xpar` への H と、ほかのパリティ量子ビットから一番上の集約先への CX で集約する。集約先を通常制御と組み合わせ、表示値の保存後に逆変換するため、パリティ制御用の補助量子ビットは不要である。列内の処理順序や重なりの扱いは[パリティ制御の仕様](../../docs/sample-parity.md#外部-gpu-実行-qiskit)、対応範囲は[外部 GPU API 互換方針](../../docs/implementation/external-gpu-api-compatibility.md#ゲート対応)を参照する。
+
 ## 測定変数・条件付きゲート
 
 `Measure>name` と、条件付きの `H` / `X` / `Y` / `Z` / `X^½` / `S` / `S†` / `T` / `T†` に対応する。
