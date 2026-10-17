@@ -1114,13 +1114,19 @@ impl ResizeObserverContext {
 fn get_display_size(resize_observer_entries: &js_sys::Array) -> Result<(u32, u32), JsValue> {
     let entry: web_sys::ResizeObserverEntry = resize_observer_entries.at(0).dyn_into()?;
     let rect = entry.content_rect();
-    // Use the same CSS-to-pixel scale as egui's input and screen rect. Chrome's
-    // devicePixelContentBoxSize can reflect physical pixels rather than the
-    // emulated devicePixelRatio, so trusting it can halve the logical viewport.
-    // Derive from CSS, never from the backing size a host may also be updating.
-    let dpr = f64::from(super::native_pixels_per_point());
-    Ok((
-        (rect.width() * dpr).round() as u32,
-        (rect.height() * dpr).round() as u32,
+    let device = if JsValue::from_str("devicePixelContentBoxSize").js_in(entry.as_ref()) {
+        entry
+            .device_pixel_content_box_size()
+            .at(0)
+            .dyn_into::<web_sys::ResizeObserverSize>()
+            .ok()
+            .map(|size| (size.inline_size(), size.block_size()))
+    } else {
+        None
+    };
+    Ok(crate::backing_size::choose_backing_size(
+        (rect.width(), rect.height()),
+        f64::from(native_pixels_per_point()),
+        device,
     ))
 }

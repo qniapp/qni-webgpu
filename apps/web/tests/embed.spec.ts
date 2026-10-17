@@ -93,19 +93,30 @@ for (const dpr of [1, 2]) {
         })).toEqual({ css: [960, 640], backing: [960 * dpr, 640 * dpr] })
       })
 
-      test(`${host} resizes fractional CSS dimensions before rounding backing pixels`, async ({ page }) => {
+      test(`${host} resizes fractional CSS dimensions within one device pixel`, async ({ page }) => {
         await hostEmbed(page, CNOT, options)
         await waitForStepZero(page)
-        await page.locator('qni-webgpu-test').evaluate(host => {
-          const element = host as HTMLElement
-          element.style.width = '721.25px'
-          element.style.height = '512.25px'
-        })
+        const expectedBacking = await page.locator('qni-webgpu-test canvas').evaluate(canvas =>
+          new Promise<number[]>(resolve => {
+            const observer = new ResizeObserver(([entry]) => {
+              observer.disconnect()
+              const expected = [entry.contentRect.width, entry.contentRect.height]
+                .map(size => Math.round(size * devicePixelRatio))
+              const device = entry.devicePixelContentBoxSize?.[0]
+              const snapped = device && [device.inlineSize, device.blockSize]
+              resolve(snapped && snapped.every((size, axis) => Math.abs(size - expected[axis]) <= 1)
+                ? snapped : expected)
+            })
+            const host = (canvas.getRootNode() as ShadowRoot).host as HTMLElement
+            host.style.width = '721.25px'
+            host.style.height = '512.25px'
+            observer.observe(canvas)
+          }))
         await expect.poll(() => page.locator('qni-webgpu-test canvas').evaluate(canvas => {
           const { width, height } = canvas.getBoundingClientRect()
           const backing = canvas as HTMLCanvasElement
           return { css: [width, height], backing: [backing.width, backing.height] }
-        })).toEqual({ css: [721.25, 512.25], backing: [Math.round(721.25 * dpr), Math.round(512.25 * dpr)] })
+        })).toEqual({ css: [721.25, 512.25], backing: expectedBacking })
       })
 
       test(`${host} selects the same circuit column in CSS pixels`, async ({ page }) => {

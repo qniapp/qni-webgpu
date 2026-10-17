@@ -29,14 +29,22 @@ qni-webgpu は埋め込みとして起動するときだけ `false` にする (`
 ## 高 DPR でのキャンバス寸法
 
 `src/web/events.rs` の `get_display_size` は、`ResizeObserverEntry.contentRect` の CSS 寸法に `native_pixels_per_point()` を掛けてから丸め、描画バッファの寸法を決める。
-`devicePixelContentBoxSize` は使用しない。Chrome の DPR エミュレーションでは、この値が `window.devicePixelRatio` と一致しない倍率を使う場合がある。
-たとえば CSS 幅 960px、DPR 2 でも幅 960 を返すと、従来の処理は描画バッファを 960px にしていた。
+`devicePixelContentBoxSize` が存在し、両軸とも CSS 寸法 × DPR を丸めた値との差が 1 デバイスピクセル以内なら、その値を優先する。
+実機の小数 DPR でのピクセル境界への整列を保ちつつ、Chrome の DPR エミュレーションで倍率が食い違う値は採用しない。
+たとえば CSS 幅 960px、DPR 2 でも `devicePixelContentBoxSize` が幅 960 を返すと、従来の処理は描画バッファを 960px にしていた。
 egui はこの幅を DPR 2 で割るため論理幅が 480pt になり、960 CSS px の表示領域では内容が 2 倍に拡大される。
 
 修正後は egui と描画バッファが同じ倍率を使う。
 CSS 寸法を先に整数へ丸めず、DPR を掛けた後で丸めるため、小数の CSS 寸法も描画バッファへ反映される。
 ホスト側が `canvas.width` / `canvas.height` を CSS 寸法 × DPR に設定する場合と、eframe だけが設定する場合の両方を `tests/embed.spec.ts` で検証する。
 チュートリアル側の寸法設定を変更する必要はない。
+
+選択処理は `src/backing_size.rs` に分離した。単体テストは通常の CI の対象外で、ネイティブ環境で次のコマンドを手動実行し、一致、不一致、小数 DPR、値の欠落を検証する。
+
+```sh
+cargo test --manifest-path apps/web/vendor/eframe/Cargo.toml \
+  --lib backing_size --no-default-features --features glow,x11
+```
 
 ## 上流への提案と削除の方針
 
