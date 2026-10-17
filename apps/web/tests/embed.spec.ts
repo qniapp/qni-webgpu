@@ -8,11 +8,11 @@ const CNOT = '{"cols":[["|0>","|0>"],["H"],["•","X"]]}'
 const BB84 = '{"cols":[["{送信内容を決める2つの乱数を生成"],["|0>"],["H"],["Measure>aliceX"],["|0>"],["H"],["Measure>aliceH"],["}"],["|0>"],["{|1⟩をセット"],["X<aliceX"],["}"],["Bloch"],["{Hを適用"],["H<aliceH"],["}"],["Bloch"],["Swap","Swap"],["{🕶イブ"],[1,"Measure>eveX"],[1,"|0>"],[1,"X<eveX"],[1,"Bloch"],["}"],[1],["{Hのための乱数を生成"],[1,1,"|0>"],[1,1,"H"],[1,1,"Measure>bobH"],["}"],[1,"Swap","Swap"],["{Hを適用"],[1,1,"H<bobH"],["}"],[1,1,"Bloch"],["{測定"],[1,1,"Measure"],["}"],[1]]}'
 type EmbedHost = {
   settings?: { showStatePanel?: boolean, palette?: string[], maxWireCount?: number, showRestartButton?: boolean },
-  width?: number, height?: number, articleHeight?: number, fragment?: string,
+  width?: number, height?: number, articleHeight?: number, fragment?: string, resizeBackingStore?: boolean,
 }
 
 async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
-  settings = { showStatePanel: true }, width = 960, height = 640, articleHeight = 0, fragment = '#host-fragment',
+  settings = { showStatePanel: true }, width = 960, height = 640, articleHeight = 0, fragment = '#host-fragment', resizeBackingStore = false,
 }: EmbedHost = {}) {
   await page.route(`${assetOrigin}*`, async route => {
     const file = new URL(route.request().url()).pathname.split('/').pop()!
@@ -38,6 +38,16 @@ async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
           super();
           const shadow = this.attachShadow({mode: 'open'});
           shadow.innerHTML = '<style>:host{display:block;width:${width}px;height:${height}px}canvas{width:100%;height:100%;display:block}</style><canvas></canvas>';
+          this.canvas = shadow.querySelector('canvas');
+          if (${resizeBackingStore}) new ResizeObserver(() => this.resizeCanvas()).observe(this.canvas);
+        }
+        resizeCanvas() {
+          const {width, height} = this.canvas.getBoundingClientRect();
+          const dpr = window.devicePixelRatio || 1;
+          const w = Math.max(1, Math.round(width * dpr));
+          const h = Math.max(1, Math.round(height * dpr));
+          if (this.canvas.width !== w) this.canvas.width = w;
+          if (this.canvas.height !== h) this.canvas.height = h;
         }
       });
       try {
@@ -54,6 +64,7 @@ async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
           });
         };
         window.runner = await startEmbed(window.canvas, ${JSON.stringify(circuit)}, settings);
+        if (${resizeBackingStore}) document.querySelector('qni-webgpu-test').resizeCanvas();
         window.embedWasm = await import('${assetOrigin}qni-web.js');
         window.readState = window.embedWasm.read_state_vector;
         window.started = true;
@@ -62,6 +73,52 @@ async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
   }))
   await page.goto(`/host/article?mode=gpu${fragment}`)
   await page.waitForFunction(() => (window as any).started || (window as any).startError)
+}
+
+for (const dpr of [1, 2]) {
+  test.describe(`embed DPR ${dpr}`, () => {
+    test.use({ deviceScaleFactor: dpr })
+
+    for (const resizeBackingStore of [false, true]) {
+      const host = resizeBackingStore ? 'tutorial host' : 'plain host'
+      const options = { resizeBackingStore, settings: { palette: ['H', 'X'] } }
+
+      test(`${host} keeps a DPR-sized backing store`, async ({ page }) => {
+        await hostEmbed(page, CNOT, options)
+        await waitForStepZero(page)
+        await expect.poll(() => page.locator('qni-webgpu-test canvas').evaluate(canvas => {
+          const { width, height } = canvas.getBoundingClientRect()
+          const backing = canvas as HTMLCanvasElement
+          return { css: [width, height], backing: [backing.width, backing.height] }
+        })).toEqual({ css: [960, 640], backing: [960 * dpr, 640 * dpr] })
+      })
+
+      test(`${host} resizes fractional CSS dimensions before rounding backing pixels`, async ({ page }) => {
+        await hostEmbed(page, CNOT, options)
+        await waitForStepZero(page)
+        await page.locator('qni-webgpu-test').evaluate(host => {
+          const element = host as HTMLElement
+          element.style.width = '721.25px'
+          element.style.height = '512.25px'
+        })
+        await expect.poll(() => page.locator('qni-webgpu-test canvas').evaluate(canvas => {
+          const { width, height } = canvas.getBoundingClientRect()
+          const backing = canvas as HTMLCanvasElement
+          return { css: [width, height], backing: [backing.width, backing.height] }
+        })).toEqual({ css: [721.25, 512.25], backing: [Math.round(721.25 * dpr), Math.round(512.25 * dpr)] })
+      })
+
+      test(`${host} selects the same circuit column in CSS pixels`, async ({ page }) => {
+        await hostEmbed(page, CNOT, options)
+        await waitForStepZero(page)
+        await page.evaluate(() => (window as any).runner.selectStep(2))
+        // Identical CSS coordinates at either DPR: column 1, below q1.
+        await page.locator('qni-webgpu-test canvas').click({ position: { x: 218, y: 295 } })
+        await page.mouse.move(990, 750)
+        await expect.poll(() => page.evaluate(() => (window as any).runner.selectedStep())).toBe(1)
+      })
+    }
+  })
 }
 
 // Every circuit used here starts in |0...0> at step 0.
