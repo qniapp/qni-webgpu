@@ -40,7 +40,7 @@ pub(super) fn collect_probability_requests(
                 column: CircuitColumnIndex::new(column.slot),
                 span: span.get(),
                 base_bit,
-                controls: column.controls(),
+                controls: super::display_controls(column.gates(), column.controls(), qubits),
             });
         }
     }
@@ -268,6 +268,28 @@ mod tests {
         assert_eq!(
             probability_requests_json(&requests),
             r#"[{"gate_id":3,"column":2,"span":1,"base_bit":2,"control_mask":3,"control_value":1}]"#,
+        );
+    }
+
+    #[test]
+    fn serializes_detect_control_reset_probability_controls() {
+        let gates = [GateKind::ZDetectControlReset, GateKind::ProbabilityDisplay]
+            .into_iter()
+            .enumerate()
+            .map(|(wire, kind)| {
+                PlacedGate::new(
+                    crate::app::GateId::from_u32(wire as u32 + 1),
+                    kind,
+                    crate::app::CircuitColumnIndex::new(0),
+                    crate::app::WireIndex::new(wire),
+                    crate::gates::GateSpan::SINGLE,
+                    None,
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            probability_requests_json(&requests(&gates, qubit_count(2))),
+            r#"[{"gate_id":2,"column":0,"span":1,"base_bit":1,"control_mask":1,"control_value":1}]"#,
         );
     }
 

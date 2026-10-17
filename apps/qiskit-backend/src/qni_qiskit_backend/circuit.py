@@ -3,8 +3,8 @@ from __future__ import annotations
 import ast
 import math
 import re
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Callable
 
 CONTROL_TOKENS = {"•", "●", "control", "Control"}
 ANTI_CONTROL_TOKENS = {"◦", "○", "anti", "Anti"}
@@ -13,6 +13,7 @@ AMPLITUDE_DISPLAY_RE = re.compile(r"^Amps(?:[1-9]|1[0-6])$")
 PROBABILITY_DISPLAY_RE = re.compile(r"^Probability(?:[1-9]|1[0-6])?$")
 DENSITY_DISPLAY_RE = re.compile(r"^Density(?:[1-8])?$")
 DISPLAY_TOKENS = {"Bloch"}
+POSTSELECTION_TOKENS = {"|0⟩⟨0|", "|1⟩⟨1|", "|+⟩⟨+|", "|-⟩⟨-|"}
 
 
 class CircuitBuildError(ValueError):
@@ -75,6 +76,42 @@ def split_parametric(token: str) -> tuple[str, str | None]:
 
 
 BasisTracker = list[int | None]
+IFABLE_TOKENS = {"H", "X", "Y", "Z", "√X", "X^½", "S", "S†", "T", "T†"}
+
+
+@dataclass
+class MeasurementFlags:
+    sources: dict[str, Any] = field(default_factory=dict)
+    writes: int = 0
+
+    def measure(self, qc: Any, wire: int, name: str) -> None:
+        # One immutable classical bit per write, not per wire: a later plain
+        # measurement/reset or another variable on that wire must not overwrite
+        # an earlier variable. flag_sources.rs publishes writes in wire order,
+        # after all column unitaries; the bottom-most write therefore wins.
+        if is_real_qiskit_circuit(qc):
+            from qiskit import ClassicalRegister
+
+            register = ClassicalRegister(1, f"flag_{self.writes}")
+            qc.add_register(register)
+            bit = register[0]
+        else:
+            bit = f"flag_{self.writes}"
+        self.writes += 1
+        qc.measure(wire, bit)
+        self.sources[name] = bit
+
+
+def split_flag_token(token: str) -> tuple[str, str | None, str | None]:
+    """Mirror gates/flag.rs; parametric gates cannot carry URL conditions."""
+    if token.startswith("Measure>"):
+        return "Measure", token.removeprefix("Measure>").strip() or None, None
+    if "<" in token:
+        base, name = token.split("<", 1)
+        if base not in IFABLE_TOKENS:
+            raise CircuitBuildError(f"unsupported gate token: {token}")
+        return base, None, name.strip() or None
+    return token, None, None
 
 
 @dataclass(frozen=True)
@@ -85,8 +122,9 @@ class QftSpec:
 
 def apply_columns_to_qiskit(qc: Any, columns: list[list[Any]], qubits: int) -> None:
     basis = initial_basis_tracker(qubits)
+    flags = MeasurementFlags()
     for column in columns:
-        apply_column_to_qiskit(qc, column, qubits, basis)
+        apply_column_to_qiskit(qc, column, qubits, basis, flag_sources=flags)
 
 
 def initial_basis_tracker(qubits: int) -> BasisTracker:
@@ -94,17 +132,42 @@ def initial_basis_tracker(qubits: int) -> BasisTracker:
 
 
 def apply_column_to_qiskit(
-    qc: Any, column: list[Any], qubits: int, basis: BasisTracker
+    qc: Any,
+    column: list[Any],
+    qubits: int,
+    basis: BasisTracker,
+    *,
+    save_displays: Callable[[], None] | None = None,
+    flag_sources: MeasurementFlags | None = None,
 ) -> None:
+    flags = flag_sources if flag_sources is not None else MeasurementFlags()
+    measurement_names: dict[int, str] = {}
+    conditions: dict[int, str] = {}
     controls: list[int] = []
     anti_controls: list[int] = []
     swap_wires: list[int] = []
     measurement_wires: list[int] = []
+    detector_targets: list[tuple[int, str]] = []
+    detect_control_reset_wires: list[int] = []
+    parity_targets = column_parity_targets(column, qubits)
     has_readonly_display = False
     deferred: list[tuple[int, str]] = []
     for wire, raw in enumerate(column):
         token = token_text(raw)
         if token is None:
+            continue
+        token, write_name, condition_name = split_flag_token(token)
+        if write_name is not None:
+            measurement_names[wire] = write_name
+        if condition_name is not None:
+            conditions[wire] = condition_name
+        if token == "ZDetectControlReset":
+            if wire >= qubits:
+                raise CircuitBuildError("ZDetectControlReset references a wire beyond qubits")
+            detect_control_reset_wires.append(wire)
+            controls.append(wire)
+            continue
+        if token in {"zpar", "xpar"}:
             continue
         if token in CONTROL_TOKENS:
             controls.append(wire)
@@ -117,6 +180,11 @@ def apply_column_to_qiskit(
             continue
         if token == "…":
             continue
+        if token in {"XDetector", "YDetector"}:
+            if wire >= qubits:
+                raise CircuitBuildError("detector references a wire beyond qubits")
+            detector_targets.append((wire, token))
+            continue
         if token == "Measure":
             measurement_wires.append(wire)
             continue
@@ -124,19 +192,204 @@ def apply_column_to_qiskit(
             has_readonly_display = True
             continue
         deferred.append((wire, token))
+    if parity_targets:
+        controls.append(parity_targets[0][0])
+    if detector_targets and 1 + len(controls) + len(anti_controls) > 8:
+        raise CircuitBuildError("detector target plus controls must be <= 8 qubits")
+    # A QFT span can cover a control cell, unlike single-wire gates and swaps.
+    # It would make the measured wire quantum again: reset would then differ
+    # from WebGPU's per-pair Write0. Refuse rather than change that semantics.
+    for wire, token in deferred:
+        qft = parse_qft_token(split_parametric(token)[0])
+        if qft is not None and any(
+            wire <= detector < wire + qft.span
+            for detector in detect_control_reset_wires
+        ):
+            raise CircuitBuildError("QFT span overlaps a ZDetectControlReset wire")
+    for wire in detect_control_reset_wires:
+        qc.measure(wire, wire)
+    # Mirror linearize.rs in place: the topmost parity wire reversibly stores
+    # the XOR. Its ordinary control gates the entire column in this frame,
+    # including measurements/displays; reversing the setup restores the frame.
+    # No helper qubit is needed, even for mixed X/Z parity.
+    parity_setup: list[tuple[str, int, int | None]] = [
+        ("h", wire, None) for wire, token in parity_targets if token == "xpar"
+    ]
+    if parity_targets:
+        anchor = parity_targets[0][0]
+        parity_setup.extend(("cx", wire, anchor) for wire, _ in parity_targets[1:])
+    for operation, wire, target in parity_setup:
+        apply_parity_step(qc, basis, operation, wire, target)
+    for wire, token in detector_targets:
+        if token == "YDetector":
+            qc.sdg(wire)
+        qc.h(wire)
     apply_swap(qc, swap_wires, controls, anti_controls, basis)
-    for wire, token, partners in group_same_angle_phases(deferred):
-        apply_gate(qc, wire, token, controls + partners, anti_controls, qubits, basis)
+    operations = group_same_angle_phases(deferred)
+    if parity_targets or conditions or any(token in POSTSELECTION_TOKENS for _, token in deferred):
+        # WebGPU expands QFT after ordinary targets, including conditional
+        # gates and projectors, even when the QFT starts on an earlier wire.
+        operations.sort(key=lambda op: parse_qft_token(split_parametric(op[1])[0]) is not None)
+    for wire, token, partners in operations:
+        if wire not in conditions:
+            apply_gate(qc, wire, token, controls + partners, anti_controls, qubits, basis)
+            continue
+        bit = flags.sources.get(conditions[wire])
+        if bit is None:
+            # Never-set flags are false, including writes later in this column.
+            continue
+        branch_basis = basis[:]
+        with qc.if_test((bit, 1)):
+            apply_gate(qc, wire, token, controls + partners, anti_controls, qubits, branch_basis)
+        # The tracker must describe both classical branches, so later writes
+        # retain the existing deterministic-basis restriction rather than guess.
+        basis[:] = [before if before == after else None
+                    for before, after in zip(basis, branch_basis)]
     apply_control_only_z(
         qc,
         controls,
         anti_controls,
         basis,
         has_column_content=bool(
-            deferred or swap_wires or measurement_wires or has_readonly_display
+            deferred
+            or parity_targets
+            or swap_wires
+            or measurement_wires
+            or detector_targets
+            or detect_control_reset_wires
+            or has_readonly_display
         ),
     )
-    apply_measurements(qc, measurement_wires, controls, anti_controls)
+    detector_wires = {wire for wire, _ in detector_targets}
+    for wire in sorted(measurement_wires + list(detector_wires)):
+        if wire in detector_wires:
+            apply_detector_measurement(qc, wire, controls, anti_controls)
+            if not any(basis[c] == 0 for c in controls) and not any(
+                basis[c] == 1 for c in anti_controls
+            ):
+                basis[wire] = None
+        else:
+            apply_measurements(qc, [wire], controls, anti_controls)
+            if wire in measurement_names:
+                # Also retain the ordinary wire bit, exactly as plain Measure.
+                # The repeated measurement has no intervening quantum operation.
+                flags.measure(qc, wire, measurement_names[wire])
+    for wire, token in reversed(detector_targets):
+        qc.h(wire)
+        if token == "YDetector":
+            qc.s(wire)
+    if save_displays is not None:
+        save_displays()
+    for wire in detect_control_reset_wires:
+        qc.reset(wire)
+        basis[wire] = 0
+    for operation, wire, target in reversed(parity_setup):
+        apply_parity_step(qc, basis, operation, wire, target)
+
+
+def column_parity_targets(column: list[Any], qubits: int) -> list[tuple[int, str]]:
+    """Drop markers covered by a resizable span, as WebGPU linearize.rs does."""
+    spans: list[tuple[int, int]] = []
+    parity: list[tuple[int, str]] = []
+    for wire, raw in enumerate(column):
+        token = token_text(raw)
+        if token is None:
+            continue
+        if token in {"zpar", "xpar"}:
+            if wire >= qubits:
+                raise CircuitBuildError("parity control references a wire beyond qubits")
+            parity.append((wire, token))
+        qft = parse_qft_token(split_parametric(token)[0])
+        if qft is not None:
+            span = qft.span
+        elif is_readonly_display_token(token) and token != "Bloch":
+            suffix = re.search(r"\d+$", token)
+            span = int(suffix.group()) if suffix else 1
+        elif re.fullmatch(r"Sample[1-3]", token):
+            span = int(token[-1])
+        else:
+            continue
+        spans.append((wire, min(wire + span, qubits)))
+    return [(wire, token) for wire, token in parity
+            if not any(start <= wire < end for start, end in spans)]
+
+
+def apply_parity_step(
+    qc: Any, basis: BasisTracker, operation: str, wire: int, target: int | None
+) -> None:
+    if operation == "h":
+        qc.h(wire)
+        basis[wire] = None
+    else:
+        assert target is not None
+        qc.cx(wire, target)
+        track_controlled_gate(basis, [wire], [], target, "X")
+
+
+def apply_detector_measurement(
+    qc: Any, target: int, controls: list[int], anti_controls: list[int]
+) -> None:
+    if not controls and not anti_controls:
+        qc.measure(target, target)
+        return
+    if not is_real_qiskit_circuit(qc):
+        qc.append(("detector_projector", target, list(controls), list(anti_controls)))
+        return
+    import numpy as np
+    from qiskit.quantum_info import Kraus
+
+    # Qarg i occupies bit i: target=1, positive controls=1, anti-controls=0.
+    qargs = [target] + controls + anti_controls
+    dimension = 1 << len(qargs)
+    click_index = (1 << (1 + len(controls))) - 1
+    projector = np.zeros((dimension, dimension), dtype=complex)
+    projector[click_index, click_index] = 1
+    qc.append(Kraus([projector, np.eye(dimension) - projector]), qargs)
+
+
+def postselection_registers(qc: Any) -> list[Any]:
+    return [register for register in getattr(qc, "cregs", ())
+            if register.name.startswith("postselect_")]
+
+
+def apply_postselection(
+    qc: Any, target: int, token: str, controls: list[int], anti_controls: list[int]
+) -> None:
+    if not is_real_qiskit_circuit(qc):
+        qc.append(("postselect", target, token, list(controls), list(anti_controls)))
+        return
+    from qiskit import ClassicalRegister, QuantumRegister
+
+    # Measure only the rejection predicate into an ancilla. Measuring the target
+    # itself would destroy coherence between inactive controlled branches.
+    # Keeping ancilla=0 implements I-C+C*P, including the sign of the X projector.
+    # A single non-TP Kraus matrix in Aer does NOT renormalize. A valid
+    # measurement dilation instead normalizes on-device, with no state readback.
+    # This samples acceptance: finite-shot misses and WebGPU's 1e-12 cutoff
+    # cannot be distinguished here (documented in docs/postselection.md).
+    auxiliary = next((r for r in qc.qregs if r.name == "postselection_aux"), None)
+    if auxiliary is None:
+        auxiliary = QuantumRegister(1, "postselection_aux")
+        qc.add_register(auxiliary)
+    bit = ClassicalRegister(1, f"postselect_{len(postselection_registers(qc))}")
+    qc.add_register(bit)
+    x_basis = token in {"|+⟩⟨+|", "|-⟩⟨-|"}
+    keep_one = token in {"|1⟩⟨1|", "|-⟩⟨-|"}
+    if x_basis:
+        qc.h(target)
+    for wire in anti_controls:
+        qc.x(wire)
+    if keep_one:
+        qc.x(target)
+    qc.mcx(controls + anti_controls + [target], auxiliary[0])
+    if keep_one:
+        qc.x(target)
+    for wire in reversed(anti_controls):
+        qc.x(wire)
+    qc.measure(auxiliary[0], bit[0])
+    qc.reset(auxiliary[0])
+    if x_basis:
+        qc.h(target)
 
 
 def group_same_angle_phases(
@@ -194,6 +447,15 @@ def apply_gate(
         )
         apply_qft(qc, wire, qft, qubits, qft_controls, qft_anti_controls)
         track_qft(basis, qft_controls, qft_anti_controls, wire, qft.span)
+        return
+    if base in POSTSELECTION_TOKENS:
+        apply_postselection(qc, wire, base, controls, anti_controls)
+        if any(basis[c] == 0 for c in controls) or any(basis[c] == 1 for c in anti_controls):
+            return
+        if not controls and not anti_controls and base in {"|0⟩⟨0|", "|1⟩⟨1|"}:
+            basis[wire] = int(base == "|1⟩⟨1|")
+        else:
+            basis[wire] = None
         return
     if (controls or anti_controls) and base in {"|0>", "|1>"}:
         apply_controlled_write(

@@ -40,7 +40,7 @@ pub(super) fn collect_density_requests(
                 column: CircuitColumnIndex::new(column.slot),
                 span: span.get(),
                 base_bit,
-                controls: column.controls(),
+                controls: super::display_controls(column.gates(), column.controls(), qubits),
             });
         }
     }
