@@ -1,5 +1,6 @@
 use eframe::egui;
 
+use super::pan::CircuitPan;
 use super::{step_at_cursor, CircuitInputGeometry, DragController, DragPointer};
 use crate::app::{
     CircuitColumnIndex, ClickCopy, DragState, LiveDragSnap, PlacedGate, QniApp, SpanResizeDrag,
@@ -7,7 +8,7 @@ use crate::app::{
 };
 use crate::constants::GATE_SIZE;
 use crate::gates::GateSpan;
-use crate::layout::{gate_visible_rect, gate_width_cols};
+use crate::layout::{gate_visible_rect, gate_width_cols, CarouselHit};
 use crate::span_resize::SpanResizeHandles;
 
 #[derive(Clone, Copy, Debug)]
@@ -22,6 +23,8 @@ enum DragStartIntent {
         preview_pos: egui::Pos2,
     },
     BreakpointStep(CircuitColumnIndex),
+    PalettePage(usize),
+    Pan(Option<CircuitColumnIndex>),
     None,
 }
 
@@ -168,6 +171,20 @@ impl DragController {
                 }
                 true
             }
+            DragStartIntent::PalettePage(page) => {
+                if app.palette_page != page {
+                    app.palette_page = page;
+                    app.hovered_palette_index = None;
+                    ctx.request_repaint();
+                }
+                true
+            }
+            DragStartIntent::Pan(step) => {
+                if let Some(pos) = pointer.screen_pos {
+                    app.circuit_pan = Some(CircuitPan::new(pos, step));
+                }
+                true
+            }
             DragStartIntent::None => false,
         }
     }
@@ -182,6 +199,24 @@ fn start_intent(
         return DragStartIntent::None;
     };
 
+    // The vertical layout's carousel sits over the circuit area's
+    // extension, so it takes presses before any gate.
+    if let Some((carousel, hit)) = pointer
+        .screen_pos
+        .and_then(|pos| geometry.carousel_hit(app, pos))
+    {
+        return match hit {
+            CarouselHit::Gate(index) => DragStartIntent::PaletteGate {
+                index,
+                preview_pos: egui::pos2(cursor.x - GATE_SIZE / 2.0, cursor.y - GATE_SIZE / 2.0),
+            },
+            _ => DragStartIntent::PalettePage(carousel.page_after(app.palette_page, hit)),
+        };
+    }
+    if !geometry.circuit_hit_allowed(pointer.screen_pos) {
+        return DragStartIntent::None;
+    }
+
     // Resizable-span handles take priority over gate bodies for press events,
     // so dragging the affordance resizes the span instead of picking up the
     // whole gate.
@@ -189,6 +224,7 @@ fn start_intent(
         .placed_gates
         .iter()
         .rev()
+        .filter(|_| !geometry.is_vertical())
         .filter_map(|gate| {
             SpanResizeHandles::for_gate_with_availability(
                 gate,
@@ -231,22 +267,24 @@ fn start_intent(
         return drag;
     }
 
-    if let Some(cursor_screen) = pointer.screen_pos {
-        let local = egui::pos2(
-            cursor_screen.x - geometry.palette_origin.x,
-            cursor_screen.y - geometry.palette_origin.y,
-        );
-        if let Some(index) = app.palette.hit_test(local, &geometry.palette_layout) {
-            return DragStartIntent::PaletteGate {
-                index,
-                preview_pos: egui::pos2(cursor.x - GATE_SIZE / 2.0, cursor.y - GATE_SIZE / 2.0),
-            };
-        }
+    if let Some(index) = pointer
+        .screen_pos
+        .and_then(|pos| geometry.pressed_palette_entry(app, pos))
+    {
+        return DragStartIntent::PaletteGate {
+            index,
+            preview_pos: egui::pos2(cursor.x - GATE_SIZE / 2.0, cursor.y - GATE_SIZE / 2.0),
+        };
     }
 
     // No gate / palette under the cursor. If we're inside a step slot,
-    // lock the breakpoint to that column.
-    step_at_cursor(cursor, &geometry.metrics)
-        .map(DragStartIntent::BreakpointStep)
+    // lock the breakpoint to that column. The vertical layout pans the
+    // circuit from empty space instead and selects the step on release
+    // only when the pointer did not move.
+    let step = step_at_cursor(cursor, &geometry.metrics);
+    if geometry.is_vertical() {
+        return DragStartIntent::Pan(step);
+    }
+    step.map(DragStartIntent::BreakpointStep)
         .unwrap_or(DragStartIntent::None)
 }

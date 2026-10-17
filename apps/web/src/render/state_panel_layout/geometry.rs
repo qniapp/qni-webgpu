@@ -3,8 +3,9 @@ use eframe::egui;
 use super::StatePanelLayout;
 use crate::app::{AppMode, QniApp};
 use crate::constants::{
-    state_circle_layout, EMBED_STATE_PANEL_CIRCUIT_GAP, EMBED_STATE_PANEL_TIGHT_BOTTOM_MARGIN,
-    STATE_CIRCLE_BOTTOM_MARGIN, STATE_HANDLE_HEIGHT, STATE_VIEWPORT_MIN_HEIGHT,
+    state_circle_default_aspect_index, state_circle_layout, EMBED_STATE_PANEL_CIRCUIT_GAP,
+    EMBED_STATE_PANEL_TIGHT_BOTTOM_MARGIN, STATE_CIRCLE_BOTTOM_MARGIN, STATE_HANDLE_HEIGHT,
+    STATE_VIEWPORT_MIN_HEIGHT, TOOLBAR_HEIGHT, VERTICAL_SCREEN_INSET,
 };
 use crate::shared::amplitude_qubits;
 
@@ -71,7 +72,10 @@ impl QniApp {
         // Strip-text minimum is the only thing that can force `panel_width`
         // above the user's choice — practically a no-op for ≤16 qubits
         // since min viewport width already covers the widest label.
-        let viewport_width = if embed {
+        let vertical = self.orientation.is_vertical();
+        let viewport_width = if vertical {
+            vertical_panel_width(rect.width())
+        } else if embed {
             // Narrow embeds (phone-width tutorial pages) keep the panel inside
             // the canvas with the same 16px side margin.
             self.state_panel
@@ -81,14 +85,21 @@ impl QniApp {
         } else {
             self.state_panel.viewport_size.x
         };
-        let panel_width = if embed {
+        let panel_width = if embed || vertical {
             // Keep narrow tutorial panels inside the canvas. The header omits
             // the redundant qubit label when both labels no longer fit.
             viewport_width
         } else {
             viewport_width.max(strip_min_width)
         };
-        let (panel_min_y, viewport_height) = if embed {
+        let (panel_min_y, viewport_height) = if vertical {
+            (
+                TOOLBAR_HEIGHT + VERTICAL_SCREEN_INSET - rect.min.y,
+                self.state_panel
+                    .vertical_viewport_height
+                    .unwrap_or_else(|| vertical_viewport_height(natural_height, rect.height())),
+            )
+        } else if embed {
             embed_panel_vertical(
                 rect.height(),
                 self.circuit_bottom_y(rect) - rect.min.y,
@@ -101,7 +112,7 @@ impl QniApp {
                 viewport_height,
             )
         };
-        let fit = if embed {
+        let fit = if embed || vertical {
             (panel_width.max(1.0) / natural_width)
                 .min(viewport_height / natural_height)
                 .min(1.0)
@@ -181,6 +192,35 @@ impl QniApp {
     }
 }
 
+/// Panel width of the vertical layout, which spans the screen inside the
+/// shared inset.
+fn vertical_panel_width(screen_width: f32) -> f32 {
+    (screen_width - 2.0 * VERTICAL_SCREEN_INSET).max(1.0)
+}
+
+/// Viewport height of the vertical layout: the natural grid plus padding,
+/// at most a quarter of the screen so the circuit keeps most of it.
+fn vertical_viewport_height(natural_height: f32, screen_height: f32) -> f32 {
+    (natural_height + crate::tailwind::SPACING_8)
+        .min(screen_height / 4.0)
+        .max(STATE_VIEWPORT_MIN_HEIGHT)
+}
+
+fn natural_grid_width(qubits: usize, aspect_index: usize) -> f32 {
+    let qni = state_circle_layout(qubits, aspect_index);
+    qni.size * qni.cols as f32 + (qni.line_width + 1.0) * qni.cols.saturating_sub(1) as f32
+}
+
+/// Default aspect of the vertical layout: the widest grid, up to the
+/// desktop default, whose natural width fits the panel.
+pub(crate) fn vertical_default_aspect_index(qubits: usize, screen_width: f32) -> usize {
+    let panel_width = vertical_panel_width(screen_width);
+    (0..=state_circle_default_aspect_index(qubits))
+        .rev()
+        .find(|&aspect| natural_grid_width(qubits, aspect) <= panel_width)
+        .unwrap_or(0)
+}
+
 /// Vertical placement `(panel_min_y, viewport_height)` of an embed's state
 /// panel, relative to the canvas top. Small embeds must never hide gates:
 /// the panel keeps the standalone bottom-anchored spot when it clears the
@@ -234,8 +274,77 @@ fn grid_axis_pan_for_origin(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layout::CircuitOrientation;
 
     const CANVAS_HEIGHT: f32 = 560.0;
+    const PHONE_SCREEN: egui::Rect = egui::Rect {
+        min: egui::pos2(8.0, 8.0),
+        max: egui::pos2(382.0, 836.0),
+    };
+
+    fn vertical_layout(json: &str, state_count: usize) -> StatePanelLayout {
+        let ctx = egui::Context::default();
+        let mut app = QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));
+        app.load_circuit_json_into_editor(json, &ctx);
+        app.orientation = CircuitOrientation::Vertical;
+        app.state_panel.aspect_index =
+            vertical_default_aspect_index(amplitude_qubits(state_count), PHONE_SCREEN.width());
+        app.state_panel_layout(PHONE_SCREEN, state_count)
+    }
+
+    #[test]
+    fn vertical_panel_top_is_below_toolbar() {
+        assert_eq!(
+            vertical_layout(r#"{"cols":[["H"],["•","X"]]}"#, 4)
+                .state_rect
+                .top(),
+            TOOLBAR_HEIGHT + VERTICAL_SCREEN_INSET
+        );
+    }
+
+    #[test]
+    fn vertical_panel_spans_the_screen_inside_the_inset() {
+        assert_eq!(
+            vertical_layout(r#"{"cols":[["H"],["•","X"]]}"#, 4)
+                .state_rect
+                .width(),
+            PHONE_SCREEN.width() - 2.0 * VERTICAL_SCREEN_INSET
+        );
+    }
+
+    #[test]
+    fn vertical_two_qubit_viewport_fits_one_row_with_padding() {
+        let layout = vertical_layout(r#"{"cols":[["H"],["•","X"]]}"#, 4);
+
+        assert_eq!(
+            layout.viewport_rect.height(),
+            64.0 + crate::tailwind::SPACING_8
+        );
+    }
+
+    #[test]
+    fn vertical_viewport_height_is_at_most_quarter_screen() {
+        let layout = vertical_layout(r#"{"cols":[["H","H","H","H","H","H","H","H"]]}"#, 256);
+
+        assert!(layout.viewport_rect.height() <= PHONE_SCREEN.height() / 4.0);
+    }
+
+    #[test]
+    fn vertical_default_aspect_fits_panel_width_for_3_qubits() {
+        assert_eq!(vertical_default_aspect_index(3, PHONE_SCREEN.width()), 2);
+    }
+
+    #[test]
+    fn vertical_default_aspect_keeps_desktop_default_when_it_fits() {
+        assert_eq!(vertical_default_aspect_index(2, PHONE_SCREEN.width()), 2);
+    }
+
+    #[test]
+    fn vertical_grid_fits_the_panel_width() {
+        let layout = vertical_layout(r#"{"cols":[["H","H","H","H","H","H","H","H"]]}"#, 256);
+
+        assert!(layout.grid_size.x <= layout.viewport_rect.width());
+    }
 
     #[test]
     fn embed_panel_keeps_bottom_anchor_when_clear_of_circuit() {

@@ -26,6 +26,8 @@
     <link data-trunk rel="copy-file" href="assets/GeistMono-Regular.ttf" />
     <style>
       html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #FFFCF0; /* Flexoki bg */ }
+      /* Phone browsers resize the dynamic viewport as their URL bar shows and hides. */
+      @supports (height: 100dvh) { html, body { height: 100dvh; } }
       #egui-canvas { display: block; width: 100%; height: 100%; }
       /* Keep the error reachable even if the external stylesheet fails to load. */
       #app-status { position: fixed; inset: 0; overflow: auto; background: #FFFCF0; /* Flexoki bg */ }

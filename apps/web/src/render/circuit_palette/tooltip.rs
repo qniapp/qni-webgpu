@@ -23,7 +23,7 @@ impl QniApp {
         rect: egui::Rect,
         colors: &Colors,
     ) {
-        if self.library.active_locked() {
+        if self.library.active_locked() || self.orientation.is_vertical() {
             return;
         }
         let Some(index) = self.hovered_palette_index else {

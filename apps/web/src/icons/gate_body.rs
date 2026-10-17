@@ -205,7 +205,11 @@ fn draw_amplitude_preview_body(
     // rendered by WebGPU; the CPU draws no amplitude values.
     painter.rect_filled(rect, egui::CornerRadius::ZERO, background);
 
-    if rect.width() <= GATE_SIZE + 1.0 && rect.height() <= GATE_SIZE + 1.0 {
+    // Palette icons are square: 40px in the palette panel, 48px in the
+    // vertical layout's carousel.
+    if (rect.width() - rect.height()).abs() <= 1.0
+        && rect.width() <= crate::constants::CAROUSEL_GATE_SIZE + 1.0
+    {
         draw_amplitude_palette_icon(painter, rect, colors);
         return;
     }

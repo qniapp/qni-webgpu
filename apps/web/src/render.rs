@@ -25,6 +25,6 @@ mod state_panel_layout;
 mod state_panel_popup;
 mod toolbar;
 
-pub(crate) use state_panel_layout::StatePanelLayout;
+pub(crate) use state_panel_layout::{vertical_default_aspect_index, StatePanelLayout};
 
 pub(crate) use circuit_gates::CircuitGpuBatch;

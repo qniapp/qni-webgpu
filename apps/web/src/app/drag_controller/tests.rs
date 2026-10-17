@@ -228,7 +228,7 @@ fn rendered_gate_bodies(
     if let Some(id) = dragged.filter(|_| !insert_preview_painted) {
         app.draw_drag_preview(
             &painter,
-            rect.min - egui::vec2(scroll_x, 0.0),
+            crate::layout::CircuitProjection::horizontal(rect.min - egui::vec2(scroll_x, 0.0)),
             &colors,
             id,
             false,
@@ -744,7 +744,7 @@ fn sparse_insert_target_and_scroll_stay_stable_across_held_frames() {
         ],
         true,
     );
-    app.circuit_scroll_x = 650.0;
+    app.circuit_scroll_time = 650.0;
     let target = egui::pos2(
         app.placed_gates[1].committed_pos().x
             + GATE_SIZE / 2.0
@@ -764,7 +764,7 @@ fn sparse_insert_target_and_scroll_stay_stable_across_held_frames() {
     }
 
     assert_eq!(
-        (app.dragging_live_snap, app.circuit_scroll_x),
+        (app.dragging_live_snap, app.circuit_scroll_time),
         (
             Some(LiveDragSnap::Insert {
                 column: CircuitColumnIndex::new(31),
@@ -970,6 +970,7 @@ fn pointer(pos: egui::Pos2, released: bool) -> DragPointer {
         start: !released,
         released,
         shift_at_start: None,
+        snap_allowed: true,
     }
 }
 
@@ -1650,8 +1651,10 @@ fn narrow_canvas_screen_click_uses_shifted_circuit_coordinates() {
     let (mut app, ctx, _) = fixture(r#"{"cols":[["H"]]}"#);
     let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(390.0, 800.0));
     let metrics = crate::layout::layout_metrics(rect.width(), 1, 6);
-    let screen_pos =
-        app.circuit_origin(rect, 0.0) + egui::vec2(metrics.line_left - 36.0, metrics.line_ys[0]);
+    let screen_pos = app
+        .circuit_projection(rect, 0.0)
+        .to_screen(egui::Pos2::ZERO)
+        + egui::vec2(metrics.line_left - 36.0, metrics.line_ys[0]);
     ctx.begin_pass(egui::RawInput {
         screen_rect: Some(rect),
         events: vec![

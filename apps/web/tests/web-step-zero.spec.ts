@@ -138,7 +138,7 @@ test('hovering the left gap draws a translucent initial bar', async ({ page }) =
 })
 
 test('narrow circuit keeps the initial hit target without shifting columns', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 800 })
+  await page.setViewportSize({ width: 600, height: 500 })
   await page.goto('/' + circuit)
   await waitForStartupReady(page, { waitForStateVector: true })
   await page.mouse.click(52, 224)
@@ -147,7 +147,7 @@ test('narrow circuit keeps the initial hit target without shifting columns', asy
 })
 
 test('narrow circuit hits the extended left end', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 800 })
+  await page.setViewportSize({ width: 600, height: 500 })
   await page.goto('/' + circuit)
   await waitForStartupReady(page, { waitForStateVector: true })
   await page.mouse.click(25, 224)

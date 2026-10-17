@@ -3,6 +3,7 @@
 外部ページへの埋め込みは [WebGPU アプリの埋め込み](web-embed.md) を参照する。
 サンプル表示ブロックとパリティ制御の使い方、および外部 GPU 実行の制限は[サンプル表示ブロックとパリティ制御](sample-parity.md)を参照する。
 X 軸・Y 軸の標本測定は [X 軸検出器・Y 軸検出器](axis-detectors.md) を参照する。
+スマホ縦向きの画面構成は [スマホ縦向きの画面構成 (縦レイアウト)](mobile-layout.md) を参照する。
 
 ## Prerequisites
 

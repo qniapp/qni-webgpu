@@ -24,7 +24,9 @@ use crate::icons::{
     conditional_gate_body_shape, draw_bloch_vector, draw_gate_body, draw_gate_body_filled,
     draw_gate_glyph, draw_sampled_measurement_icon,
 };
-use crate::layout::{amplitude_grid_dims, amplitude_grid_rect, gate_visible_rect};
+#[cfg(test)]
+use crate::layout::gate_visible_rect;
+use crate::layout::{amplitude_grid_dims, amplitude_grid_rect, CircuitProjection};
 use crate::simulation_plan::FlagSource;
 use crate::span_resize::{span_resize_body_rect, span_resize_ease_out_back, SpanResizeHandles};
 
@@ -87,13 +89,35 @@ fn bloch_hover_popup_title() -> &'static str {
 // the insertion preview's center, without widening the existing scissor.
 pub(super) fn insert_preview_right_clip(
     mut clip: egui::Rect,
-    circuit_origin: egui::Pos2,
+    projection: CircuitProjection,
     gate_pos: egui::Pos2,
 ) -> egui::Rect {
-    clip.min.x = clip
-        .min
-        .x
-        .max(circuit_origin.x + gate_pos.x + GATE_SIZE / 2.0);
+    let split = insert_preview_split(projection, gate_pos);
+    if projection.is_vertical() {
+        clip.min.y = clip.min.y.max(split.y);
+    } else {
+        clip.min.x = clip.min.x.max(split.x);
+    }
+    clip
+}
+
+/// Screen point on the insertion preview's centre line across the wires;
+/// columns before it in time paint behind the preview.
+fn insert_preview_split(projection: CircuitProjection, gate_pos: egui::Pos2) -> egui::Pos2 {
+    projection.to_screen(gate_pos) + projection.to_screen_vec(egui::vec2(GATE_SIZE / 2.0, 0.0))
+}
+
+fn insert_preview_left_clip(
+    mut clip: egui::Rect,
+    projection: CircuitProjection,
+    gate_pos: egui::Pos2,
+) -> egui::Rect {
+    let split = insert_preview_split(projection, gate_pos);
+    if projection.is_vertical() {
+        clip.max.y = clip.max.y.min(split.y);
+    } else {
+        clip.max.x = clip.max.x.min(split.x);
+    }
     clip
 }
 
@@ -101,7 +125,7 @@ impl QniApp {
     pub(super) fn build_circuit_gpu_batch(
         &self,
         viewport: egui::Rect,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
         dragging_gate_id: Option<GateId>,
         colors: &Colors,
     ) -> CircuitGpuBatch {
@@ -116,10 +140,10 @@ impl QniApp {
             .filter(|gate| matches!(gate.flag, Some(GateFlag::If(_))))
             .enumerate()
         {
-            let rect = gate_visible_rect(
+            let rect = crate::render::circuit::gate_screen_rect(
+                projection,
                 gate,
-                circuit_origin
-                    + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+                crate::render::circuit::gate_draw_pos(gate, self.dragging),
             );
             if let Some(body) =
                 self.conditional_gate_body(gate, rect, colors, batch.viewport, index)
@@ -127,12 +151,8 @@ impl QniApp {
                 batch.conditional_bodies.insert(gate.id, body);
             }
         }
-        batch.overlays = self.build_circuit_gpu_overlays(
-            batch.viewport,
-            circuit_origin,
-            dragging_gate_id,
-            colors,
-        );
+        batch.overlays =
+            self.build_circuit_gpu_overlays(batch.viewport, projection, dragging_gate_id, colors);
         batch
     }
 
@@ -206,7 +226,7 @@ impl QniApp {
     pub(super) fn draw_placed_circuit_gates(
         &self,
         painter: &egui::Painter,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
         colors: &Colors,
         fast_drag: bool,
         dragging_gate_id: Option<GateId>,
@@ -229,7 +249,7 @@ impl QniApp {
         for gate in gates {
             if let Some((id, column)) = insert_preview {
                 if !preview_painted && gate.column >= column {
-                    self.draw_insert_drag_preview(painter, batch, circuit_origin, colors, id);
+                    self.draw_insert_drag_preview(painter, batch, projection, colors, id);
                     preview_painted = true;
                 }
             }
@@ -242,10 +262,10 @@ impl QniApp {
             if dragging_gate_id == Some(gate.id) && !live_dragging_gate {
                 continue;
             }
-            let gate_rect = gate_visible_rect(
+            let gate_rect = crate::render::circuit::gate_screen_rect(
+                projection,
                 gate,
-                circuit_origin
-                    + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+                crate::render::circuit::gate_draw_pos(gate, self.dragging),
             );
             // docs/design-system/amplitude-display.html §04: Amplitude's footprint follows
             // slot spacing, but the visible matrix body is the square-cell
@@ -260,7 +280,8 @@ impl QniApp {
                 // dropzone and the meter's interior is opaque. Mask the
                 // circuit wire before painting hover chrome / SVG strokes /
                 // digit overlay so the hover side borders remain visible.
-                let mask_rect = gate_rect.expand2(egui::vec2(MEASUREMENT_WIRE_CLEARANCE, 0.0));
+                let mask_rect =
+                    gate_rect.expand2(projection.time_axis().abs() * MEASUREMENT_WIRE_CLEARANCE);
                 painter.rect_filled(mask_rect, egui::CornerRadius::ZERO, circuit_fill);
             }
             if !fast_drag && edit_hover_visible && self.hovered_gate_id == Some(gate.id) {
@@ -324,7 +345,9 @@ impl QniApp {
                 gate_rect,
                 &self.placed_gates,
                 self.wire_capacity().get(),
-            ) {
+            )
+            .filter(|_| !projection.is_vertical())
+            {
                 let visible = (edit_hover_visible && self.hovered_gate_id == Some(gate.id))
                     || self.span_resize_drag.map(|d| d.gate_id) == Some(gate.id);
                 let visible_t = painter.ctx().animate_bool_with_time_and_easing(
@@ -352,7 +375,7 @@ impl QniApp {
         }
         if let Some((id, _)) = insert_preview {
             if !preview_painted {
-                self.draw_insert_drag_preview(painter, batch, circuit_origin, colors, id);
+                self.draw_insert_drag_preview(painter, batch, projection, colors, id);
                 preview_painted = true;
             }
         }
@@ -410,22 +433,23 @@ impl QniApp {
         &self,
         painter: &egui::Painter,
         batch: &CircuitGpuBatch,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
         colors: &Colors,
         id: GateId,
     ) {
         let Some(gate) = self.placed_gates.iter().find(|gate| gate.id == id) else {
             return;
         };
-        let rect = gate_visible_rect(
+        let rect = crate::render::circuit::gate_screen_rect(
+            projection,
             gate,
-            circuit_origin + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+            crate::render::circuit::gate_draw_pos(gate, self.dragging),
         );
         let painter = painter.with_clip_rect(rect.intersect(painter.clip_rect()));
-        self.draw_placed_circuit_gates(&painter, circuit_origin, colors, true, Some(id), batch);
+        self.draw_placed_circuit_gates(&painter, projection, colors, true, Some(id), batch);
         let right_clip = insert_preview_right_clip(
             painter.clip_rect(),
-            circuit_origin,
+            projection,
             crate::render::circuit::gate_draw_pos(gate, self.dragging),
         );
         if right_clip.is_positive() {
@@ -437,28 +461,28 @@ impl QniApp {
         &self,
         painter: &egui::Painter,
         batch: &CircuitGpuBatch,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
         colors: &Colors,
         id: GateId,
     ) {
         let Some(gate) = self.placed_gates.iter().find(|gate| gate.id == id) else {
             return;
         };
-        let split_x = circuit_origin.x
-            + crate::render::circuit::gate_draw_pos(gate, self.dragging).x
-            + GATE_SIZE / 2.0;
-        let mut clip = painter.clip_rect();
-        clip.max.x = clip.max.x.min(split_x);
+        let clip = insert_preview_left_clip(
+            painter.clip_rect(),
+            projection,
+            crate::render::circuit::gate_draw_pos(gate, self.dragging),
+        );
         if clip.is_positive() {
             batch.paint_overlays(&painter.with_clip_rect(clip));
         }
-        self.draw_drag_preview(painter, circuit_origin, colors, id, false);
+        self.draw_drag_preview(painter, projection, colors, id, false);
     }
 
     fn build_circuit_gpu_overlays(
         &self,
         callback_rect: egui::Rect,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
         dragging_gate_id: Option<GateId>,
         colors: &Colors,
     ) -> Vec<egui::Shape> {
@@ -494,6 +518,9 @@ impl QniApp {
                     return None;
                 }
                 let span = gate.span.get().clamp(1, 16) as u32;
+                if projection.is_vertical() && span > 1 {
+                    return None;
+                }
                 let (slot, render_mode) = if let Some(slot) = self.probability_display_slot(gate.id)
                 {
                     (
@@ -515,9 +542,8 @@ impl QniApp {
                     return None;
                 };
                 let gate_height = (span.saturating_sub(1)) as f32 * LINE_GAP + GATE_SIZE;
-                let gate_rect = egui::Rect::from_min_size(
-                    circuit_origin
-                        + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+                let gate_rect = projection.to_screen_rect_from_min_size(
+                    crate::render::circuit::gate_draw_pos(gate, self.dragging),
                     egui::vec2(GATE_SIZE, gate_height),
                 );
                 let hovered_outcome = self
@@ -600,10 +626,10 @@ impl QniApp {
                 } else {
                     return None;
                 };
-                let gate_rect = gate_visible_rect(
+                let gate_rect = crate::render::circuit::gate_screen_rect(
+                    projection,
                     gate,
-                    circuit_origin
-                        + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+                    crate::render::circuit::gate_draw_pos(gate, self.dragging),
                 );
                 let body_rect = amplitude_grid_rect(gate_rect, gate.span.get());
                 let hovered_outcome = self
@@ -683,10 +709,10 @@ impl QniApp {
                     return None;
                 };
                 let span = gate.span.get().clamp(1, 8) as u32;
-                let gate_rect = gate_visible_rect(
+                let gate_rect = crate::render::circuit::gate_screen_rect(
+                    projection,
                     gate,
-                    circuit_origin
-                        + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+                    crate::render::circuit::gate_draw_pos(gate, self.dragging),
                 );
                 let hovered_cell = self
                     .hovered_density_cell
@@ -748,9 +774,8 @@ impl QniApp {
                     return None;
                 }
                 let slot = self.bloch_display_slot(gate.id)?;
-                let gate_rect = egui::Rect::from_min_size(
-                    circuit_origin
-                        + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+                let gate_rect = projection.to_screen_rect_from_min_size(
+                    crate::render::circuit::gate_draw_pos(gate, self.dragging),
                     egui::vec2(GATE_SIZE, GATE_SIZE),
                 );
                 let center = gate_rect.center();
@@ -805,9 +830,8 @@ impl QniApp {
                     return None;
                 }
                 let slot = self.gpu_plan.measurement_slot(gate.id)?.as_u32();
-                let gate_rect = egui::Rect::from_min_size(
-                    circuit_origin
-                        + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+                let gate_rect = projection.to_screen_rect_from_min_size(
+                    crate::render::circuit::gate_draw_pos(gate, self.dragging),
                     egui::vec2(GATE_SIZE, GATE_SIZE),
                 );
                 let center =
@@ -847,7 +871,7 @@ impl QniApp {
         &self,
         painter: &egui::Painter,
         screen_rect: egui::Rect,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
         dragging_gate_id: Option<GateId>,
         colors: &Colors,
     ) {
@@ -867,8 +891,8 @@ impl QniApp {
         let Some(slot) = self.bloch_display_slot(gate.id) else {
             return;
         };
-        let gate_rect = egui::Rect::from_min_size(
-            circuit_origin + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+        let gate_rect = projection.to_screen_rect_from_min_size(
+            crate::render::circuit::gate_draw_pos(gate, self.dragging),
             egui::vec2(GATE_SIZE, GATE_SIZE),
         );
 
@@ -959,7 +983,7 @@ impl QniApp {
         &self,
         painter: &egui::Painter,
         screen_rect: egui::Rect,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
         dragging_gate_id: Option<GateId>,
         colors: &Colors,
     ) {
@@ -980,9 +1004,10 @@ impl QniApp {
             return;
         };
         let span = gate.span.get().clamp(1, 16);
-        let gate_rect = gate_visible_rect(
+        let gate_rect = crate::render::circuit::gate_screen_rect(
+            projection,
             gate,
-            circuit_origin + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+            crate::render::circuit::gate_draw_pos(gate, self.dragging),
         );
         let Some((circle_center, circle_radius)) = amplitude_hover_circle(gate_rect, span, outcome)
         else {
@@ -1059,7 +1084,7 @@ impl QniApp {
         &self,
         painter: &egui::Painter,
         screen_rect: egui::Rect,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
         dragging_gate_id: Option<GateId>,
         colors: &Colors,
     ) {
@@ -1079,8 +1104,8 @@ impl QniApp {
         let span = gate.span.get().clamp(1, 16);
         let row_count = 1usize << span;
         let gate_height = (span - 1) as f32 * LINE_GAP + GATE_SIZE;
-        let gate_rect = egui::Rect::from_min_size(
-            circuit_origin + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2(),
+        let gate_rect = projection.to_screen_rect_from_min_size(
+            crate::render::circuit::gate_draw_pos(gate, self.dragging),
             egui::vec2(GATE_SIZE, gate_height),
         );
         let row_h = gate_rect.height() / row_count as f32;
@@ -1364,7 +1389,12 @@ mod tests {
         let ops = crate::simulation_plan::linearize_ops(&app.placed_gates, qubits, 3);
         app.gpu_plan.replace_ops(ops, 3, sources);
         let viewport = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0));
-        let batch = app.build_circuit_gpu_batch(viewport, egui::Pos2::ZERO, None, &app.colors());
+        let batch = app.build_circuit_gpu_batch(
+            viewport,
+            CircuitProjection::horizontal(egui::Pos2::ZERO),
+            None,
+            &app.colors(),
+        );
         (app, batch)
     }
 
@@ -1388,8 +1418,12 @@ mod tests {
             .find(|gate| gate.kind == GateKind::ZDetectControlReset)
             .unwrap();
         let viewport = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0));
-        let overlays =
-            app.build_circuit_gpu_overlays(viewport, egui::Pos2::ZERO, None, &app.colors());
+        let overlays = app.build_circuit_gpu_overlays(
+            viewport,
+            CircuitProjection::horizontal(egui::Pos2::ZERO),
+            None,
+            &app.colors(),
+        );
         insta::assert_debug_snapshot!((
             app.gpu_plan.has_measurement_slot(detector.id),
             overlays.len(),
@@ -1459,7 +1493,7 @@ mod tests {
         app.draw_insert_preview_overlay(
             &painter,
             &batch,
-            app.circuit_origin(rect, 0.0),
+            app.circuit_projection(rect, 0.0),
             &colors,
             id,
         );

@@ -26,18 +26,24 @@ impl QniApp {
             self.poll_external_gpu_run(ctx);
         }
         let viewport = ctx.content_rect();
+        // The vertical layout's phone-width canvas tightens the strip so
+        // every tool still fits in one row.
+        let compact = self.orientation.is_vertical();
+        let (padding_x, item_spacing) = if compact {
+            (crate::tailwind::SPACING_2, crate::tailwind::SPACING_1)
+        } else {
+            (crate::tailwind::SPACING_3, crate::tailwind::SPACING_2)
+        };
         egui::Area::new(egui::Id::new("exec_mode_toolbar"))
             .order(egui::Order::Foreground)
             .fixed_pos(viewport.min)
             .show(ctx, |ui| {
                 ui.set_min_width(viewport.width());
-                toolbar_frame(colors).show(ui, |ui| {
-                    ui.set_min_width(
-                        (viewport.width() - 2.0 * crate::tailwind::SPACING_3).max(0.0),
-                    ); // Padding on both sides.
+                toolbar_frame(colors, padding_x).show(ui, |ui| {
+                    ui.set_min_width((viewport.width() - 2.0 * padding_x).max(0.0)); // Padding on both sides.
                     ui.set_min_height(crate::tailwind::SPACING_8);
                     ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing = egui::vec2(crate::tailwind::SPACING_2, 0.0);
+                        ui.spacing_mut().item_spacing = egui::vec2(item_spacing, 0.0);
                         if self.mode.uses_browser_state() {
                             self.show_circuit_picker(ui, colors, ctx);
                         }
@@ -188,12 +194,9 @@ impl QniApp {
     }
 }
 
-fn toolbar_frame(colors: &Colors) -> egui::Frame {
+fn toolbar_frame(colors: &Colors, padding_x: f32) -> egui::Frame {
     egui::Frame {
-        inner_margin: egui::Margin::symmetric(
-            crate::tailwind::SPACING_3 as i8,
-            crate::tailwind::SPACING_1_5 as i8,
-        ),
+        inner_margin: egui::Margin::symmetric(padding_x as i8, crate::tailwind::SPACING_1_5 as i8),
         fill: colors.surface,
         stroke: egui::Stroke::NONE,
         corner_radius: egui::CornerRadius::ZERO, // Full-width header strip: all 4 corners square.

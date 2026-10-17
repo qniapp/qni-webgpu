@@ -58,6 +58,32 @@ rules:
       - /display gate/
       - /表示ゲート/
 
+  # ── レイアウトの向き (docs/mobile-layout.md) ──
+  - expected: 縦レイアウト
+    patterns:
+      - /縦向きレイアウト/
+      - /ポートレートレイアウト/
+      - /[Pp]ortrait layout/
+      - /[Vv]ertical layout/
+
+  - expected: 横レイアウト
+    patterns:
+      - /横向きレイアウト/
+      - /ランドスケープレイアウト/
+      - /[Ll]andscape layout/
+      - /[Hh]orizontal layout/
+
+  - expected: パレットのカルーセル
+    patterns:
+      - /カルーセルパレット/
+      - /パレットカルーセル/
+      - /[Pp]alette carousel/
+
+  # ── 回路要素の呼び名 ──
+  - expected: 測定ゲート
+    patterns:
+      - /計測ゲート/
+
   # ── ブロッホ + 和語 ──
   - expected: ブロッホ球
     pattern: /Bloch 球/
