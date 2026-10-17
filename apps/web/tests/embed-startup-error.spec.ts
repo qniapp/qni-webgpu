@@ -70,7 +70,8 @@ async function hostError(page: Page, {
     body: `<!doctype html><html><head><meta charset="utf-8"><style>
       @font-face { font-family: "Qni Test Geist"; src: url("${fontOrigin}Geist-Regular.ttf"); font-weight: 400; }
       @font-face { font-family: "Qni Test JP"; src: url("${fontOrigin}QniJapaneseFallback-Regular.otf"); font-weight: 400; }
-      :root { --qni-startup-error-font: "Qni Test Geist", "Qni Test JP"; }
+      @font-face { font-family: "Qni Test Geist Mono"; src: url("${fontOrigin}GeistMono-Regular.ttf"); font-weight: 400; }
+      :root { --qni-startup-error-font: "Qni Test Geist", "Qni Test JP"; --qni-startup-error-mono-font: "Qni Test Geist Mono", "Qni Test JP"; }
       * { color: red !important; font-size: 30px; }
       body { margin: 16px; }
       h1 { font-weight: 500; }
@@ -92,6 +93,7 @@ async function hostError(page: Page, {
           window.renderAgain();
           await document.fonts.load('16px "Qni Test Geist"');
           await document.fonts.load('16px "Qni Test JP"');
+          await document.fonts.load('16px "Qni Test Geist Mono"');
           await document.fonts.ready;
           window.ready = true;
         } catch (error) { window.hostFailure = String(error); }

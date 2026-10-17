@@ -308,7 +308,7 @@ wasm のダウンロードとコンパイルは期限に含めない。
 `renderStartupError(container, error, options)` は指定要素の中身を置き換え、専用の shadow DOM に描画する。
 `container` 自体が shadow DOM 内にあっても使える。枠の幅と高さはホスト側で決める。
 狭い枠では配置を切り替え、低い枠では内部をスクロールする。フォントの追加取得は行わない。
-ホストの `--qni-startup-error-font` で書体を指定できる。
+ホストの `--qni-startup-error-font` で本文の書体を、`--qni-startup-error-mono-font` で「エラーの詳細」などの等幅の書体を指定できる。
 `options.onRetry` を省くと、再試行の代わりにページの再読み込みを案内する。
 `options.headingLevel` は `2`、`3`、`4` から選べる (既定は `3`)。
 戻り値の `code` は原因、`naturalHeight()` は内容に必要な高さ、`remove()` は表示の削除に使う。
