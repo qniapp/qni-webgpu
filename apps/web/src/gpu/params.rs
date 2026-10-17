@@ -522,6 +522,16 @@ pub(crate) struct MeasurementDigitInstance {
     pub(crate) slot: u32,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct SurvivalLabelInstance {
+    pub(crate) center: [f32; 2],
+    pub(crate) half_extent: f32,
+    pub(crate) first_slot: u32,
+    pub(crate) last_slot: u32,
+    pub(crate) mode: u32,
+}
+
 /// Uniform for `CONDITIONAL_GATE_BODY_SHADER`.
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]

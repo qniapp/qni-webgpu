@@ -73,6 +73,42 @@ test('successive postselections retain cumulative survival', async ({ page }) =>
   await expect.poll(() => readRates(page)).toEqual([2, 0.5, 4, 0.25])
 })
 
+test('an unchanged second projector retains the first column survival', async ({ page }) => {
+  await openCircuit(page, [['H'], ['|0⟩⟨0|'], ['H'], ['|+⟩⟨+|']])
+  await expect.poll(() => readRates(page)).toEqual([2, 0.5, 4, 0.5])
+})
+
+const survivalLabelCases = [
+  { name: 'omits-50-kept-50', cols: [['H'], ['|0⟩⟨0|']] },
+  { name: 'unchanged-second-column', cols: [['H'], ['|0⟩⟨0|'], ['H'], ['|+⟩⟨+|']] },
+  { name: 'omits-100-kept-0', cols: [['X'], ['|0⟩⟨0|']] },
+  { name: 'no-loss-no-labels', cols: [['H'], ['|+⟩⟨+|']] },
+  { name: 'same-column-omits-75', cols: [['H', 'H'], ['|0⟩⟨0|', '|1⟩⟨1|']] },
+  { name: 'after-zero-no-extra-label', cols: [['X'], ['|0⟩⟨0|'], ['|0⟩⟨0|']] },
+  { name: 'omits-over-99-kept-under-1', cols: [['Ry(π/32)'], ['|1⟩⟨1|']] },
+  { name: 'nonzero-below-f32-subtraction-precision', cols: [['Ry(π/16)', 'Ry(π/16)', 'Ry(π/16)', 'Ry(π/16)'], ['|1⟩⟨1|', '|1⟩⟨1|', '|1⟩⟨1|', '|1⟩⟨1|']] },
+  { name: 'tiny-loss-no-labels', cols: [['Ry(π/32)'], ['|0⟩⟨0|']] },
+  { name: 'small-loss-only-omits', cols: [['Ry(π/16)'], ['|0⟩⟨0|']] },
+]
+
+for (const { name, cols } of survivalLabelCases) {
+  test(`GPU survival labels: ${name}`, async ({ page }) => {
+    await openCircuit(page, cols)
+    await page.mouse.move(999, 450)
+    await expect(page).toHaveScreenshot(`postselection-${name}.png`)
+  })
+}
+
+test('state panel occludes column survival labels when moved over the circuit', async ({ page }) => {
+  await openCircuit(page, [['H'], ['|0⟩⟨0|']])
+  await page.mouse.move(500, 552)
+  await page.mouse.down()
+  await page.mouse.move(400, 344, { steps: 12 })
+  await page.mouse.up()
+  await page.mouse.move(999, 450)
+  await expect(page).toHaveScreenshot('postselection-panel-occludes-labels.png')
+})
+
 test('Bloch display captures the conditional state', async ({ page }) => {
   await openCircuit(page, [['H'], ['|0⟩⟨0|'], ['Bloch']])
   await expect.poll(async () => (await readBlochVectors(page)).map(({ gateId, x, y, z }) => [gateId, x + 0, y + 0, z])).toEqual([[3, 0, 0, 1]])

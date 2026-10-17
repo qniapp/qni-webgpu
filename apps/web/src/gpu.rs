@@ -22,6 +22,7 @@ mod recompute;
 mod resources;
 mod shaders;
 mod slot;
+mod survival_glyph_atlas;
 
 pub(crate) use callbacks::{
     AmplitudeDisplayCallback, AmplitudePopupValueCallback, BlochOverlayCallback,
@@ -36,10 +37,10 @@ pub(crate) use params::{
     ExternalAmplitudeUploadBatch, ExternalBlochUpload, ExternalBlochUploadBatch,
     ExternalDensityUpload, ExternalDensityUploadBatch, ExternalProbabilityUpload,
     ExternalProbabilityUploadBatch, MeasurementDigitInstance, ProbabilityInstance, RenderColors,
-    RenderParams, AMPLITUDE_FORCE_NONE, AMPLITUDE_FORCE_PLACEHOLDER, AMPLITUDE_FORCE_ZERO,
-    DENSITY_RENDER_MODE_PLACEHOLDER, DENSITY_RENDER_MODE_SAMPLE, MAX_AMPLITUDE_SLOTS,
-    MAX_BLOCH_SLOTS, MAX_DENSITY_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
-    MAX_POSTSELECTION_SLOTS, MAX_PROBABILITY_SLOTS, MAX_STEP_SNAPSHOT_SLOTS,
+    RenderParams, SurvivalLabelInstance, AMPLITUDE_FORCE_NONE, AMPLITUDE_FORCE_PLACEHOLDER,
+    AMPLITUDE_FORCE_ZERO, DENSITY_RENDER_MODE_PLACEHOLDER, DENSITY_RENDER_MODE_SAMPLE,
+    MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_DENSITY_SLOTS, MAX_MEASUREMENT_SLOTS,
+    MAX_OPS_PER_RECOMPUTE, MAX_POSTSELECTION_SLOTS, MAX_PROBABILITY_SLOTS, MAX_STEP_SNAPSHOT_SLOTS,
     PROBABILITY_RENDER_MODE_PLACEHOLDER, PROBABILITY_RENDER_MODE_SAMPLE,
 };
 pub(crate) use popup_glyph_atlas::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};

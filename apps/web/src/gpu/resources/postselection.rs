@@ -1,10 +1,10 @@
 use eframe::wgpu;
 
 use super::super::params::{
-    MeasurementDigitParams, MAX_OPS_PER_RECOMPUTE, MAX_POSTSELECTION_SLOTS,
+    MeasurementDigitParams, SurvivalLabelInstance, MAX_OPS_PER_RECOMPUTE, MAX_POSTSELECTION_SLOTS,
 };
-use super::super::popup_glyph_atlas::{
-    rasterize_popup_glyph_atlas, POPUP_GLYPH_ATLAS_HEIGHT, POPUP_GLYPH_ATLAS_WIDTH,
+use super::super::survival_glyph_atlas::{
+    rasterize_survival_glyph_atlas, SURVIVAL_GLYPH_ATLAS_HEIGHT, SURVIVAL_GLYPH_ATLAS_WIDTH,
 };
 use super::common::Common;
 
@@ -199,7 +199,7 @@ impl PostselectionResources {
         );
         let instance_buffer = buffer(
             device,
-            (MAX_POSTSELECTION_SLOTS * 16) as u64,
+            ((MAX_POSTSELECTION_SLOTS + 1) * std::mem::size_of::<SurvivalLabelInstance>()) as u64,
             U::VERTEX | U::COPY_DST,
         );
         let texture = wgpu::util::DeviceExt::create_texture_with_data(
@@ -208,8 +208,8 @@ impl PostselectionResources {
             &wgpu::TextureDescriptor {
                 label: Some("postselection_atlas"),
                 size: wgpu::Extent3d {
-                    width: POPUP_GLYPH_ATLAS_WIDTH,
-                    height: POPUP_GLYPH_ATLAS_HEIGHT,
+                    width: SURVIVAL_GLYPH_ATLAS_WIDTH,
+                    height: SURVIVAL_GLYPH_ATLAS_HEIGHT,
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
@@ -220,7 +220,7 @@ impl PostselectionResources {
                 view_formats: &[],
             },
             wgpu::util::TextureDataOrder::default(),
-            &rasterize_popup_glyph_atlas(),
+            &rasterize_survival_glyph_atlas(),
         );
         let view = texture.create_view(&Default::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {

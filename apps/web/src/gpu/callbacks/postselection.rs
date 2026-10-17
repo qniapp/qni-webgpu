@@ -3,11 +3,11 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
 
-use super::super::params::{MeasurementDigitInstance, MeasurementDigitParams};
+use super::super::params::{MeasurementDigitParams, SurvivalLabelInstance};
 use super::super::resources::StateVectorResources;
 
 pub(crate) struct PostselectionCallback {
-    pub(crate) instances: Arc<[MeasurementDigitInstance]>,
+    pub(crate) instances: Arc<[SurvivalLabelInstance]>,
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) zero_color: [f32; 4],
