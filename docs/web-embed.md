@@ -10,9 +10,10 @@ bash apps/web/scripts/build-embed.sh
 ```
 
 出力先は `apps/web/embed-dist/`。引数で別の出力先も指定できる。
-このディレクトリの 3 ファイルをまとめて配信する。
+このディレクトリの 4 ファイルをまとめて配信する。
 
 - `qni-embed.mjs`: 埋め込み用の ESM 入口
+- `qni-embed-error.mjs`: 起動原因の判定とエラー画面。wasm に依存しない
 - `qni-web.js`: wasm-bindgen の JavaScript
 - `qni-web_bg.wasm`: アプリ本体。フォントとシェーダも含む
 
@@ -61,7 +62,7 @@ const runner = await startEmbed(canvas, '{"cols":[["H"]]}', {
 runner.destroy()
 ```
 
-`startEmbed(canvas: HTMLCanvasElement, circuit: string, settings?: {showStatePanel?: boolean, palette?: string[], maxWireCount?: number, showRestartButton?: boolean, onRestart?: function, onProgress?: function, onDeviceLost?: function})`
+`startEmbed(canvas: HTMLCanvasElement, circuit: string, settings?: {showStatePanel?: boolean, palette?: string[], maxWireCount?: number, showRestartButton?: boolean, onRestart?: function, onProgress?: function, onDeviceLost?: function, startupTimeoutMs?: number})`
 は `Promise<{destroy(): void, circuitJSON(): string, preferredHeight(widthCssPx: number): number, selectStep(n: number): void, selectedStep(): number | null, stepCount(): number, readStateVector(): Promise<Float32Array>}>` を返す。`showStatePanel` の既定値は `true`。
 `onProgress` には `{stage, loaded, total}` を渡す。`stage` は `download`、`compile`、`gpu`、`prepare`。
 `loaded` は展開後のバイト数。`total` は同一オリジンの非圧縮応答で長さが分かる場合だけ数値、それ以外は `null`。
@@ -77,7 +78,7 @@ runner.destroy()
 `wasm-fetch-end` はストリームがある場合だけ記録する。
 DOM に接続済みで、幅と高さのあるキャンバスを渡す。shadow DOM 内でも使える。
 ブラウザで WebGPU が使えなければ Promise が失敗する。WebGL や CPU への代替処理はない。
-エラー表示と接続・切断の管理はホスト側で行う。
+エラー表示の呼び出し (`renderStartupError`) と接続・切断の管理はホスト側で行う。
 
 回路は URL と同じ Quirk 形式の JSON 文字列。列ごとの配列にゲート名を入れ、配列の位置が量子ビットを表す。
 1 量子ビットへの H ゲートは `{"cols":[["H"]]}`。
@@ -253,6 +254,79 @@ GPU の値の読み戻しも行わない。追加可能な場合は次の空ワ�
 const height = runner.preferredHeight(canvas.clientWidth)
 canvas.style.height = `${height}px`
 ```
+
+## 起動エラーの表示
+
+`startEmbed` の失敗は `QniStartupError` で通知する。`code` は原因、`message` は元の説明、
+`cause` は元の例外、`detail` は HTTP 状態などの補足情報を持つ。
+`onDeviceLost(error)` にも `gpu-device-lost` のエラーを渡す。
+
+| コード | 見出し |
+| --- | --- |
+| `insecure-context` | 安全な接続で開いてください |
+| `wasm-unavailable` | ブラウザーの設定で止められています |
+| `webgpu-unsupported` | このブラウザーでは動きません |
+| `gpu-adapter-unavailable` | GPU を使えませんでした |
+| `gpu-device-unavailable` | GPU の準備に失敗しました |
+| `gpu-device-lost` | GPU との接続が切れました |
+| `load-failed` | 読み込みに失敗しました |
+| `startup-timeout` | 起動が止まってしまいました |
+| `invalid-embed` | 回路のデータに問題があります |
+| `unknown` | 量子回路を起動できませんでした |
+
+```js
+let errors
+
+async function start() {
+  let started = false
+  try {
+    errors ??= await import('./assets/qni-embed-error.mjs')
+    const { startEmbed } = await import('./assets/qni-embed.mjs')
+    const runner = await startEmbed(canvas, circuit, {
+      startupTimeoutMs: 20_000,
+      onDeviceLost: error => {
+        if (started) errors.renderStartupError(errorSlot, error, { onRetry: start })
+      },
+    })
+    started = true
+    return runner
+  } catch (error) {
+    if (errors) errors.renderStartupError(errorSlot, error, { onRetry: start })
+    else errorSlot.textContent = '量子回路を起動できませんでした。ページを再読み込みしてください。'
+  }
+}
+```
+
+実際のホストでは、再試行の前に前のランナーを破棄し、エラー表示を消してから起動する。
+`diagnoseWebGpu()` は wasm を取得せずに環境を確認し、原因か `null` を返す。
+`startEmbed` 自体も同じ事前確認を行う。`qni-embed.mjs` の取得に失敗した場合も、
+独立した `qni-embed-error.mjs` を読み込めていればエラー画面を表示できる。
+このモジュールまで取得できない場合は、ホスト側で再読み込みを案内する文字を表示する。
+
+`startupTimeoutMs` はアダプタの確認とランナーの GPU 初期化それぞれの期限で、既定は 20 秒、`0` で無効になる。
+wasm のダウンロードとコンパイルは期限に含めない。
+単独で呼ぶ `diagnoseWebGpu()` には期限がない。期限付きの起動には `startEmbed` を使う。
+時間切れの後は同じ初期化を待ち続ける可能性があるため、再試行ではなくページの再読み込みを案内する。
+遅れて起動したランナーは破棄する。
+
+`renderStartupError(container, error, options)` は指定要素の中身を置き換え、専用の shadow DOM に描画する。
+`container` 自体が shadow DOM 内にあっても使える。枠の幅と高さはホスト側で決める。
+狭い枠では配置を切り替え、低い枠では内部をスクロールする。フォントの追加取得は行わない。
+ホストの `--qni-startup-error-font` で本文の書体を、`--qni-startup-error-mono-font` で「エラーの詳細」などの等幅の書体を指定できる。
+`options.onRetry` を省くと、再試行の代わりにページの再読み込みを案内する。
+`options.headingLevel` は `2`、`3`、`4` から選べる (既定は `3`)。
+戻り値の `code` は原因、`naturalHeight()` は内容に必要な高さ、`remove()` は表示の削除に使う。
+
+[表示の確認ページ](design-system/embed-startup-error.html)で各原因の画面を確認できる。
+リポジトリ直下で `python3 -m http.server 4194 --bind 127.0.0.1` を起動し、
+`http://127.0.0.1:4194/docs/design-system/embed-startup-error.html` を開く。
+
+### チュートリアルからの利用
+
+別リポジトリ `qniapp/qni-tutorial-webgpu` では、依存コミットを記録する `qni-webgpu.ref` を更新して 4 ファイルを再取得する。
+埋め込み要素の `qni-webgpu-circuit.ts` にある独自の WebGPU 判定とエラー文をこの API に置き換える。
+属性の検証失敗は `invalid-embed` として渡し、再試行時にはエラー表示と原因属性を消す。
+テストの GPU の代用品にも `requestAdapter` を用意し、原因別の表示と再試行を検証する。
 
 ## カスタム要素への接続
 

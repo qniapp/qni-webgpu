@@ -13,12 +13,15 @@ mod render;
 mod shared;
 mod simulation_plan;
 mod span_resize;
+mod startup_error;
 mod tailwind;
 mod test_hooks;
 mod url_circuit;
 
 #[cfg(target_arch = "wasm32")]
 use crate::app::QniApp;
+#[cfg(target_arch = "wasm32")]
+use crate::startup_error::{startup_error, StartupErrorCode};
 
 #[cfg(any(target_arch = "wasm32", test))]
 fn web_wgpu_setup() -> eframe::egui_wgpu::WgpuSetup {
@@ -193,11 +196,15 @@ async fn initialize_shared_gpu() -> SharedGpuResult {
             ..Default::default()
         })
         .await
-        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+        .map_err(|error| {
+            startup_error(StartupErrorCode::GpuAdapterUnavailable, &error.to_string())
+        })?;
     let (device, queue) = adapter
         .request_device(&(create.device_descriptor)(&adapter))
         .await
-        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+        .map_err(|error| {
+            startup_error(StartupErrorCode::GpuDeviceUnavailable, &error.to_string())
+        })?;
     device.set_device_lost_callback(|reason, message| {
         SHARED_GPU.with(|slot| {
             let mut state = slot.borrow_mut();
@@ -208,9 +215,15 @@ async fn initialize_shared_gpu() -> SharedGpuResult {
         web_sys::console::error_1(&JsValue::from_str(&format!(
             "Qni shared GPU device lost: {reason:?}: {message}"
         )));
-        if let (Some(window), Ok(event)) =
-            (web_sys::window(), web_sys::Event::new("qni-device-lost"))
-        {
+        let detail = js_sys::Object::new();
+        let _ = js_sys::Reflect::set(&detail, &"reason".into(), &format!("{reason:?}").into());
+        let _ = js_sys::Reflect::set(&detail, &"message".into(), &message.into());
+        let init = web_sys::CustomEventInit::new();
+        init.set_detail(&detail);
+        if let (Some(window), Ok(event)) = (
+            web_sys::window(),
+            web_sys::CustomEvent::new_with_event_init_dict("qni-device-lost", &init),
+        ) {
             let _ = window.dispatch_event(&event);
         }
     });
@@ -249,7 +262,7 @@ pub async fn start_embed(
         palette.as_deref(),
         max_wire_count,
     )
-    .map_err(|error| JsValue::from_str(&error))?;
+    .map_err(|error| startup_error(StartupErrorCode::InvalidEmbed, &error))?;
     if show_restart_button {
         startup.on_restart = on_restart.map(|callback| {
             Box::new(move || {
