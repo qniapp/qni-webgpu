@@ -12,9 +12,28 @@ struct PillParts {
     running: bool,
 }
 
-pub fn gpu_status_pill(ui: &mut egui::Ui, status: &ExternalGpuStatus) -> Option<egui::Response> {
+pub fn gpu_status_pill(
+    ui: &mut egui::Ui,
+    status: &ExternalGpuStatus,
+    compact: bool,
+) -> Option<egui::Response> {
     let colors = Colors::new();
     let parts = pill_parts(status, &colors)?;
+    if compact {
+        let (rect, response) = ui.allocate_exact_size(
+            egui::vec2(crate::tailwind::SPACING_2, crate::tailwind::SPACING_8),
+            egui::Sense::hover(),
+        );
+        ui.painter()
+            .circle_filled(rect.center(), crate::tailwind::SPACING_1, parts.color);
+        let label = match parts.detail {
+            Some(detail) => format!("{} · {detail}", parts.label),
+            None => parts.label.to_owned(),
+        };
+        response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, true, &label));
+        return Some(response.on_hover_text(label));
+    }
+
     if parts.running {
         ui.ctx().request_repaint_after(Duration::from_millis(600));
     }

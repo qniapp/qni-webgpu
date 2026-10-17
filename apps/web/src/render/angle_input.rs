@@ -6,7 +6,7 @@ use crate::app::{AngleAffordance, AngleEditor, GateId, QniApp};
 use crate::colors::{with_alpha, Colors};
 use crate::constants::GATE_SIZE;
 use crate::gates::{GateKind, ParametricAngle};
-use crate::layout::LayoutMetrics;
+use crate::layout::{CircuitProjection, LayoutMetrics};
 use crate::simulation_plan::ColumnAnalysis;
 
 use super::circuit::gate_slot_index_for_render;
@@ -48,11 +48,12 @@ impl QniApp {
         metrics: &LayoutMetrics,
         dragging_gate_id: Option<GateId>,
     ) -> Option<GateId> {
-        let local_pos = local_pos?;
-        self.collect_angle_labels(metrics, egui::Pos2::ZERO, dragging_gate_id)
+        let frame = CircuitProjection::new(self.orientation, egui::Pos2::ZERO);
+        let pos = frame.to_screen(local_pos?);
+        self.collect_angle_labels(metrics, frame, dragging_gate_id)
             .iter()
             .rev()
-            .find(|label| angle_label_interaction_rect(&label.as_info()).contains(local_pos))
+            .find(|label| angle_label_interaction_rect(&label.as_info()).contains(pos))
             .map(|label| label.gate_id)
     }
 
@@ -63,11 +64,11 @@ impl QniApp {
         metrics: &LayoutMetrics,
         colors: &Colors,
         dragging_gate_id: Option<GateId>,
-        scroll_x: f32,
+        scroll_time: f32,
         angle_interaction_blocked: bool,
     ) {
-        let circuit_origin = self.circuit_origin(rect, scroll_x);
-        let labels = self.collect_angle_labels(metrics, circuit_origin, dragging_gate_id);
+        let projection = self.circuit_projection(rect, scroll_time);
+        let labels = self.collect_angle_labels(metrics, projection, dragging_gate_id);
         let now = crate::shared::now_seconds();
         if self.dragging.is_some() || self.span_resize_drag.is_some() {
             self.angle_affordance = None;
@@ -133,7 +134,7 @@ impl QniApp {
     fn collect_angle_labels(
         &self,
         metrics: &LayoutMetrics,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
         dragging_gate_id: Option<GateId>,
     ) -> Vec<OwnedAngleLabel> {
         let render_columns = ColumnAnalysis::from_gates(&self.placed_gates, |gate| {
@@ -151,7 +152,7 @@ impl QniApp {
                     gate,
                     &render_columns,
                     metrics,
-                    circuit_origin,
+                    projection,
                     self.dragging
                         .filter(|drag| Some(drag.id) == dragging_gate_id),
                 )

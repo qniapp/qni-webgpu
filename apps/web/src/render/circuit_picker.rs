@@ -68,7 +68,11 @@ impl QniApp {
         .into_galley(
             ui,
             Some(egui::TextWrapMode::Truncate),
-            TRIGGER_NAME_MAX_WIDTH,
+            if self.orientation.is_vertical() {
+                crate::tailwind::SPACING_6
+            } else {
+                TRIGGER_NAME_MAX_WIDTH
+            },
             font,
         );
         let trigger_w = TRIGGER_PAD_LEFT
@@ -107,7 +111,7 @@ impl QniApp {
             rect.center().y,
         );
         paint_chevron(ui.painter(), chev_center, open_t, colors.toolbar_icon);
-        if name.chars().count() > 40 {
+        if self.orientation.is_vertical() || name.chars().count() > 40 {
             response = response.on_hover_text(name.to_owned());
         }
         response
