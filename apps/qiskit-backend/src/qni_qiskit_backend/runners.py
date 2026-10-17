@@ -4,9 +4,10 @@ import cmath
 import math
 from collections import defaultdict
 from dataclasses import dataclass
+from contextlib import ExitStack
 from typing import Any, Protocol, Sequence
 
-from .circuit import apply_column_to_qiskit, initial_basis_tracker
+from .circuit import apply_column_to_qiskit, initial_basis_tracker, postselection_registers
 from .contract import (
     AmplitudeOutputRequest,
     BlochOutputRequest,
@@ -107,6 +108,10 @@ class QiskitRunner:
             raise RunnerUnavailable(f"{self.name} execution failed: {exc}") from exc
 
         counts = normalize_qiskit_counts(result.get_counts())
+        if postselection_registers(qc):
+            # Extra bits record rejection, not a quantum state to recompute.
+            counts = {key[-qubits:]: count for key, count in counts.items()
+                      if "1" not in key[:-qubits]}
         response = histogram_response(
             runner=self.name,
             qubits=qubits,
@@ -114,10 +119,17 @@ class QiskitRunner:
             histogram=counts,
         )
         data = result.data(0)
+        undefined = empty_postselection_displays(data, request) if postselection_registers(qc) else {}
         add_qiskit_amplitudes(response, request, data, amplitude_labels)
         add_qiskit_bloch(response, request, data, bloch_labels)
         add_qiskit_probability(response, request, data, probability_labels)
         add_qiskit_density(response, request, data, density_labels)
+        for kind, gate_ids in undefined.items():
+            for display in response.get(kind, []):
+                if display["gate_id"] in gate_ids:
+                    display["defined"] = False
+                    if kind == "densities":
+                        display["unity"] = 1e-12
         return response
 
 
@@ -180,8 +192,59 @@ def add_display_saves(
                 qc.save_density_matrix(density_save_qargs(density, qubits), label=label)
                 density_labels[density.gate_id] = label
 
-        apply_column_to_qiskit(qc, column, qubits, basis_tracker, save_displays=save_displays)
+        def save_kept_displays() -> None:
+            if not any(column_index in outputs for outputs in (
+                amplitudes_by_column, bloch_by_column, probability_by_column, density_by_column
+            )):
+                return
+            # Aer performs the projection and normalization on its device.
+            # Save inside prefix-success conditions: later postselection must
+            # never condition an earlier display. Aer averages only executions
+            # reaching each save, without CPU statevector readback/normalization.
+            with ExitStack() as stack:
+                for register in postselection_registers(qc):
+                    stack.enter_context(qc.if_test((register[0], 0)))
+                save_displays()
+
+        apply_column_to_qiskit(qc, column, qubits, basis_tracker, save_displays=save_kept_displays)
     return amplitude_labels, bloch_labels, probability_labels, density_labels
+
+
+def empty_postselection_displays(data: dict[str, Any], request: RunRequest) -> dict[str, set[int]]:
+    """A save not reached by any kept shot represents an undefined state.
+
+    This includes impossible projections and finite-shot misses of rare events;
+    no fictitious |0> result or NaN JSON is returned.
+    """
+    undefined: dict[str, set[int]] = defaultdict(set)
+    for output in request.amplitude_outputs:
+        label = f"amplitude:{output.gate_id}"
+        if label not in data:
+            undefined["amplitudes"].add(output.gate_id)
+            data[label] = [0j] * (1 << request.qubits.value)
+    for output in request.bloch_outputs:
+        prefix = f"bloch:{output.gate_id}"
+        if output.control_mask == 0:
+            if f"{prefix}:x" not in data:
+                undefined["bloch"].add(output.gate_id)
+                for axis in ("x", "y", "z"):
+                    data[f"{prefix}:{axis}"] = 0.0
+        elif f"{prefix}:density" not in data:
+            undefined["bloch"].add(output.gate_id)
+            dim = 1 << len(bloch_save_qargs(output, request.qubits))
+            data[f"{prefix}:density"] = [[0j] * dim for _ in range(dim)]
+    for output in request.probability_outputs:
+        label = f"probability:{output.gate_id}"
+        if label not in data:
+            undefined["probability"].add(output.gate_id)
+            data[label] = None
+    for output in request.density_outputs:
+        label = f"density:{output.gate_id}"
+        if label not in data:
+            undefined["densities"].add(output.gate_id)
+            dim = 1 << len(density_save_qargs(output, request.qubits))
+            data[label] = [[0j] * dim for _ in range(dim)]
+    return undefined
 
 
 def add_qiskit_amplitudes(
@@ -237,11 +300,14 @@ def add_qiskit_probability(
     if not request.probability_outputs:
         return
     response["probability"] = [
-        probability_display_response(
+        (probability_display_response(
             probability,
             qiskit_saved_probabilities(data[labels[probability.gate_id]]),
             request.qubits,
-        )
+        ) if data[labels[probability.gate_id]] is not None else {
+            "gate_id": probability.gate_id, "span": probability.span,
+            "probabilities": [-1.0] * (1 << probability.span),
+        })
         for probability in request.probability_outputs
     ]
 
