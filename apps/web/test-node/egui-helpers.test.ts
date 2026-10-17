@@ -352,20 +352,28 @@ test('releasePointer releases relative to the egui canvas', async () => {
   })
 })
 
+test('getPaletteGateCenter matches Rust rounding when the palette overflows an odd viewport', () => {
+  assert.deepEqual(getPaletteGateCenter(1001, 0), { x: 15, y: 100 })
+})
+
+test('getPaletteGateCenter rounds within the central panel before adding its margin', () => {
+  assert.deepEqual(getPaletteGateCenter(1025, 0), { x: 27, y: 100 })
+})
+
 test('getPaletteGateCenter places the detector after measurement on row two', () => {
-  assert.deepEqual(getPaletteGateCenter(1000, 26), { x: 495, y: 148 })
+  assert.deepEqual(getPaletteGateCenter(1000, 26), { x: 399, y: 148 })
 })
 
 test('getPaletteGateCenter places the sample display gate in the third column', () => {
-  assert.deepEqual(getPaletteGateCenter(1000, 29), { x: 889, y: 100 })
+  assert.deepEqual(getPaletteGateCenter(1000, 33), { x: 985, y: 100 })
 })
 
 test('getPaletteGateCenter places zpar after anticontrol on row two', () => {
-  assert.deepEqual(getPaletteGateCenter(1000, 27), { x: 255, y: 148 })
+  assert.deepEqual(getPaletteGateCenter(1000, 31), { x: 159, y: 148 })
 })
 
 test('getPaletteGateCenter places xpar after zpar on row two', () => {
-  assert.deepEqual(getPaletteGateCenter(1000, 28), { x: 303, y: 148 })
+  assert.deepEqual(getPaletteGateCenter(1000, 32), { x: 207, y: 148 })
 })
 
 test('sampleCanvasPixels passes screenshot bytes and css size into page evaluation', async () => {
@@ -448,7 +456,7 @@ test('getDragPreviewAboveStatePanelProbe preserves the current drag target contr
     dragFillPoint: probe.dragFillPoint,
     sourceFillPoint: probe.sourceFillPoint,
   }, {
-    source: { x: 111, y: 100 },
+    source: { x: 15, y: 100 },
     handleBelowSource: true,
     dragFillPoint: { name: 'fill', x: probe.handleCenter.x + 14, y: probe.handleCenter.y + 14 },
     sourceFillPoint: { name: 'sourceFill', x: probe.source.x + 14, y: probe.source.y + 14 },
@@ -457,7 +465,7 @@ test('getDragPreviewAboveStatePanelProbe preserves the current drag target contr
 
 export {}
 
-for (const [gateIndex, x] of [[13, 111], [14, 159], [15, 207], [27, 255], [28, 303], [17, 351], [18, 399], [19, 447], [26, 495], [30, 543], [31, 591], [22, 639], [23, 687], [21, 735]] as const) {
+for (const [gateIndex, x] of [[13, 15], [14, 63], [15, 111], [31, 159], [32, 207], [17, 255], [18, 303], [19, 351], [26, 399], [34, 447], [35, 495], [22, 543], [23, 591], [21, 639], [27, 687], [28, 735], [29, 783], [30, 831]] as const) {
   test(`palette helper locates gate ${gateIndex} in the second row`, () => {
     assert.deepEqual(getPaletteGateCenter(1000, gateIndex), { x, y: 148 })
   })

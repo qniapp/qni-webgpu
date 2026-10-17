@@ -77,6 +77,9 @@ pub(crate) struct DensityGpuHandle {
 
 thread_local! {
     #[cfg(target_arch = "wasm32")]
+    pub(crate) static POSTSELECTION_GPU_HANDLE: RefCell<Option<MeasurementGpuHandle>> = const { RefCell::new(None) };
+    pub(crate) static POSTSELECTION_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+    #[cfg(target_arch = "wasm32")]
     pub(crate) static SAMPLE_DISPLAY_SPANS: RefCell<Vec<(u32, u32)>> = const { RefCell::new(Vec::new()) };
     #[cfg(target_arch = "wasm32")]
     pub(crate) static GPU_READBACK: RefCell<Option<GpuReadbackState>> = const { RefCell::new(None) };
@@ -654,4 +657,59 @@ pub async fn read_sample_display_outcome(gate_id: u32, span: u32) -> Result<u32,
     drop(data);
     staging.unmap();
     Ok(outcome)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) async fn read_postselection_rates_impl() -> Result<js_sys::Float32Array, JsValue> {
+    let Some(handle) = POSTSELECTION_GPU_HANDLE.with(|slot| slot.borrow().clone()) else {
+        return Ok(js_sys::Float32Array::new_with_length(0));
+    };
+    let slot_map = POSTSELECTION_SLOT_MAP.with(|cell| cell.borrow().clone());
+    if slot_map.is_empty() {
+        return Ok(js_sys::Float32Array::new_with_length(0));
+    }
+    let copy_bytes = slot_map.len() * 4 * std::mem::size_of::<f32>();
+    let staging = handle.device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("postselection_readback"),
+        size: copy_bytes as wgpu::BufferAddress,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let mut encoder = handle
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("postselection_readback_encoder"),
+        });
+    encoder.copy_buffer_to_buffer(
+        &handle.aux_buffer,
+        0,
+        &staging,
+        0,
+        copy_bytes as wgpu::BufferAddress,
+    );
+    handle.queue.submit(Some(encoder.finish()));
+
+    let slice = staging.slice(..);
+    let (sender, receiver) = oneshot::channel();
+    slice.map_async(wgpu::MapMode::Read, move |result| {
+        let _ = sender.send(result);
+    });
+    receiver
+        .await
+        .map_err(|_| JsValue::from_str("readback dropped"))?
+        .map_err(|err| JsValue::from_str(&format!("map_async failed: {err:?}")))?;
+    let data = slice.get_mapped_range();
+    let floats: &[f32] = bytemuck::cast_slice(&data);
+    let output = js_sys::Float32Array::new_with_length((slot_map.len() * 2) as u32);
+    for (slot, gate_id) in slot_map.iter().enumerate() {
+        let rate_idx = slot * 4;
+        if rate_idx >= floats.len() {
+            break;
+        }
+        output.set_index((slot * 2) as u32, *gate_id as f32);
+        output.set_index((slot * 2 + 1) as u32, floats[rate_idx]);
+    }
+    drop(data);
+    staging.unmap();
+    Ok(output)
 }

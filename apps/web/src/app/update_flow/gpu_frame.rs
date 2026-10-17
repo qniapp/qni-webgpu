@@ -75,6 +75,7 @@ impl QniApp {
                         max_step_snapshot_slots: MAX_STEP_SNAPSHOT_SLOTS,
                         max_bloch_slots: MAX_BLOCH_SLOTS,
                         max_measurement_slots: MAX_MEASUREMENT_SLOTS,
+                        max_postselection_slots: crate::gpu::MAX_POSTSELECTION_SLOTS,
                         max_probability_slots: MAX_PROBABILITY_SLOTS,
                         max_amplitude_slots: MAX_AMPLITUDE_SLOTS,
                         max_density_slots: MAX_DENSITY_SLOTS,

@@ -11,6 +11,7 @@ type QniWebModule = {
   read_density_matrix_cell: (gateId: number, row: number, col: number) => Promise<ArrayLike<number>>
   read_probability_distributions: () => Promise<ArrayLike<number>>
   read_measurement_outcomes: () => Promise<ArrayLike<number>>
+  read_postselection_rates: () => Promise<ArrayLike<number>>
   start: (canvas: HTMLCanvasElement) => Promise<{ destroy: () => void }>
 }
 
@@ -26,6 +27,7 @@ declare global {
     __eguiReadAmplitudeCell?: (gateId: number, outcome: number) => Promise<number[]>
     __eguiReadDensityMatrixCell?: (gateId: number, row: number, col: number) => Promise<number[]>
     __eguiReadMeasurementOutcomes?: () => Promise<number[]>
+    __eguiReadPostselectionRates?: () => Promise<number[]>
     __qniExecModeFocusRequested?: boolean
     __qniQiskitBackendUrl?: string
     __qniLastQiskitRequest?: unknown
@@ -230,6 +232,7 @@ const run = async (): Promise<void> => {
       read_bloch_vectors,
       read_probability_distributions,
       read_measurement_outcomes,
+      read_postselection_rates,
       read_state_vector,
       start,
     } = window.wasmBindings ?? loadedModule
@@ -247,6 +250,10 @@ const run = async (): Promise<void> => {
       } catch {
         return []
       }
+    }
+    window.__eguiReadPostselectionRates = async () => {
+      try { return Array.from(await read_postselection_rates()) }
+      catch { return [] }
     }
     window.__eguiReadMeasurementOutcomes = async () => {
       try {

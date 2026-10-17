@@ -85,6 +85,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
       y = -2.0 * shared_rho01_im[0] / unity;
       z = (shared_rho00[0] - shared_rho11[0]) / unity;
     }
-    bloch_out[params.output_slot] = vec4<f32>(x, y, z, 0.0);
+    bloch_out[params.output_slot] = vec4<f32>(x, y, z, select(-1.0, 0.0, unity > 0.000000000001));
   }
 }

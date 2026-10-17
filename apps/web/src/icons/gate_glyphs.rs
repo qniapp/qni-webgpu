@@ -4,6 +4,10 @@ use eframe::egui;
 
 use crate::colors::Colors;
 use crate::gates::GateKind;
+use crate::tailwind::{
+    SPACING_1, SPACING_10, SPACING_2, SPACING_3, SPACING_5, SPACING_6, SPACING_9, STROKE_2,
+    TEXT_BASE,
+};
 
 use super::bloch_display::draw_bloch_sphere;
 use super::svg::{map_svg_point_in_rect, SvgPoint};
@@ -97,6 +101,38 @@ pub(super) fn draw_gate_icon(
     let p = |x: f32, y: f32| map_svg_point_in_rect(rect, SvgPoint::new(x, y), viewbox);
 
     match kind {
+        GateKind::PostSelectOff
+        | GateKind::PostSelectOn
+        | GateKind::PostSelectAntiX
+        | GateKind::PostSelectX => {
+            let (symbol, symbol_color) = match kind {
+                GateKind::PostSelectOff => ("0", colors.semantic_off),
+                GateKind::PostSelectOn => ("1", colors.semantic_on),
+                GateKind::PostSelectAntiX => ("+", colors.semantic_intermediate),
+                _ => ("−", colors.semantic_intermediate),
+            };
+            let projector_stroke = egui::Stroke::new(STROKE_2 * scale, colors.semantic_disabled);
+            for x in [SPACING_1, VIEWBOX - SPACING_1] {
+                painter.line_segment([p(x, SPACING_2), p(x, SPACING_10)], projector_stroke);
+            }
+            for x in [SPACING_5, VIEWBOX - SPACING_5] {
+                painter.line_segment([p(x, SPACING_2), p(SPACING_6, SPACING_6)], projector_stroke);
+                painter.line_segment(
+                    [p(SPACING_6, SPACING_6), p(x, SPACING_10)],
+                    projector_stroke,
+                );
+            }
+            for x in [SPACING_3, SPACING_9] {
+                painter.text(
+                    p(x, SPACING_6),
+                    egui::Align2::CENTER_CENTER,
+                    symbol,
+                    egui::FontId::monospace(TEXT_BASE * scale),
+                    symbol_color,
+                );
+            }
+            true
+        }
         GateKind::BlochDisplay => {
             // Stand-alone sphere with crossed axes drawn directly on the wire,
             // matching qni's bloch-display element. The dynamic Bloch vector is

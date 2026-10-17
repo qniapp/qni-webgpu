@@ -148,6 +148,7 @@ fn draw_gate_body_with_fill(
         && kind != GateKind::Spacer
         && kind != GateKind::Write0
         && kind != GateKind::Write1
+        && !kind.is_postselection()
     {
         painter.rect_filled(
             gate_rect,
@@ -358,6 +359,49 @@ fn draw_probability_preview_body(painter: &egui::Painter, rect: egui::Rect, colo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn postselection_shapes(dragging: bool) -> Vec<egui::epaint::ClippedShape> {
+        let ctx = egui::Context::default();
+        ctx.run_ui(egui::RawInput::default(), |ui| {
+            for (index, kind) in [
+                GateKind::PostSelectOff,
+                GateKind::PostSelectOn,
+                GateKind::PostSelectAntiX,
+                GateKind::PostSelectX,
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                let rect = egui::Rect::from_min_size(
+                    egui::pos2(16.0 + index as f32 * (GATE_SIZE + 16.0), 16.0),
+                    egui::Vec2::splat(GATE_SIZE),
+                );
+                if dragging {
+                    draw_drag_gate_body(ui.painter(), rect, kind, &Colors::new());
+                } else {
+                    draw_gate_body(ui.painter(), rect, kind, &Colors::new());
+                }
+            }
+        })
+        .shapes
+    }
+
+    #[test]
+    fn postselection_bodies_are_frameless() {
+        assert!(!postselection_shapes(false)
+            .iter()
+            .any(|shape| matches!(shape.shape, egui::Shape::Rect(_))));
+    }
+
+    #[test]
+    fn postselection_body_snapshot() {
+        insta::assert_debug_snapshot!(postselection_shapes(false));
+    }
+
+    #[test]
+    fn postselection_drag_body_matches_static_body() {
+        assert_eq!(postselection_shapes(true), postselection_shapes(false));
+    }
 
     #[test]
     fn z_detect_control_reset_body_snapshot() {

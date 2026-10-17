@@ -276,9 +276,9 @@ impl QniApp {
                     egui::StrokeKind::Inside,
                 );
             }
-            if matches!(gate.kind, GateKind::Write0 | GateKind::Write1) {
-                // Write gates have no fill, so the wire would otherwise show
-                // through the brackets. Mask just the wire under the gate.
+            if matches!(gate.kind, GateKind::Write0 | GateKind::Write1)
+                || gate.kind.is_postselection()
+            {
                 painter.rect_filled(gate_rect, egui::CornerRadius::ZERO, colors.background);
             }
             if measurement_has_slot {
@@ -841,6 +841,79 @@ impl QniApp {
             shapes.push(egui::Shape::Callback(paint_callback));
         }
         shapes
+    }
+
+    pub(crate) fn draw_survival_labels(
+        &self,
+        painter: &egui::Painter,
+        callback_rect: egui::Rect,
+        circuit_origin: egui::Pos2,
+        colors: &Colors,
+        panel_rect: Option<egui::Rect>,
+    ) {
+        if !callback_rect.is_positive() {
+            return;
+        }
+        let dragging_gate_id = self.dragging.map(|drag| drag.id);
+        let mut columns = std::collections::BTreeMap::new();
+        for gate in &self.placed_gates {
+            if dragging_gate_id == Some(gate.id) && !self.dragging_live_display_snap {
+                continue;
+            }
+            let Some(slot) = self.gpu_plan.postselection_slot(gate.id) else {
+                continue;
+            };
+            let slot = slot.as_u32();
+            let pos = circuit_origin
+                + crate::render::circuit::gate_draw_pos(gate, self.dragging).to_vec2();
+            let entry = columns.entry(gate.column).or_insert((slot, slot, pos.x));
+            entry.0 = entry.0.min(slot);
+            entry.1 = entry.1.max(slot);
+        }
+        let mut postselection_instances: Vec<crate::gpu::SurvivalLabelInstance> = columns
+            .values()
+            .map(
+                |&(first_slot, last_slot, x)| crate::gpu::SurvivalLabelInstance {
+                    center: [
+                        x + GATE_SIZE * 0.5,
+                        self.circuit_bottom_y(callback_rect) - crate::tailwind::SPACING_4,
+                    ],
+                    half_extent: crate::tailwind::SPACING_8,
+                    first_slot,
+                    last_slot,
+                    mode: 0,
+                },
+            )
+            .collect();
+        if let Some(panel) = panel_rect {
+            if let Some(last_slot) = columns.values().map(|entry| entry.1).max() {
+                postselection_instances.push(crate::gpu::SurvivalLabelInstance {
+                    center: [
+                        panel.center().x,
+                        panel.bottom() + crate::tailwind::SPACING_2,
+                    ],
+                    half_extent: crate::tailwind::SPACING_16,
+                    first_slot: 0,
+                    last_slot,
+                    mode: 1,
+                });
+            }
+        }
+        if !postselection_instances.is_empty() {
+            let callback = crate::gpu::PostselectionCallback {
+                instances: postselection_instances.into(),
+                viewport_min: [callback_rect.min.x, callback_rect.min.y],
+                viewport_size: [callback_rect.width(), callback_rect.height()],
+                zero_color: colors.semantic_off.to_normalized_gamma_f32(),
+                one_color: colors.semantic_off.to_normalized_gamma_f32(),
+            };
+            painter.add(egui::Shape::Callback(
+                egui_wgpu::Callback::new_paint_callback(
+                    callback_rect,
+                    FrameCallback::new(callback),
+                ),
+            ));
+        }
     }
 
     pub(crate) fn draw_bloch_hover_popup(

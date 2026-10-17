@@ -93,6 +93,13 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         return color;
     }
 
+    if (density_meta[in.slot].x <= 0.000000000001) {
+        if (on_rect_border(in.local, in.rect_size, 1.0) || fract((in.local.x + in.local.y) / 8.0) < 0.125) {
+            color = params.border;
+        }
+        return color;
+    }
+
     let dim = 1u << in.span;
     let cell = min(in.rect_size.x, in.rect_size.y) / f32(dim);
     let grid_size = vec2<f32>(f32(dim) * cell, f32(dim) * cell);

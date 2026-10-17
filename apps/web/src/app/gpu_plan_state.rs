@@ -22,6 +22,7 @@ pub(crate) struct GpuPlanState {
     bloch_slots: HashMap<GateId, SlotIndex<Bloch>>,
     /// Same idea for measurement gates → `measurement_aux_buffer` slot.
     measurement_slots: HashMap<GateId, SlotIndex<Measurement>>,
+    postselection_slots: HashMap<GateId, SlotIndex<crate::gpu::Postselection>>,
     /// Probability displays → `probability_output` slot.
     probability_slots: HashMap<GateId, SlotIndex<Probability>>,
     /// Amplitude displays → `amplitude_output` slot.
@@ -45,6 +46,7 @@ impl Default for GpuPlanState {
             snapshot_slot_count: 0,
             bloch_slots: HashMap::new(),
             measurement_slots: HashMap::new(),
+            postselection_slots: HashMap::new(),
             probability_slots: HashMap::new(),
             amplitude_slots: HashMap::new(),
             density_slots: HashMap::new(),
@@ -59,6 +61,7 @@ impl GpuPlanState {
         self.needs_recompute = true;
         self.bloch_slots.clear();
         self.measurement_slots.clear();
+        self.postselection_slots.clear();
         self.probability_slots.clear();
         self.amplitude_slots.clear();
         self.density_slots.clear();
@@ -91,6 +94,7 @@ impl GpuPlanState {
         self.snapshot_slot_count = 0;
         self.bloch_slots.clear();
         self.measurement_slots.clear();
+        self.postselection_slots.clear();
         self.probability_slots.clear();
         self.amplitude_slots.clear();
         self.density_slots.clear();
@@ -104,6 +108,7 @@ impl GpuPlanState {
         self.snapshot_slot_count = 0;
         self.bloch_slots.clear();
         self.measurement_slots.clear();
+        self.postselection_slots.clear();
         self.probability_slots.clear();
         self.amplitude_slots.clear();
         self.density_slots.clear();
@@ -144,6 +149,7 @@ impl GpuPlanState {
         self.snapshot_slot_count = 0;
         self.bloch_slots.clear();
         self.measurement_slots.clear();
+        self.postselection_slots.clear();
         self.probability_slots.clear();
         self.amplitude_slots.clear();
         self.density_slots.clear();
@@ -179,6 +185,13 @@ impl GpuPlanState {
         self.sim_ops.clone()
     }
 
+    pub(crate) fn postselection_slot(
+        &self,
+        gate_id: GateId,
+    ) -> Option<SlotIndex<crate::gpu::Postselection>> {
+        self.postselection_slots.get(&gate_id).copied()
+    }
+
     pub(crate) fn has_measurement_slot(&self, gate_id: GateId) -> bool {
         self.measurement_slots.contains_key(&gate_id)
     }
@@ -212,12 +225,19 @@ impl GpuPlanState {
     fn rebuild_slot_maps(&mut self) {
         self.bloch_slots.clear();
         self.measurement_slots.clear();
+        self.postselection_slots.clear();
         self.probability_slots.clear();
         self.amplitude_slots.clear();
         self.density_slots.clear();
         self.flag_sources = FlagSources::default();
         for op in self.sim_ops.iter() {
             match op {
+                SimulationOp::Postselect {
+                    gate_id,
+                    output_slot,
+                } => {
+                    self.postselection_slots.insert(*gate_id, *output_slot);
+                }
                 SimulationOp::SnapshotState { .. } => {}
                 SimulationOp::CaptureBloch {
                     gate_id,
@@ -317,5 +337,42 @@ mod tests {
         );
 
         assert_eq!(state.bloch_slot(GateId::from_u32(8)), None);
+    }
+    fn postselection_plan() -> GpuPlanState {
+        let mut state = GpuPlanState::default();
+        state.replace_ops(
+            vec![SimulationOp::Postselect {
+                gate_id: GateId::from_u32(7),
+                output_slot: SlotIndex::new(3),
+            }],
+            1,
+            FlagSources::default(),
+        );
+        state
+    }
+
+    #[test]
+    fn postselection_slot_preserves_gate_identity() {
+        assert_eq!(
+            postselection_plan().postselection_slot(GateId::from_u32(7)),
+            Some(SlotIndex::new(3))
+        );
+    }
+
+    #[test]
+    fn replacing_plan_removes_old_postselection_slots() {
+        let mut state = postselection_plan();
+        state.replace_ops(Vec::new(), 0, FlagSources::default());
+        assert_eq!(state.postselection_slot(GateId::from_u32(7)), None);
+    }
+
+    #[test]
+    fn live_drag_preserves_postselection_slots_until_recompute() {
+        let mut state = postselection_plan();
+        state.mark_live_drag_dirty();
+        assert_eq!(
+            state.postselection_slot(GateId::from_u32(7)),
+            Some(SlotIndex::new(3))
+        );
     }
 }

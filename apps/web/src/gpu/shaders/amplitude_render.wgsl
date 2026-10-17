@@ -99,6 +99,13 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         color = blend_over(color, params.border);
     }
 
+    if (!placeholder && in.force_zero_amplitude == AMPLITUDE_MODE_SAMPLE && amplitude_meta[in.slot].w < 0.0) {
+        if (outer_d <= -body_border && fract((in.local.x + in.local.y) / 8.0) < 0.125) {
+            color = blend_over(color, params.outline_zero);
+        }
+        return color;
+    }
+
     let cols = grid_cols(in.span);
     let outcomes = 1u << in.span;
     let rows = outcomes / cols;

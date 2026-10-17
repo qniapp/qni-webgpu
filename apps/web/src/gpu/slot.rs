@@ -91,6 +91,7 @@ impl<F> Default for SlotAllocator<F> {
 pub(crate) enum Snapshot {}
 pub(crate) enum Bloch {}
 pub(crate) enum Measurement {}
+pub(crate) enum Postselection {}
 pub(crate) enum Probability {}
 pub(crate) enum Amplitude {}
 pub(crate) enum Density {}
