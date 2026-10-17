@@ -7,6 +7,9 @@ apps/web/embed-dist/
 apps/web/.trunk-generated/
 apps/web/output/
 apps/web/playwright-report/
+apps/web/blob-report/
+apps/web/all-blob-reports/
+apps/web/playwright-dist/
 apps/web/test-results/
 apps/web/node_modules/
 apps/tui/tests/snapshots/*.snap.new
