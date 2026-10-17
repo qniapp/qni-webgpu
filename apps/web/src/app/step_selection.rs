@@ -13,6 +13,15 @@ impl QniApp {
         })
     }
 
+    /// Embed edits show the complete result rather than the startup snapshot.
+    /// Standalone editing retains its explicitly locked step.
+    pub(crate) fn follow_embed_edit(&mut self) {
+        if matches!(self.mode, super::AppMode::Embed { .. }) {
+            self.breakpoint_step = None;
+            self.hovered_step = None;
+        }
+    }
+
     /// Committed JSON columns, excluding block markers and editor padding.
     pub(crate) fn step_count(&self) -> usize {
         crate::url_circuit::summarize_circuit_json(&self.library.active().circuit_json)
@@ -99,6 +108,69 @@ mod tests {
         let cc = eframe::CreationContext::_new_kittest(ctx.clone());
         let startup = crate::app::EmbedStartup::parse(json, true, None::<&[&str]>, None).unwrap();
         (QniApp::new_with_startup(&cc, Some(startup)), ctx)
+    }
+
+    #[test]
+    fn committed_edit_selects_the_final_state() {
+        let (mut app, ctx) = fixture(r#"{"cols":[["H"],["X"]]}"#);
+        app.select_step(-1.0, &ctx).unwrap();
+        app.placed_gates[1].kind = crate::gates::GateKind::H;
+        app.commit_current_circuit(&ctx);
+        assert_eq!(app.selected_step(), Some(1));
+    }
+
+    #[test]
+    fn committed_edit_clears_hover_preview() {
+        let (mut app, ctx) = fixture(r#"{"cols":[["H"],["X"]]}"#);
+        app.hovered_step = Some(CircuitColumnIndex::ZERO);
+        app.placed_gates[1].kind = crate::gates::GateKind::H;
+        app.commit_current_circuit(&ctx);
+        assert_eq!(app.hovered_step, None);
+    }
+
+    #[test]
+    fn unchanged_commit_preserves_selected_step() {
+        let (mut app, ctx) = fixture(r#"{"cols":[["H"],["X"]]}"#);
+        app.select_step(-1.0, &ctx).unwrap();
+        app.commit_current_circuit(&ctx);
+        assert_eq!(app.selected_step(), Some(-1));
+    }
+
+    #[test]
+    fn undo_selects_the_restored_final_state() {
+        let (mut app, ctx) = fixture(r#"{"cols":[["H"],["X"]]}"#);
+        app.placed_gates[1].kind = crate::gates::GateKind::H;
+        app.commit_current_circuit(&ctx);
+        app.undo_circuit(&ctx);
+        assert_eq!(app.selected_step(), Some(1));
+    }
+
+    #[test]
+    fn redo_selects_the_restored_final_state() {
+        let (mut app, ctx) = fixture(r#"{"cols":[["H"],["X"]]}"#);
+        app.placed_gates[1].kind = crate::gates::GateKind::H;
+        app.commit_current_circuit(&ctx);
+        app.undo_circuit(&ctx);
+        app.redo_circuit(&ctx);
+        assert_eq!(app.selected_step(), Some(1));
+    }
+
+    #[test]
+    fn standalone_edit_preserves_the_locked_initial_state() {
+        let (mut app, ctx) = fixture(r#"{"cols":[["H"],["X"]]}"#);
+        app.mode = super::super::AppMode::Standalone;
+        app.select_step(-1.0, &ctx).unwrap();
+        app.placed_gates[1].kind = crate::gates::GateKind::H;
+        app.commit_current_circuit(&ctx);
+        assert_eq!(app.breakpoint_step, Some(CircuitColumnIndex::INITIAL));
+    }
+
+    #[test]
+    fn standalone_url_load_keeps_the_final_column_locked() {
+        let (mut app, ctx) = fixture(r#"{"cols":[["H"]]}"#);
+        app.mode = super::super::AppMode::Standalone;
+        app.apply_url_payload(r#"{"cols":[["H"],["X"]]}"#.to_owned(), &ctx);
+        assert_eq!(app.breakpoint_step, Some(CircuitColumnIndex::new(1)));
     }
 
     #[test]
