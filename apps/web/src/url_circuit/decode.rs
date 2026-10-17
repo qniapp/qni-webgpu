@@ -889,6 +889,52 @@ mod tests {
     }
 
     #[test]
+    fn web_embed_doc_block_example_round_trips_byte_for_byte() {
+        let json = r#"{"cols":[["{量子もつれ"],["H"],["•","X"],["}"]]}"#;
+
+        assert_eq!(round_trip(json), json);
+    }
+
+    fn label_round_trip(label: &str) -> Option<String> {
+        let mut blocks = crate::app::CircuitBlocks::default();
+        blocks
+            .push(
+                label.to_owned(),
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::CircuitColumnIndex::new(1),
+            )
+            .expect("one block is valid");
+        let circuit = parse_circuit_json(r#"{"cols":[["H"]]}"#);
+        let json = crate::url_circuit::circuit_to_json(&circuit.gates, &blocks, "", qubit_count(1));
+        parse_circuit_json(&json)
+            .blocks
+            .iter()
+            .next()
+            .map(|block| block.label().to_owned())
+    }
+
+    #[test]
+    fn block_label_with_quote_and_backslash_round_trips() {
+        assert_eq!(
+            label_round_trip(r#"say "a" \ b"#).as_deref(),
+            Some(r#"say "a" \ b"#)
+        );
+    }
+
+    #[test]
+    fn block_label_with_japanese_and_emoji_round_trips() {
+        assert_eq!(
+            label_round_trip("量子もつれ 🎉").as_deref(),
+            Some("量子もつれ 🎉")
+        );
+    }
+
+    #[test]
+    fn block_label_with_braces_round_trips() {
+        assert_eq!(label_round_trip("{a}b").as_deref(), Some("{a}b"));
+    }
+
+    #[test]
     fn adjacent_blocks_round_trip_through_json() {
         let json = r#"{"cols":[["{a"],["H"],["}"],["{b"],["X"],["}"]]}"#;
 
