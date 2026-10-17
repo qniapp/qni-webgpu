@@ -185,6 +185,9 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   } else {
     glyph = glyph_log(char_index, prob);
   }
+  if (probability_data[params.slot * MAX_PROBABILITY_OUTCOMES + params.outcome] < 0.0) {
+    glyph = select(GLYPH_BLANK, 19u, char_index == 0u);
+  }
   if (glyph == GLYPH_BLANK) { discard; }
 
   let atlas_u = (f32(glyph) + cell_local.x) / f32(GLYPH_COUNT);

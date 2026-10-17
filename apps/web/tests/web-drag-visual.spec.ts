@@ -44,14 +44,11 @@ test('dragged palette gate stays visible above the palette panel', async ({ page
   }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
 
-  const REM = 32
   const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
-  const hSource = getPaletteGateCenter(cssWidth, 0)
-  // Drop target sits outside the palette panel to the left, matching the
-  // visual probe used in the original test.
+  const source = getPaletteGateCenter(cssWidth, 2)
   const dragTarget = {
-    x: hSource.x - GATE_SIZE,
-    y: hSource.y,
+    x: source.x - GATE_SIZE,
+    y: source.y,
   }
   const dragRect = {
     x: dragTarget.x - GATE_SIZE / 2,
@@ -65,7 +62,7 @@ test('dragged palette gate stays visible above the palette panel', async ({ page
 
   const beforeDrag = await sampleCanvasPixels(page, canvas, [fillPoint])
 
-  await dragPointer(page, hSource, dragTarget, 6, false)
+  await dragPointer(page, source, dragTarget, 6, false)
   await page.waitForTimeout(50)
 
   const duringDrag = await sampleCanvasPixels(page, canvas, [fillPoint])

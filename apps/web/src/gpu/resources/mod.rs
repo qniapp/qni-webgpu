@@ -42,8 +42,10 @@ mod density_matrix_display;
 mod digit;
 mod measure;
 mod popup_value;
+mod postselection;
 mod probability_display;
 mod state;
+mod state_status;
 
 use eframe::wgpu;
 
@@ -60,9 +62,11 @@ use self::state::StateResources;
 
 pub(crate) struct StateVectorResources {
     pub(crate) common: Common,
+    pub(crate) state_status: state_status::StateStatusResources,
     pub(crate) state: StateResources,
     pub(crate) bloch: BlochResources,
     pub(crate) measure: MeasureResources,
+    pub(crate) postselection: postselection::PostselectionResources,
     pub(crate) probability: ProbabilityResources,
     pub(crate) amplitude: AmplitudeResources,
     pub(crate) density: DensityResources,
@@ -95,7 +99,10 @@ impl StateVectorResources {
         target_format: wgpu::TextureFormat,
     ) -> Self {
         let common = Common::build(device);
+        let state_status = state_status::StateStatusResources::build(device, &common);
         let measure = MeasureResources::build(device, &common);
+        let postselection =
+            postselection::PostselectionResources::build(device, queue, target_format, &common);
         let state = StateResources::build(device, target_format, &common, &measure.aux_buffer);
         let bloch = BlochResources::build(device, queue, target_format, &common);
         let probability = ProbabilityResources::build(device, queue, target_format, &common);
@@ -108,9 +115,11 @@ impl StateVectorResources {
 
         Self {
             common,
+            state_status,
             state,
             bloch,
             measure,
+            postselection,
             probability,
             amplitude,
             density,
@@ -142,6 +151,8 @@ impl StateVectorResources {
             return;
         }
         self.state.update_target_format(device, target_format);
+        self.postselection
+            .update_target_format(device, target_format);
         self.bloch.update_target_format(device, target_format);
         self.probability.update_target_format(device, target_format);
         self.amplitude.update_target_format(device, target_format);

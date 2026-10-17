@@ -22,13 +22,14 @@ mod recompute;
 mod resources;
 mod shaders;
 mod slot;
+mod survival_glyph_atlas;
 
 pub(crate) use callbacks::{
     AmplitudeDisplayCallback, AmplitudePopupValueCallback, BlochOverlayCallback,
     BlochPopupValueCallback, ConditionalGateBodyCallback, DensityMatrixDisplayCallback,
-    FrameCallback, MeasurementDigitCallback, PopupValueCallback, ProbabilityDisplayCallback,
-    ProbabilityPopupValueCallback, StateVectorCallback, StateVectorComputeCallback,
-    StateVectorResourceBootstrapCallback, StateVectorUpdate,
+    FrameCallback, MeasurementDigitCallback, PopupValueCallback, PostselectionCallback,
+    ProbabilityDisplayCallback, ProbabilityPopupValueCallback, StateVectorCallback,
+    StateVectorComputeCallback, StateVectorResourceBootstrapCallback, StateVectorUpdate,
 };
 pub(crate) use params::{
     AmplitudeInstance, BlochOverlayInstance, ConditionalGateBodyInstance,
@@ -36,20 +37,21 @@ pub(crate) use params::{
     ExternalAmplitudeUploadBatch, ExternalBlochUpload, ExternalBlochUploadBatch,
     ExternalDensityUpload, ExternalDensityUploadBatch, ExternalProbabilityUpload,
     ExternalProbabilityUploadBatch, MeasurementDigitInstance, ProbabilityInstance, RenderColors,
-    RenderParams, AMPLITUDE_FORCE_NONE, AMPLITUDE_FORCE_PLACEHOLDER, AMPLITUDE_FORCE_ZERO,
-    DENSITY_RENDER_MODE_PLACEHOLDER, DENSITY_RENDER_MODE_SAMPLE, MAX_AMPLITUDE_SLOTS,
-    MAX_BLOCH_SLOTS, MAX_DENSITY_SLOTS, MAX_MEASUREMENT_SLOTS, MAX_OPS_PER_RECOMPUTE,
-    MAX_PROBABILITY_SLOTS, MAX_STEP_SNAPSHOT_SLOTS, PROBABILITY_RENDER_MODE_PLACEHOLDER,
-    PROBABILITY_RENDER_MODE_SAMPLE,
+    RenderParams, SurvivalLabelInstance, AMPLITUDE_FORCE_NONE, AMPLITUDE_FORCE_PLACEHOLDER,
+    AMPLITUDE_FORCE_ZERO, DENSITY_RENDER_MODE_PLACEHOLDER, DENSITY_RENDER_MODE_SAMPLE,
+    MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_DENSITY_SLOTS, MAX_MEASUREMENT_SLOTS,
+    MAX_OPS_PER_RECOMPUTE, MAX_POSTSELECTION_SLOTS, MAX_PROBABILITY_SLOTS, MAX_STEP_SNAPSHOT_SLOTS,
+    PROBABILITY_RENDER_MODE_PLACEHOLDER, PROBABILITY_RENDER_MODE_SAMPLE,
 };
 pub(crate) use popup_glyph_atlas::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};
 pub(crate) use probability_distribution::ProbabilityDistribution;
 #[cfg(target_arch = "wasm32")]
 pub(crate) use readback::{
     read_amplitude_cell_impl, read_bloch_vectors_impl, read_density_matrix_cell_impl,
-    read_measurement_outcomes_impl, read_probability_distributions_impl, read_runner_state_vector,
-    read_state_vector_impl,
+    read_measurement_outcomes_impl, read_postselection_rates_impl,
+    read_probability_distributions_impl, read_runner_state_vector, read_state_vector_impl,
 };
 pub(crate) use slot::{
-    Amplitude, Bloch, Density, Measurement, Probability, SlotAllocator, SlotIndex, Snapshot,
+    Amplitude, Bloch, Density, Measurement, Postselection, Probability, SlotAllocator, SlotIndex,
+    Snapshot,
 };

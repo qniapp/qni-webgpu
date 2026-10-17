@@ -16,6 +16,7 @@ pub(super) struct EncodedRecompute {
     pub(super) active_state: usize,
     pub(super) bloch_slot_to_gate_id: Vec<u32>,
     pub(super) measurement_slot_to_gate_id: Vec<u32>,
+    pub(super) postselection_slot_to_gate_id: Vec<u32>,
     pub(super) probability_slot_to_gate_id: Vec<u32>,
     pub(super) amplitude_slot_to_gate_id: Vec<u32>,
     pub(super) density_slot_to_gate_id: Vec<u32>,
@@ -48,6 +49,9 @@ pub(super) fn encode_batched_recompute(
                 output_slot.as_u32(),
             ),
             SimulationOp::ApplyGate(_) => state.encode_apply_gate(&mut encoder, resources),
+            SimulationOp::Postselect { gate_id, .. } => {
+                state.encode_postselection(&mut encoder, resources, gate_id.as_u32(), state_count)
+            }
             SimulationOp::CaptureBloch { gate_id, .. } => {
                 state.encode_capture_bloch(&mut encoder, resources, gate_id.as_u32());
             }
@@ -76,6 +80,7 @@ pub(super) fn encode_batched_recompute(
         active_state,
         bloch_slot_to_gate_id: state.bloch_slot_to_gate_id,
         measurement_slot_to_gate_id: state.measurement_slot_to_gate_id,
+        postselection_slot_to_gate_id: state.postselection_slot_to_gate_id,
         probability_slot_to_gate_id: state.probability_slot_to_gate_id,
         amplitude_slot_to_gate_id: state.amplitude_slot_to_gate_id,
         density_slot_to_gate_id: state.density_slot_to_gate_id,
@@ -96,6 +101,7 @@ struct DispatchState {
     density_slot: u64,
     bloch_slot_to_gate_id: Vec<u32>,
     measurement_slot_to_gate_id: Vec<u32>,
+    postselection_slot_to_gate_id: Vec<u32>,
     probability_slot_to_gate_id: Vec<u32>,
     amplitude_slot_to_gate_id: Vec<u32>,
     density_slot_to_gate_id: Vec<u32>,
@@ -117,6 +123,7 @@ impl DispatchState {
             density_slot: 0,
             bloch_slot_to_gate_id: Vec::with_capacity(MAX_BLOCH_SLOTS),
             measurement_slot_to_gate_id: Vec::with_capacity(MAX_MEASUREMENT_SLOTS),
+            postselection_slot_to_gate_id: Vec::new(),
             probability_slot_to_gate_id: Vec::with_capacity(MAX_PROBABILITY_SLOTS),
             amplitude_slot_to_gate_id: Vec::with_capacity(MAX_AMPLITUDE_SLOTS),
             density_slot_to_gate_id: Vec::with_capacity(MAX_DENSITY_SLOTS),
@@ -146,6 +153,42 @@ impl DispatchState {
             dst_offset,
             byte_len,
         );
+    }
+
+    fn encode_postselection(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        resources: &StateVectorResources,
+        gate_id: u32,
+        state_count: usize,
+    ) {
+        let size = std::mem::size_of::<super::super::params::PostselectionParams>() as u64;
+        let post = &resources.postselection;
+        encoder.copy_buffer_to_buffer(
+            &post.params_staging_buffer,
+            self.postselection_slot_to_gate_id.len() as u64 * size,
+            &post.params_buffer,
+            0,
+            size,
+        );
+        for (pipeline, groups, dispatch) in [
+            (&post.reduce_pipeline, &post.reduce_bind_groups, 1),
+            (
+                &post.normalize_pipeline,
+                &post.normalize_bind_groups,
+                (state_count as u32).div_ceil(64),
+            ),
+        ] {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("postselection"),
+                timestamp_writes: None,
+            });
+            pass.set_pipeline(pipeline);
+            pass.set_bind_group(0, &groups[self.in_index], &[]);
+            pass.dispatch_workgroups(dispatch, 1, 1);
+        }
+        self.in_index = 1 - self.in_index;
+        self.postselection_slot_to_gate_id.push(gate_id);
     }
 
     fn encode_apply_gate(

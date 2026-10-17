@@ -67,7 +67,7 @@ function expected(c: RecomputeCase) {
         break
       }
       case 'bloch':
-        outputs.push({ name: 'bloch', slot: op.slot, data: [...ref.bloch(state, op.bit, mask, value), 0] })
+        outputs.push({ name: 'bloch', slot: op.slot, data: [...ref.bloch(state, op.bit, mask, value), op.expectedStatus ?? 0] })
         break
       case 'probability': {
         const raw = ref.probability(state, op.baseBit, op.span, mask, value)
