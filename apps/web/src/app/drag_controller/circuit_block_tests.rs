@@ -43,7 +43,8 @@ fn metrics(app: &QniApp) -> LayoutMetrics {
 }
 
 fn to_screen(app: &QniApp, local: egui::Pos2) -> egui::Pos2 {
-    local + app.circuit_origin(screen(), app.circuit_scroll_x).to_vec2()
+    app.circuit_projection(screen(), app.circuit_scroll_time)
+        .to_screen(local)
 }
 
 fn slot(app: &QniApp, column: usize) -> egui::Pos2 {
@@ -57,7 +58,8 @@ fn slot(app: &QniApp, column: usize) -> egui::Pos2 {
 fn block_body(app: &QniApp, index: usize) -> egui::Rect {
     let block = app.circuit_blocks.get(index).expect("test block exists");
     let local = circuit_block_rect(block, &metrics(app)).expect("block is laid out");
-    local.translate(app.circuit_origin(screen(), 0.0).to_vec2())
+    app.circuit_projection(screen(), app.circuit_scroll_time)
+        .to_screen_rect(local)
 }
 
 fn top_label(app: &QniApp, index: usize) -> egui::Pos2 {
@@ -496,4 +498,45 @@ fn pressing_elsewhere_while_editing_commits_the_editor() {
         .circuit_block_editor
         .as_ref()
         .is_some_and(|editor| editor.commit_after_frame));
+}
+
+#[test]
+fn portrait_label_drag_along_time_moves_instead_of_removing_the_block() {
+    let (mut app, ctx) = editable(r#"{"cols":[["{comment"],["H"],["}"],["X"]]}"#);
+    app.orientation = crate::layout::CircuitOrientation::Vertical;
+    let metrics = metrics(&app);
+    ctx.begin_pass(egui::RawInput::default());
+    let body = circuit_block_rect(app.circuit_blocks.get(0).unwrap(), &metrics).unwrap();
+    let from = egui::pos2(
+        body.center().x,
+        body.bottom()
+            + crate::render::CIRCUIT_BLOCK_LABEL_GAP_X
+            + crate::render::circuit_block_label_width(&ctx, "comment") / 2.0,
+    );
+    super::DragController::start_circuit_block_label_drag(
+        &mut app,
+        0,
+        CircuitBlockLabelSlot::Top,
+        from,
+        &metrics,
+    );
+    super::DragController::update_circuit_block_drag(
+        &mut app,
+        super::DragPointer {
+            screen_pos: None,
+            local_pos: Some(from + egui::vec2(56.0, 0.0)),
+            start: false,
+            shift_at_start: None,
+            snap_allowed: true,
+            down: false,
+            released: true,
+        },
+        &metrics,
+        &ctx,
+    );
+    let _ = ctx.end_pass();
+    assert_eq!(
+        circuit_json(&app),
+        r#"{"cols":[["H"],["{comment"],["X"],["}"]]}"#
+    );
 }

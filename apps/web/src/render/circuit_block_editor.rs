@@ -8,12 +8,13 @@ use eframe::egui;
 
 use super::circuit_blocks::{
     circuit_block_label_center, circuit_block_label_font, circuit_block_label_width,
-    circuit_block_rect, paint_circuit_block_underline, CIRCUIT_BLOCK_PLACEHOLDER,
+    circuit_block_rect, circuit_block_vertical_label_rect, paint_circuit_block_underline,
+    CIRCUIT_BLOCK_PLACEHOLDER,
 };
 use crate::app::{CircuitBlockEditor, CircuitBlockLabelSlot, QniApp};
 use crate::colors::Colors;
 use crate::constants::CIRCUIT_BLOCK_LABEL_LINE_HEIGHT;
-use crate::layout::LayoutMetrics;
+use crate::layout::{CircuitProjection, LayoutMetrics};
 
 /// Longest comment the editor accepts, in characters. URLs may carry longer
 /// labels; only typing is limited.
@@ -81,10 +82,10 @@ impl QniApp {
         rect: egui::Rect,
         metrics: &LayoutMetrics,
         colors: &Colors,
-        scroll_x: f32,
+        scroll_time: f32,
     ) {
-        let circuit_origin = self.circuit_origin(rect, scroll_x);
-        publish_circuit_block_geometry_json(self, ui.ctx(), metrics, circuit_origin);
+        let projection = self.circuit_projection(rect, scroll_time);
+        publish_circuit_block_geometry_json(self, ui.ctx(), metrics, projection);
         if !self.circuit_block_editing_allowed() {
             self.circuit_block_editor = None;
             return;
@@ -96,7 +97,7 @@ impl QniApp {
             .circuit_blocks
             .get(editor.index)
             .and_then(|block| circuit_block_rect(block, metrics))
-            .map(|local| local.translate(circuit_origin.to_vec2()))
+            .map(|local| projection.to_screen_rect(local))
         else {
             return;
         };
@@ -111,18 +112,16 @@ impl QniApp {
             editor.draft.as_str()
         };
         let text_width = circuit_block_label_width(ui.ctx(), shown);
-        let edit_rect = egui::Rect::from_center_size(
-            circuit_block_label_center(body, editor.slot),
-            egui::vec2(
-                body.width().max(text_width + crate::tailwind::SPACING_4),
-                CIRCUIT_BLOCK_LABEL_LINE_HEIGHT,
-            ),
-        );
+        let edit_rect = circuit_block_editor_rect(body, editor.slot, text_width, projection);
         let mut edit_ui = ui.new_child(
             egui::UiBuilder::new()
                 .id_salt(("circuit-block-editor-child", editor.index))
                 .max_rect(edit_rect)
-                .layout(egui::Layout::left_to_right(egui::Align::Center)),
+                .layout(egui::Layout::left_to_right(if projection.is_vertical() {
+                    egui::Align::Min
+                } else {
+                    egui::Align::Center
+                })),
         );
         edit_ui.set_min_size(edit_rect.size());
         edit_ui.visuals_mut().selection.stroke = egui::Stroke::new(0.0_f32, colors.text_strong);
@@ -135,7 +134,11 @@ impl QniApp {
                     .color(colors.circuit_block_placeholder),
             )
             .char_limit(CIRCUIT_BLOCK_LABEL_MAX_CHARS)
-            .horizontal_align(egui::Align::Center)
+            .horizontal_align(if projection.is_vertical() {
+                egui::Align::Max
+            } else {
+                egui::Align::Center
+            })
             .frame(egui::Frame::NONE)
             .margin(egui::Margin::ZERO)
             .desired_width(edit_rect.width())
@@ -153,10 +156,14 @@ impl QniApp {
         }
         paint_circuit_block_underline(
             ui.painter(),
-            egui::Rect::from_center_size(
-                output.text_clip_rect.center(),
-                egui::vec2(text_width, output.galley.size().y),
-            ),
+            if projection.is_vertical() {
+                egui::Rect::from_min_size(output.galley_pos, output.galley.size())
+            } else {
+                egui::Rect::from_center_size(
+                    output.text_clip_rect.center(),
+                    egui::vec2(text_width, output.galley.size().y),
+                )
+            },
             colors,
         );
 
@@ -189,12 +196,34 @@ impl QniApp {
     }
 }
 
+/// The editor stays upright in both orientations. In portrait it is
+/// right-aligned with the single label to the left of the projected body.
+fn circuit_block_editor_rect(
+    body: egui::Rect,
+    slot: CircuitBlockLabelSlot,
+    text_width: f32,
+    projection: CircuitProjection,
+) -> egui::Rect {
+    let padded_width = text_width + crate::tailwind::SPACING_4;
+    if projection.is_vertical() {
+        circuit_block_vertical_label_rect(body, padded_width)
+    } else {
+        egui::Rect::from_center_size(
+            circuit_block_label_center(body, slot),
+            egui::vec2(
+                body.width().max(padded_width),
+                CIRCUIT_BLOCK_LABEL_LINE_HEIGHT,
+            ),
+        )
+    }
+}
+
 #[cfg(all(target_arch = "wasm32", debug_assertions))]
 fn publish_circuit_block_geometry_json(
     app: &QniApp,
     ctx: &egui::Context,
     metrics: &LayoutMetrics,
-    circuit_origin: egui::Pos2,
+    projection: CircuitProjection,
 ) {
     use super::circuit_blocks::{
         circuit_block_handle_rect, circuit_block_label_rect, CIRCUIT_BLOCK_LABEL_SLOTS,
@@ -214,13 +243,18 @@ fn publish_circuit_block_geometry_json(
         .circuit_blocks
         .iter()
         .filter_map(|block| {
-            let body = circuit_block_rect(block, metrics)?.translate(circuit_origin.to_vec2());
+            let local = circuit_block_rect(block, metrics)?;
+            let body = projection.to_screen_rect(local);
             let width = circuit_block_label_width(ctx, block.label());
-            let labels = CIRCUIT_BLOCK_LABEL_SLOTS
-                .map(|slot| rect_json(circuit_block_label_rect(body, slot, width)))
-                .join(",");
+            let labels = if projection.is_vertical() {
+                rect_json(circuit_block_vertical_label_rect(body, width))
+            } else {
+                CIRCUIT_BLOCK_LABEL_SLOTS
+                    .map(|slot| rect_json(circuit_block_label_rect(body, slot, width)))
+                    .join(",")
+            };
             let handles = [CircuitBlockEdge::Left, CircuitBlockEdge::Right]
-                .map(|edge| rect_json(circuit_block_handle_rect(body, edge)))
+                .map(|edge| rect_json(projection.to_screen_rect(circuit_block_handle_rect(local, edge))))
                 .join(",");
             Some(format!(
                 "{{\"label\":\"{}\",\"start\":{},\"end\":{},\"body\":{},\"labels\":[{labels}],\"handles\":[{handles}]}}",
@@ -257,7 +291,7 @@ fn publish_circuit_block_geometry_json(
     _app: &QniApp,
     _ctx: &egui::Context,
     _metrics: &LayoutMetrics,
-    _circuit_origin: egui::Pos2,
+    _projection: CircuitProjection,
 ) {
 }
 
@@ -324,6 +358,116 @@ mod tests {
 
     fn label(app: &QniApp) -> Option<&str> {
         app.circuit_blocks.get(0).map(|block| block.label())
+    }
+
+    struct PortraitEditorGeometry {
+        expected: egui::Rect,
+        visible_label: egui::Rect,
+        body: egui::Rect,
+        unscrolled: egui::Rect,
+        response: egui::Rect,
+        editor_open: bool,
+    }
+
+    fn portrait_editor_geometry() -> PortraitEditorGeometry {
+        let (mut app, ctx) = editable(BLOCK);
+        app.orientation = crate::layout::CircuitOrientation::Vertical;
+        app.circuit_scroll_time = 37.0;
+        app.open_circuit_block_editor(0, CircuitBlockLabelSlot::Top, &ctx);
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(390.0, 844.0));
+        let rect = egui::Rect::from_min_max(egui::pos2(0.0, 200.0), egui::pos2(390.0, 700.0));
+        let metrics = app.circuit_layout_metrics(rect);
+        let projection = app.circuit_projection(rect, app.circuit_scroll_time);
+        let local = circuit_block_rect(app.circuit_blocks.get(0).unwrap(), &metrics).unwrap();
+        let body = projection.to_screen_rect(local);
+        let colors = app.colors();
+        let mut observed = None;
+        let _ = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(screen),
+                ..Default::default()
+            },
+            |root_ui| {
+                egui::CentralPanel::default().show(root_ui, |ui| {
+                    let width = circuit_block_label_width(ui.ctx(), "a");
+                    let visible_label = circuit_block_vertical_label_rect(body, width);
+                    let expected = circuit_block_editor_rect(
+                        body,
+                        CircuitBlockLabelSlot::Top,
+                        width,
+                        projection,
+                    );
+                    let unscrolled = app.circuit_projection(rect, 0.0).to_screen_rect(local);
+                    let editor_id = ui.make_persistent_id(("circuit-block-editor", 0_usize));
+                    app.show_circuit_block_editor(
+                        ui,
+                        rect,
+                        &metrics,
+                        &colors,
+                        app.circuit_scroll_time,
+                    );
+                    let response = ui
+                        .ctx()
+                        .read_response(editor_id)
+                        .expect("portrait text field rendered");
+                    observed = Some((expected, visible_label, unscrolled, response.rect));
+                });
+            },
+        );
+        let (expected, visible_label, unscrolled, response) = observed.unwrap();
+        PortraitEditorGeometry {
+            expected,
+            visible_label,
+            body,
+            unscrolled,
+            response,
+            editor_open: app.circuit_block_editor.is_some(),
+        }
+    }
+
+    #[test]
+    fn portrait_editor_matches_the_projected_label_top() {
+        let geometry = portrait_editor_geometry();
+        assert_eq!(
+            geometry.expected.right_top(),
+            geometry.visible_label.right_top()
+        );
+    }
+
+    #[test]
+    fn portrait_editor_sits_left_of_the_block_body() {
+        let geometry = portrait_editor_geometry();
+        assert!(geometry.expected.right() < geometry.body.left());
+    }
+
+    #[test]
+    fn portrait_block_body_tracks_scroll_projection() {
+        let geometry = portrait_editor_geometry();
+        assert_eq!(geometry.body.top(), geometry.unscrolled.top() - 37.0);
+    }
+
+    #[test]
+    fn portrait_text_field_starts_at_the_label_top() {
+        let geometry = portrait_editor_geometry();
+        assert_eq!(geometry.response.right_top(), geometry.expected.right_top());
+    }
+
+    #[test]
+    fn portrait_text_field_matches_editor_width() {
+        let geometry = portrait_editor_geometry();
+        assert_eq!(geometry.response.width(), geometry.expected.width());
+    }
+
+    #[test]
+    fn portrait_text_field_fits_editor_height() {
+        let geometry = portrait_editor_geometry();
+        assert!(geometry.response.height() <= geometry.expected.height());
+    }
+
+    #[test]
+    fn portrait_editor_remains_open() {
+        let geometry = portrait_editor_geometry();
+        assert!(geometry.editor_open);
     }
 
     #[test]
@@ -483,8 +627,8 @@ mod tests {
             |root_ui| {
                 egui::CentralPanel::default().show(root_ui, |ui| {
                     let metrics = layout_metrics(1280.0, 2, 6);
-                    let origin = app.circuit_origin(screen(), 0.0);
-                    app.draw_circuit_blocks(ui.painter(), &metrics, &colors, origin);
+                    let projection = app.circuit_projection(screen(), 0.0);
+                    app.draw_circuit_blocks(ui.painter(), &metrics, &colors, projection);
                     app.show_circuit_block_editor(ui, screen(), &metrics, &colors, 0.0);
                 });
             },

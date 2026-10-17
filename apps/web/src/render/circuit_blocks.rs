@@ -1,8 +1,8 @@
 //! Circuit-block drawing (qni `circuit-block`): a tinted band behind the
 //! block's columns, ruled top and bottom, with the label centred above and
-//! below it, as in qni's desktop (`min-width: 768px`) layout. In the editor
-//! the block is the "comment block": hovering it reveals left / right resize
-//! handles and its labels open an inline editor.
+//! below it, as in qni's desktop (`min-width: 768px`) layout. The vertical
+//! layout rules the band left and right and puts one label left of it.
+//! In the editor, hovering reveals resize handles and labels open an inline editor.
 
 use eframe::egui;
 
@@ -15,8 +15,11 @@ use crate::constants::{
     CIRCUIT_BLOCK_BORDER_WIDTH, CIRCUIT_BLOCK_LABEL_FONT_SIZE, CIRCUIT_BLOCK_LABEL_LINE_HEIGHT,
     CIRCUIT_BLOCK_MARGIN_Y, CIRCUIT_BLOCK_PADDING_Y, LINE_GAP, SLOT_SPACING,
 };
+/// Vertical layout: gap between a block's label and its left rule.
+pub(crate) const CIRCUIT_BLOCK_LABEL_GAP_X: f32 = crate::tailwind::SPACING_2;
+
 use crate::icons::{draw_circuit_block_palette_icon, draw_span_resize_handle};
-use crate::layout::LayoutMetrics;
+use crate::layout::{CircuitProjection, LayoutMetrics};
 use crate::span_resize::{
     span_resize_ease_out_back, SPAN_RESIZE_HANDLE_HEIGHT, SPAN_RESIZE_HANDLE_MIN_WIDTH,
 };
@@ -97,6 +100,18 @@ pub(crate) fn circuit_block_label_rect(
     )
 }
 
+/// Screen-space hit box for the single, upright label left of a portrait block.
+/// Portrait labels use the `Top` editor slot.
+pub(crate) fn circuit_block_vertical_label_rect(body: egui::Rect, text_width: f32) -> egui::Rect {
+    egui::Rect::from_min_size(
+        egui::pos2(
+            body.left() - CIRCUIT_BLOCK_LABEL_GAP_X - text_width,
+            body.top(),
+        ),
+        egui::vec2(text_width, CIRCUIT_BLOCK_LABEL_LINE_HEIGHT),
+    )
+}
+
 /// The rest box of a resize handle: the span-resize pill turned upright,
 /// centred on the block's left or right edge.
 pub(crate) fn circuit_block_handle_rect(body: egui::Rect, edge: CircuitBlockEdge) -> egui::Rect {
@@ -173,9 +188,16 @@ impl QniApp {
         handle.or_else(|| {
             bodies.iter().find_map(|&(index, block, body)| {
                 let width = circuit_block_label_width(ctx, block.label());
-                let label = CIRCUIT_BLOCK_LABEL_SLOTS
-                    .into_iter()
-                    .find(|&slot| circuit_block_label_rect(body, slot, width).contains(cursor));
+                let label = if self.orientation.is_vertical() {
+                    let projection = CircuitProjection::new(self.orientation, egui::Pos2::ZERO);
+                    circuit_block_vertical_label_rect(projection.to_screen_rect(body), width)
+                        .contains(projection.to_screen(cursor))
+                        .then_some(CircuitBlockLabelSlot::Top)
+                } else {
+                    CIRCUIT_BLOCK_LABEL_SLOTS
+                        .into_iter()
+                        .find(|&slot| circuit_block_label_rect(body, slot, width).contains(cursor))
+                };
                 (label.is_some() || body.contains(cursor)).then_some(CircuitBlockHover {
                     index,
                     handle: None,
@@ -212,7 +234,7 @@ impl QniApp {
         painter: &egui::Painter,
         metrics: &LayoutMetrics,
         colors: &Colors,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
     ) {
         let font = circuit_block_label_font();
         if let Some(CircuitBlockDrag::Palette {
@@ -222,7 +244,7 @@ impl QniApp {
         {
             if let Some(local) = circuit_block_columns_rect(start, end, metrics) {
                 painter.rect_filled(
-                    local.translate(circuit_origin.to_vec2()),
+                    projection.to_screen_rect(local),
                     0.0,
                     colors.circuit_block_fill,
                 );
@@ -235,8 +257,37 @@ impl QniApp {
             let Some(local) = circuit_block_rect(block, metrics) else {
                 continue;
             };
-            let body = local.translate(circuit_origin.to_vec2());
+            let body = projection.to_screen_rect(local);
             painter.rect_filled(body, 0.0, colors.circuit_block_fill);
+            if projection.is_vertical() {
+                let rule = egui::vec2(CIRCUIT_BLOCK_BORDER_WIDTH, body.height());
+                for min in [body.left_top(), body.right_top() - egui::vec2(rule.x, 0.0)] {
+                    painter.rect_filled(
+                        egui::Rect::from_min_size(min, rule),
+                        0.0,
+                        colors.circuit_block_border,
+                    );
+                }
+                if self
+                    .circuit_block_editor
+                    .as_ref()
+                    .is_none_or(|editor| editor.index != index)
+                {
+                    let text_rect = painter.text(
+                        egui::pos2(body.left() - CIRCUIT_BLOCK_LABEL_GAP_X, body.top()),
+                        egui::Align2::RIGHT_TOP,
+                        block.label(),
+                        font.clone(),
+                        colors.circuit_block_label,
+                    );
+                    if self.circuit_block_hover_shown().is_some_and(|hover| {
+                        hover.index == index && hover.label == Some(CircuitBlockLabelSlot::Top)
+                    }) {
+                        paint_circuit_block_underline(painter, text_rect, colors);
+                    }
+                }
+                continue;
+            }
             let rule = egui::vec2(body.width(), CIRCUIT_BLOCK_BORDER_WIDTH);
             painter.rect_filled(
                 egui::Rect::from_min_size(body.left_top(), rule),
@@ -286,7 +337,7 @@ impl QniApp {
         painter: &egui::Painter,
         metrics: &LayoutMetrics,
         colors: &Colors,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
     ) {
         let resizing = match self.circuit_block_drag {
             Some(CircuitBlockDrag::Resize { index, edge }) => Some((index, edge)),
@@ -308,7 +359,6 @@ impl QniApp {
             let Some(local) = circuit_block_rect(block, metrics) else {
                 continue;
             };
-            let body = local.translate(circuit_origin.to_vec2());
             for edge in CIRCUIT_BLOCK_EDGES {
                 let active = resizing == Some((index, edge));
                 let hot =
@@ -326,7 +376,7 @@ impl QniApp {
                 };
                 draw_span_resize_handle(
                     painter,
-                    circuit_block_handle_rect(body, edge),
+                    projection.to_screen_rect(circuit_block_handle_rect(local, edge)),
                     bg,
                     scale,
                     alpha,
@@ -341,7 +391,7 @@ impl QniApp {
     pub(crate) fn draw_circuit_block_drag_overlay(
         &self,
         painter: &egui::Painter,
-        circuit_origin: egui::Pos2,
+        projection: CircuitProjection,
         colors: &Colors,
     ) {
         match self.circuit_block_drag {
@@ -352,7 +402,7 @@ impl QniApp {
                 draw_circuit_block_palette_icon(
                     painter,
                     egui::Rect::from_center_size(
-                        circuit_origin + cursor.to_vec2(),
+                        projection.to_screen(cursor),
                         egui::vec2(
                             crate::constants::PALETTE_SIZE,
                             crate::constants::PALETTE_SIZE,
@@ -369,7 +419,7 @@ impl QniApp {
             }) => {
                 if let Some(block) = self.circuit_blocks.get(index) {
                     painter.text(
-                        circuit_origin + cursor.to_vec2(),
+                        projection.to_screen(cursor),
                         egui::Align2::CENTER_CENTER,
                         block.label(),
                         circuit_block_label_font(),
@@ -476,8 +526,14 @@ mod tests {
 
     #[test]
     fn blocks_push_the_circuit_down_by_their_outset() {
-        let shift = app(BELL_BLOCK).circuit_origin(screen(), 0.0).y
-            - app(BELL).circuit_origin(screen(), 0.0).y;
+        let shift = app(BELL_BLOCK)
+            .circuit_projection(screen(), 0.0)
+            .to_screen(egui::Pos2::ZERO)
+            .y
+            - app(BELL)
+                .circuit_projection(screen(), 0.0)
+                .to_screen(egui::Pos2::ZERO)
+                .y;
 
         assert_eq!(shift, 32.0 + 2.0 + 24.0);
     }
@@ -495,7 +551,12 @@ mod tests {
     #[test]
     fn circuit_bottom_includes_the_lower_label_band() {
         let app = app(BELL_BLOCK);
-        let last_line_y = app.circuit_origin(screen(), 0.0).y + LINE_Y + LINE_GAP;
+        let last_line_y = app
+            .circuit_projection(screen(), 0.0)
+            .to_screen(egui::Pos2::ZERO)
+            .y
+            + LINE_Y
+            + LINE_GAP;
 
         assert_eq!(
             app.circuit_bottom_y(screen()),
@@ -544,6 +605,44 @@ mod tests {
     }
 
     #[test]
+    fn portrait_hover_targets_the_visible_left_label() {
+        let mut app = app(BELL_BLOCK);
+        app.orientation = crate::layout::CircuitOrientation::Vertical;
+        let projection = CircuitProjection::new(app.orientation, egui::Pos2::ZERO);
+        let metrics = layout_metrics(960.0, 2, 4);
+        let body = circuit_block_rect(app.circuit_blocks.get(0).unwrap(), &metrics).unwrap();
+        let ctx = egui::Context::default();
+        let _ = ctx.run_ui(egui::RawInput::default(), |_| {
+            let width = circuit_block_label_width(&ctx, "a");
+            let label = circuit_block_vertical_label_rect(projection.to_screen_rect(body), width);
+            let hover =
+                app.circuit_block_hover_at(projection.to_local(label.center()), &metrics, &ctx);
+            assert_eq!(
+                hover.and_then(|hover| hover.label),
+                Some(CircuitBlockLabelSlot::Top)
+            );
+        });
+    }
+
+    #[test]
+    fn portrait_hover_ignores_the_hidden_desktop_label() {
+        let mut app = app(BELL_BLOCK);
+        app.orientation = crate::layout::CircuitOrientation::Vertical;
+        let metrics = layout_metrics(960.0, 2, 4);
+        let body = circuit_block_rect(app.circuit_blocks.get(0).unwrap(), &metrics).unwrap();
+        let ctx = egui::Context::default();
+        let _ = ctx.run_ui(egui::RawInput::default(), |_| {
+            assert!(app
+                .circuit_block_hover_at(
+                    circuit_block_label_center(body, CircuitBlockLabelSlot::Top),
+                    &metrics,
+                    &ctx,
+                )
+                .is_none());
+        });
+    }
+
+    #[test]
     fn block_boundary_sits_half_a_slot_before_its_column() {
         let metrics = layout_metrics(1200.0, 2, 4);
 
@@ -560,8 +659,18 @@ mod tests {
         let output = ctx.run_ui(egui::RawInput::default(), |ui| {
             let metrics = layout_metrics(960.0, 2, 4);
             let colors = app.colors();
-            app.draw_circuit_blocks(ui.painter(), &metrics, &colors, egui::Pos2::ZERO);
-            app.draw_circuit_block_handles(ui.painter(), &metrics, &colors, egui::Pos2::ZERO);
+            app.draw_circuit_blocks(
+                ui.painter(),
+                &metrics,
+                &colors,
+                CircuitProjection::horizontal(egui::Pos2::ZERO),
+            );
+            app.draw_circuit_block_handles(
+                ui.painter(),
+                &metrics,
+                &colors,
+                CircuitProjection::horizontal(egui::Pos2::ZERO),
+            );
         });
         output.shapes
     }

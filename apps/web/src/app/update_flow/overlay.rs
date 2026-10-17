@@ -28,11 +28,11 @@ impl QniApp {
         ) || circuit_frame.recompute;
 
         if let Some(content_rect) = circuit_frame.content_rect {
-            let circuit_origin = self.circuit_origin(content_rect, self.circuit_scroll_x);
+            let projection = self.circuit_projection(content_rect, self.circuit_scroll_time);
             self.draw_survival_labels(
                 &overlay_painter,
                 screen_rect,
-                circuit_origin,
+                projection,
                 colors,
                 self.state_panel_visible().then(|| {
                     state_frame
@@ -78,7 +78,7 @@ impl QniApp {
         if let (Some(content_rect), Some(dragging_gate_id)) =
             (circuit_frame.content_rect, circuit_frame.dragging_gate_id)
         {
-            let circuit_origin = self.circuit_origin(content_rect, self.circuit_scroll_x);
+            let projection = self.circuit_projection(content_rect, self.circuit_scroll_time);
             if let Some(batch) = circuit_frame
                 .gpu_batch
                 .as_ref()
@@ -87,14 +87,14 @@ impl QniApp {
                 self.draw_insert_preview_overlay(
                     &overlay_painter,
                     batch,
-                    circuit_origin,
+                    projection,
                     colors,
                     dragging_gate_id,
                 );
             } else {
                 self.draw_drag_preview(
                     &overlay_painter,
-                    circuit_origin,
+                    projection,
                     colors,
                     dragging_gate_id,
                     circuit_frame.live_drag_gpu_overlay_ready,
@@ -102,8 +102,8 @@ impl QniApp {
             }
         }
         if let Some(content_rect) = circuit_frame.content_rect {
-            let circuit_origin = self.circuit_origin(content_rect, self.circuit_scroll_x);
-            self.draw_circuit_block_drag_overlay(&overlay_painter, circuit_origin, colors);
+            let projection = self.circuit_projection(content_rect, self.circuit_scroll_time);
+            self.draw_circuit_block_drag_overlay(&overlay_painter, projection, colors);
             // Paint display popovers in the foreground overlay so they sit above
             // the palette. Use the full screen rect as the GPU value viewport:
             // scrolled circuit content can have a negative rect origin, while
@@ -111,21 +111,21 @@ impl QniApp {
             self.draw_bloch_hover_popup(
                 &overlay_painter,
                 screen_rect,
-                circuit_origin,
+                projection,
                 circuit_frame.dragging_gate_id,
                 colors,
             );
             self.draw_probability_hover_popup(
                 &overlay_painter,
                 screen_rect,
-                circuit_origin,
+                projection,
                 circuit_frame.dragging_gate_id,
                 colors,
             );
             self.draw_amplitude_hover_popup(
                 &overlay_painter,
                 screen_rect,
-                circuit_origin,
+                projection,
                 circuit_frame.dragging_gate_id,
                 colors,
             );

@@ -15,7 +15,10 @@ use crate::constants::{
     SLOT_SPACING,
 };
 use crate::layout::{nearest_slot_index, LayoutMetrics};
-use crate::render::{circuit_block_boundary_x, circuit_block_rect};
+use crate::render::{
+    circuit_block_boundary_x, circuit_block_label_width, circuit_block_rect,
+    CIRCUIT_BLOCK_LABEL_GAP_X,
+};
 
 pub(crate) const CIRCUIT_BLOCK_DEFAULT_LABEL: &str = "comment";
 
@@ -93,7 +96,7 @@ impl DragController {
             ) => {
                 let max_click_dist = ctx.options(|options| options.input_options.max_click_dist);
                 let moved = moved || cursor.distance(press_pos) > max_click_dist;
-                let removing = moved && outside_block_band(app, index, cursor, metrics);
+                let removing = moved && outside_block_band(app, index, cursor, metrics, ctx);
                 let mut index = index;
                 if moved && !removing {
                     if let Some(start) = move_target(app, index, cursor.x - grab_dx, metrics) {
@@ -261,18 +264,26 @@ fn nearest_boundary(candidates: Vec<usize>, x: f32, metrics: &LayoutMetrics) -> 
 }
 
 /// Whether `cursor` left the band of block `index`: its body plus the label
-/// margins above and below.
+/// margins above and below (including the upright portrait label).
 fn outside_block_band(
     app: &QniApp,
     index: usize,
     cursor: egui::Pos2,
     metrics: &LayoutMetrics,
+    ctx: &egui::Context,
 ) -> bool {
-    app.circuit_blocks
-        .get(index)
-        .and_then(|block| circuit_block_rect(block, metrics))
-        .is_some_and(|body| {
-            !(body.top() - CIRCUIT_BLOCK_MARGIN_Y..=body.bottom() + CIRCUIT_BLOCK_MARGIN_Y)
+    app.circuit_blocks.get(index).is_some_and(|block| {
+        circuit_block_rect(block, metrics).is_some_and(|body| {
+            // The upright label left of the portrait body projects below it
+            // in local coordinates. Its width, not its line height, matters.
+            let bottom_margin = if app.orientation.is_vertical() {
+                CIRCUIT_BLOCK_MARGIN_Y
+                    .max(CIRCUIT_BLOCK_LABEL_GAP_X + circuit_block_label_width(ctx, block.label()))
+            } else {
+                CIRCUIT_BLOCK_MARGIN_Y
+            };
+            !(body.top() - CIRCUIT_BLOCK_MARGIN_Y..=body.bottom() + bottom_margin)
                 .contains(&cursor.y)
         })
+    })
 }

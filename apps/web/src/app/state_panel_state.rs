@@ -64,6 +64,9 @@ pub(crate) struct StatePanelState {
     pub(crate) aspect_popover_open: bool,
     /// Wheel accumulator for aspect stepping over the dimensions text.
     pub(crate) aspect_wheel_accum: f32,
+    /// Vertical layout's viewport height, kept while a gate drag changes
+    /// the tentative state count so the circuit area below does not move.
+    pub(crate) vertical_viewport_height: Option<f32>,
 }
 
 impl Default for StatePanelState {
@@ -81,6 +84,7 @@ impl Default for StatePanelState {
             aspect_customized: false,
             aspect_popover_open: false,
             aspect_wheel_accum: 0.0,
+            vertical_viewport_height: None,
         }
     }
 }
