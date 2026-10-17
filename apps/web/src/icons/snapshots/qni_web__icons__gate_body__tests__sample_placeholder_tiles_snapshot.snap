@@ -1,0 +1,102 @@
+---
+source: src/icons/gate_body.rs
+expression: output.shapes
+---
+[
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Rect(
+            RectShape {
+                rect: [[16.0 16.0] - [56.0 56.0]],
+                corner_radius: CornerRadius {
+                    nw: 6,
+                    ne: 6,
+                    sw: 6,
+                    se: 6,
+                },
+                fill: #B7_B5_AC_FF,
+                stroke: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+                stroke_kind: Outside,
+                round_to_pixels: None,
+                blur_width: 0.0,
+                brush: None,
+                angle: 0.0,
+            },
+        ),
+    },
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Rect(
+            RectShape {
+                rect: [[17.0 17.0] - [55.0 55.0]],
+                corner_radius: CornerRadius {
+                    nw: 5,
+                    ne: 5,
+                    sw: 5,
+                    se: 5,
+                },
+                fill: #DA_D8_CE_FF,
+                stroke: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+                stroke_kind: Outside,
+                round_to_pixels: None,
+                blur_width: 0.0,
+                brush: None,
+                angle: 0.0,
+            },
+        ),
+    },
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Rect(
+            RectShape {
+                rect: [[16.0 72.0] - [56.0 112.0]],
+                corner_radius: CornerRadius {
+                    nw: 6,
+                    ne: 6,
+                    sw: 6,
+                    se: 6,
+                },
+                fill: #B7_B5_AC_FF,
+                stroke: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+                stroke_kind: Outside,
+                round_to_pixels: None,
+                blur_width: 0.0,
+                brush: None,
+                angle: 0.0,
+            },
+        ),
+    },
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Rect(
+            RectShape {
+                rect: [[17.0 73.0] - [55.0 111.0]],
+                corner_radius: CornerRadius {
+                    nw: 5,
+                    ne: 5,
+                    sw: 5,
+                    se: 5,
+                },
+                fill: #DA_D8_CE_FF,
+                stroke: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+                stroke_kind: Outside,
+                round_to_pixels: None,
+                blur_width: 0.0,
+                brush: None,
+                angle: 0.0,
+            },
+        ),
+    },
+]
