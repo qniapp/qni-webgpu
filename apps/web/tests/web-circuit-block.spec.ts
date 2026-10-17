@@ -92,7 +92,7 @@ test('dropping the palette comment block on the H column writes a block to the U
   await openCircuit(page, BELL_JSON)
   await dropCommentBlock(page, 1)
 
-  await expect.poll(() => hashJson(page)).toBe('{"cols":[["|0>","|0>"],["{コメント"],["H"],["}"],["•","X"]]}')
+  await expect.poll(() => hashJson(page)).toBe('{"cols":[["|0>","|0>"],["{comment"],["H"],["}"],["•","X"]]}')
 })
 
 test('typing a comment after the drop replaces the default label', async ({ page }) => {

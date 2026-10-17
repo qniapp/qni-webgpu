@@ -135,15 +135,8 @@
     }
     .cb-icon--large { transform: scale(3); transform-origin: top left; }
     .cb-icon-host--large { width: 120px; height: 120px; }
-    .cb-icon i {
-      position: absolute;
-      display: block;
-      height: 2px;
-    }
-    .cb-icon .fill { left: 4px; width: 32px; top: 9px; height: 22px; background: rgba(230, 228, 217, 0.5); }
-    .cb-icon .wire { left: 4px; width: 32px; background: var(--ui-2); }
-    .cb-icon .rule { left: 4px; width: 32px; background: var(--blue-400); }
-    .cb-icon .comment { left: 10px; width: 20px; border-radius: 1px; background: var(--blue-400); }
+    .cb-icon .rule { position: absolute; left: 0; top: 18px; width: 40px; height: 4px; background: var(--blue-400); }
+    .cb-icon .comment { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); color: var(--blue-400); font-size: 12px; line-height: 16px; letter-spacing: -0.6px; }
   </style>
 </head>
 <body>
@@ -151,13 +144,8 @@
 <div id="preview">
   <div class="cb-preview-pad" aria-hidden="true">
     <div class="cb-icon">
-      <i class="fill"></i>
-      <i class="wire" style="top: 15px;"></i>
-      <i class="wire" style="top: 23px;"></i>
-      <i class="rule" style="top: 9px;"></i>
-      <i class="rule" style="top: 29px;"></i>
-      <i class="comment" style="top: 4px;"></i>
-      <i class="comment" style="top: 34px;"></i>
+      <i class="rule"></i>
+      <span class="comment">comment</span>
     </div>
   </div>
 </div>
@@ -235,13 +223,8 @@
         <div class="cb-icon-pad">
           <div class="cb-icon-host--large">
             <div class="cb-icon cb-icon--large" role="img" aria-label="パレットのアイコン (3 倍)">
-              <i class="fill"></i>
-              <i class="wire" style="top: 15px;"></i>
-              <i class="wire" style="top: 23px;"></i>
-              <i class="rule" style="top: 9px;"></i>
-              <i class="rule" style="top: 29px;"></i>
-              <i class="comment" style="top: 4px;"></i>
-              <i class="comment" style="top: 34px;"></i>
+              <i class="rule"></i>
+              <span class="comment">comment</span>
             </div>
           </div>
         </div>
@@ -268,7 +251,7 @@
         <tr><td>リサイズハンドル</td><td><code>6 × 24 px</code>、角丸 <code>3 px</code>。ゲートの上下に出る範囲変更ハンドル (<a href="resize-handle.html">リサイズハンドル</a>) を 90° 回した形で、本体の左右の辺の縦中央に置く。当たり判定は左右に <code>5 px</code>、上下に <code>4 px</code> 広げた <code>16 × 32 px</code>。2 つのブロックが接する辺では、ポインタの下にあるブロックのハンドルを優先する</td><td><code>SPAN_RESIZE_HANDLE_HEIGHT</code> / <code>SPAN_RESIZE_HANDLE_MIN_WIDTH</code></td></tr>
         <tr><td>ハンドルの拡大</td><td>出現時 <code>0.7</code> → <code>1.0</code> 倍 (250 ms、ゲートのリサイズハンドルと同じイージング)、ホバー <code>1.15</code> 倍、ドラッグ中 <code>1.25</code> 倍</td><td><code>span_resize_ease_out_back</code></td></tr>
         <tr><td>回路の押し下げ</td><td>ブロックが 1 つでもあれば回路を <code>58 px</code> 下げる。最初のブロックを置いた瞬間に回路が下がる</td><td><code>CIRCUIT_BLOCK_OUTSET_Y</code></td></tr>
-        <tr><td>パレットのアイコン</td><td><code>40 × 40 px</code> の枠内で、コメントの棒 x 10–30 / y 4・34、罫線 x 4–36 / y 9・29、背景 y 9–31、ワイヤー y 15・23。線はすべて <code>2 px</code>、コメントの棒だけ角丸 <code>1 px</code></td><td><code>draw_circuit_block_palette_icon</code></td></tr>
+        <tr><td>パレットのアイコン</td><td><code>40 × 40 px</code> の枠の中央を横切る太さ <code>4 px</code> の横罫線。その上に <code>comment</code> の文字を <code>12 px</code>、字間 <code>-0.6 px</code> で中央揃えし、罫線との間を <code>2 px</code> 空ける</td><td><code>draw_circuit_block_palette_icon</code></td></tr>
       </tbody>
     </table>
   </div>
@@ -282,12 +265,11 @@
         <tr><th>ロール</th><th>Flexoki トーン</th><th>用途</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>circuit_block_fill</code></td><td><code>ui</code> (α128)</td><td>本体の背景、ドラッグ中のプレビュー、アイコンの背景</td></tr>
-        <tr><td><code>circuit_block_border</code></td><td><code>blue-400</code></td><td>上下の罫線</td></tr>
-        <tr><td><code>circuit_block_label</code></td><td><code>blue-400</code></td><td>ラベルの文字、アイコンのコメントの棒</td></tr>
+        <tr><td><code>circuit_block_fill</code></td><td><code>ui</code> (α128)</td><td>本体の背景、ドラッグ中のプレビュー</td></tr>
+        <tr><td><code>circuit_block_border</code></td><td><code>blue-400</code></td><td>上下の罫線、アイコンの横罫線</td></tr>
+        <tr><td><code>circuit_block_label</code></td><td><code>blue-400</code></td><td>ラベルの文字、アイコンの文字</td></tr>
         <tr><td><code>circuit_block_placeholder</code></td><td><code>tx-3</code></td><td>編集中に下書きが空のときのプレースホルダー「コメントを入力」</td></tr>
         <tr><td><code>text</code></td><td><code>tx-2</code></td><td>ホバーと編集中の下線</td></tr>
-        <tr><td><code>line</code></td><td><code>ui-2</code></td><td>アイコンのワイヤー</td></tr>
         <tr><td><code>span_resize_handle_bg</code> / <code>span_resize_handle_bg_hover</code></td><td><code>cyan-400</code> / <code>cyan-600</code></td><td>リサイズハンドル (ホバー中・ドラッグ中は濃い色)</td></tr>
         <tr><td><code>gate_hover_border</code></td><td><code>purple-400</code></td><td>パレットのホバー枠。角ばり表示ブロックと同じく角丸 <code>0 px</code></td></tr>
       </tbody>
@@ -303,7 +285,7 @@
       <li>パレットの表示ブロック欄の右下 (通し番号 36) からドラッグし、ゲートのある列に落とす。ツールチップの名前は <strong>Comment Block</strong>。</li>
       <li>スナップ先はポインタに最も近い列。その列が複数の列を占めるゲートの一部なら、ゲート全体の列にする。縦方向は本体の上端から下端までならどこでもよい。スナップ先があれば、その列に本体の背景だけをプレビューし、ポインタのアイコンは消す。</li>
       <li>ゲートの無い列 (右端の操作領域を含む) と、すでにブロックに含まれる列にはスナップしない。離しても何も起きない。</li>
-      <li>確定すると既定のコメント「コメント」でブロックを作り (元に戻す操作 1 回分)、すぐに上のラベルの編集を全選択の状態で開く。</li>
+      <li>確定すると既定のコメント「comment」でブロックを作り (元に戻す操作 1 回分)、すぐに上のラベルの編集を全選択の状態で開く。</li>
     </ul>
     <h3>列の境界</h3>
     <ul class="note">

@@ -17,7 +17,7 @@ use crate::constants::{
 use crate::layout::{nearest_slot_index, LayoutMetrics};
 use crate::render::{circuit_block_boundary_x, circuit_block_rect};
 
-pub(crate) const CIRCUIT_BLOCK_DEFAULT_LABEL: &str = "コメント";
+pub(crate) const CIRCUIT_BLOCK_DEFAULT_LABEL: &str = "comment";
 
 type ColumnRange = (CircuitColumnIndex, CircuitColumnIndex);
 

@@ -147,7 +147,7 @@ fn dropping_the_palette_block_on_a_gate_column_wraps_that_column() {
 
     assert_eq!(
         circuit_json(&app),
-        r#"{"cols":[["{コメント"],["H"],["}"],["•","X"],["Z"]]}"#
+        r#"{"cols":[["{comment"],["H"],["}"],["•","X"],["Z"]]}"#
     );
 }
 
@@ -162,7 +162,7 @@ fn dropping_the_palette_block_opens_its_label_editor() {
             editor.slot,
             editor.draft.as_str()
         )),
-        Some((0, CircuitBlockLabelSlot::Top, "コメント"))
+        Some((0, CircuitBlockLabelSlot::Top, "comment"))
     );
 }
 
@@ -190,7 +190,7 @@ fn dropping_the_palette_block_on_a_wide_gate_wraps_the_whole_gate() {
 
     assert_eq!(
         circuit_json(&app),
-        r#"{"cols":[["H"],["{コメント"],["Amps2"],[1],["}"],["X"]]}"#
+        r#"{"cols":[["H"],["{comment"],["Amps2"],[1],["}"],["X"]]}"#
     );
 }
 
