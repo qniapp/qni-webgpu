@@ -76,6 +76,9 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
   - 個別名: `X 軸検出器` / `Y 軸検出器`
   - コード識別子と Quirk 互換のシリアライズ ID: `XDetector` / `YDetector`。
 
+- **ベルペア** — 2 量子ビットのベル状態。英語の回路ブロックラベルは `Bell pair`。
+- **回路ブロック** — `{ラベル` … `}` で囲んだ、ラベル付きの列の範囲。全ワイヤにまたがる帯として描き、計算には影響しない。コード識別子は `CircuitBlock`。
+
 - **表示ブロック** — 量子状態を可視化するが状態を変えない回路要素の総称 (Quirk が `Display` と呼ぶカテゴリに対応)。ユニタリ変換を行わないため厳密にはゲートではない。
   - 個別名: `ブロッホ球表示ブロック` / `確率表示ブロック` / `振幅表示ブロック`
   - コード識別子: `GateKind::BlochDisplay` / `GateKind::ProbabilityDisplay` / `GateKind::AmplitudeDisplay` (`Display` サフィックス) はそのまま維持。Quirk 互換のシリアライズ ID (`"Bloch"` / `"Probability"` / `"Amps"` ほか) もそのまま。

@@ -671,6 +671,60 @@ mod tests {
         assert_eq!(round_trip(json), json);
     }
 
+    #[test]
+    fn bell_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::BELL_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn ghz_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::GHZ_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn teleportation_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::TELEPORTATION_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn superdense_coding_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::SUPERDENSE_CODING_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn qft4_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::QFT4_DECOMPOSED_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn symmetry_breaking_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::SYMMETRY_BREAKING_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn grover_search_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::GROVER_SEARCH_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn reversible_addition_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::REVERSIBLE_ADDITION_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn delayed_choice_eraser_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::DELAYED_CHOICE_ERASER_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
     fn round_trip(json: &str) -> String {
         let circuit = parse_circuit_json(json);
         let qubits = qubit_count_from_gates(&circuit.gates).max(1);

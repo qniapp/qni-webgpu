@@ -13,37 +13,10 @@
   <script src="../design-system/components/swap-gate.js"></script>
   <script src="../design-system/components/measurement-gate.js"></script>
   <script src="../design-system/components/circuit-dropzone.js"></script>
+  <script src="../design-system/components/probability-display.js"></script>
+  <script src="../design-system/components/quantum-circuit.js"></script>
   <style>
-    /* 回路図グリッド: 量子ビットラベル列 + 10 ステップ。 */
-    .sb-circuit {
-      display: grid;
-      /* セルは 56px ピッチ (SLOT_SPACING = LINE_GAP = spacing-14)。隙間なく並べ、
-         各セル (circuit-dropzone) のワイヤと制御線を連続させる。 */
-      grid-template-columns: max-content repeat(10, 56px);
-      grid-auto-rows: 56px;
-      align-items: center;
-      width: max-content;
-      margin: 4px 0;
-      --ac-mask: var(--bg); /* 反制御の空円内側を紙色で消し込む */
-    }
-    .sb-circuit .corner { grid-row: 1; }
-    .sb-circuit .step-label {
-      font-family: var(--font-mono);
-      font-size: 12px; /* text-xs */
-      line-height: 16px;
-      color: var(--tx-3); /* Flexoki base-300 */
-      text-align: center;
-      height: 20px;
-    }
-    .sb-circuit .qubit-label {
-      font-family: var(--font-mono);
-      font-size: 12px; /* text-xs */
-      line-height: 16px;
-      color: var(--tx-2); /* Flexoki base-600 */
-      padding-right: 8px; /* spacing-2 */
-      text-align: right;
-      white-space: nowrap;
-    }
+    .sb-figure { overflow-x: auto; margin: 4px 0; }
     .sb-legend {
       display: flex;
       flex-wrap: wrap;
@@ -85,69 +58,13 @@
       両者にまったく同じ操作を施し（＝交換対称）、途中の <strong>SWAP（×）で 2 つを結合</strong>する。
     </p>
 
-    <div class="sb-circuit" role="img" aria-label="対称性の破れ回路: q0/q1 と q2/q3 に同一の H・CNOT で Bell ペアを作り、q1 と q3 を SWAP で結合し、再度 CNOT、反制御つき √X を経て 4 量子ビットを測定する。制御を伴う操作は列を分けてある">
-      <div class="corner"></div>
-      <div class="step-label">1</div>
-      <div class="step-label">2</div>
-      <div class="step-label">3</div>
-      <div class="step-label">4</div>
-      <div class="step-label">5</div>
-      <div class="step-label">6</div>
-      <div class="step-label">7</div>
-      <div class="step-label">8</div>
-      <div class="step-label">9</div>
-      <div class="step-label">10</div>
-
-      <div class="qubit-label">q0</div>
-      <circuit-dropzone><h-gate></h-gate></circuit-dropzone>
-      <circuit-dropzone connect-bottom><control-gate></control-gate></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone connect-bottom><control-gate></control-gate></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone connect-bottom><sqrtx-gate></sqrtx-gate></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone><measurement-gate outcome="0"></measurement-gate></circuit-dropzone>
-
-      <div class="qubit-label">q1</div>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone connect-top><x-gate></x-gate></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone connect-bottom><swap-gate></swap-gate></circuit-dropzone>
-      <circuit-dropzone connect-top><x-gate></x-gate></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone connect-top><anti-control-gate></anti-control-gate></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone><sqrtx-gate></sqrtx-gate></circuit-dropzone>
-      <circuit-dropzone><measurement-gate outcome="0"></measurement-gate></circuit-dropzone>
-
-      <div class="qubit-label">q2</div>
-      <circuit-dropzone><h-gate></h-gate></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone connect-bottom><control-gate></control-gate></circuit-dropzone>
-      <circuit-dropzone connect-top connect-bottom></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone connect-bottom><control-gate></control-gate></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone connect-bottom><sqrtx-gate></sqrtx-gate></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone><measurement-gate outcome="1"></measurement-gate></circuit-dropzone>
-
-      <div class="qubit-label">q3</div>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone connect-top><x-gate></x-gate></circuit-dropzone>
-      <circuit-dropzone connect-top><swap-gate></swap-gate></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone connect-top><x-gate></x-gate></circuit-dropzone>
-      <circuit-dropzone></circuit-dropzone>
-      <circuit-dropzone connect-top><anti-control-gate></anti-control-gate></circuit-dropzone>
-      <circuit-dropzone><sqrtx-gate></sqrtx-gate></circuit-dropzone>
-      <circuit-dropzone><measurement-gate outcome="1"></measurement-gate></circuit-dropzone>
+    <div class="sb-figure" role="img" aria-label="2 組のベルペアを作り、交換対称な操作を施すと測定値が必ず逆になる回路">
+      <quantum-circuit cols='[["{two Bell pairs"],["H",1,"H"],["•","X"],[1,1,"•","X"],["}"],[1],["{swap partners"],[1,"Swap",1,"Swap"],["}"],[1],["{symmetric ops"],["•","X"],[1,1,"•","X"],["X^½","◦"],[1,1,"X^½","◦"],[1,"X^½",1,"X^½"],["}"],[1],["{outcomes differ"],["Probability2",1,"Probability2"],["Probability4"],["Measure","Measure","Measure","Measure"],["}"]]'></quantum-circuit>
     </div>
 
     <div class="sb-legend" aria-hidden="true">
+      <span class="item">青い上下罫線の帯 = 回路ブロック（上下に同じラベル）</span>
+      <span class="item">Probability = 確率表示ブロック（縦長の箱）</span>
       <span class="item"><span class="glyph"><h-gate></h-gate></span>アダマール</span>
       <span class="item"><span class="glyph"><control-gate></control-gate></span>制御</span>
       <span class="item"><span class="glyph"><anti-control-gate></anti-control-gate></span>反制御</span>
@@ -158,10 +75,9 @@
     </div>
 
     <p class="note">
-      制御を伴う操作（2 つの CNOT 層と反制御つき √X）は列を分けてある。同じ列に複数の制御を置くと、列内の全制御が全ターゲットに掛かって独立した操作ではなく多重制御になるため。制御を持たない H（ステップ 1）と最後の √X（ステップ 9）は同じ列にまとめている。
-      縦の水色の線は<strong>制御線</strong>で、制御（●）/ 反制御（○）/ SWAP（×）どうしを繋ぐ。
-      ステップ 4 の SWAP は q1 と q3 を入れ替えるため、間の q2 を制御線が貫通する。
-      測定ゲートに出る 0（赤）/ 1（青）は一例の測定結果（ここでは Alice¹=00, Alice²=11）で、実行ごとに §03 の 4 通りのいずれかになる。
+      制御を伴う操作は列を分け、独立した操作にしている。同じ列の制御はすべてのターゲットに掛かるため。
+      縦の水色の線は制御線。swap partners の Swap は q1 と q3 を入れ替える。
+      測定結果は実行ごとに §03 の 4 通りのいずれかになる。
     </p>
   </div>
 </section>
@@ -170,13 +86,12 @@
   <h2>§ 02 回路の読み方</h2>
   <div class="card">
     <table class="spec">
-      <thead><tr><th>ステップ</th><th>操作</th><th>意味</th></tr></thead>
+      <thead><tr><th>回路ブロック</th><th>操作</th><th>意味</th></tr></thead>
       <tbody>
-        <tr><td>1 – 3</td><td>各サブシステムに H → CNOT</td><td>Alice¹（q0,q1）と Alice²（q2,q3）に、まったく同じ手順で Bell ペア <code>(|00⟩ + |11⟩) / √2</code> を作る。この時点で 2 つは完全に対称・独立</td></tr>
-        <tr><td>4</td><td>q1 と q3 を SWAP</td><td>2 つのサブシステムを<strong>結合</strong>する。ここで初めて両者が絡み合う</td></tr>
-        <tr><td>5 – 6</td><td>もう一度 CNOT</td><td>入れ替え後の状態を再び絡め直す</td></tr>
-        <tr><td>7 – 9</td><td>条件付き √X と √X</td><td>測定の直前に各量子ビットを回転させ、相関を測定基底へ移す</td></tr>
-        <tr><td>10</td><td>4 量子ビットを測定</td><td>Alice¹ と Alice² の結果を読み出す</td></tr>
+        <tr><td><code>two Bell pairs</code></td><td>H と CNOT</td><td>上の組 Alice¹（q0・q1）と下の組 Alice²（q2・q3）にベルペアを作る。</td></tr>
+        <tr><td><code>swap partners</code></td><td>Swap(q1↔q3)</td><td>ペアの相手を入れ替える。</td></tr>
+        <tr><td><code>symmetric ops</code></td><td>CNOT と条件付き √X、√X</td><td>上下の組に同じ操作を適用する。</td></tr>
+        <tr><td><code>outcomes differ</code></td><td>Probability2 ×2 → Probability4 → 測定</td><td>各組は対称だが、組み合わせると必ず互いのビット反転になる。</td></tr>
       </tbody>
     </table>
     <p>
@@ -189,6 +104,7 @@
 <section class="block" id="result">
   <h2>§ 03 測定結果と「対称性の破れ」</h2>
   <div class="card">
+    <p>outcomes differ の 2 つの Probability2 では、各組の 4 通りがそれぞれ 25 % で区別できない。一方、Probability4 では値 3・6・9・12 だけが各 25 % になる。下表は左端が q0 のため、1100 = 3、0110 = 6、1001 = 9、0011 = 12 に対応する。</p>
     <p>
       qni-webgpu（GPU シミュレーション）で測定直前の結合確率分布を確認すると、16 通りのうち<strong>わずか 4 通りだけが各 25 %</strong>、残りはすべて 0 % だった。
     </p>
@@ -221,11 +137,12 @@
   <div class="card">
     <p>
       使うゲート（H・制御・反制御・X・SWAP・√X・測定・確率表示ブロック）はすべて qni-webgpu が対応済みのため、<strong>新しいゲートを足さずに追加できる</strong>（移植区分 A）。
-      Quirk の JSON からの変換は次の 2 点だけ:
+      Quirk の JSON からの変換は次のとおり:
     </p>
     <ul>
       <li>確率表示ブロックの ID を <code>Chance</code> → <code>Probability</code> に書き換える。</li>
-      <li>注釈用のカスタムゲート（<code>Alice^1</code> / <code>Alice^2</code> / <code>disagree</code> といった恒等行列のラベル）を削除する。</li>
+      <li>注釈用のカスタムゲート（<code>Alice^1</code> / <code>Alice^2</code> / <code>disagree</code> といった恒等行列のラベル）を回路ブロックのラベルに置き換え、ブロックの間に区切りの空列を入れる。</li>
+      <li>測定後の条件付き確率表示の代わりに、測定前に各組の Probability2 と全体の Probability4 を置く。</li>
     </ul>
     <p>
       元の Quirk サンプルは、測定後に<strong>条件付きの確率表示ブロック</strong>（Alice¹ の結果で条件付けた Alice² の確率）を並べ、この「必ず逆になる」関係を目に見える形で示している。
@@ -234,7 +151,7 @@
       <tbody>
         <tr><th>移植区分</th><td><a href="quirk-sample-circuits.html">Quirk サンプル回路の移植候補</a> 区分 A</td></tr>
         <tr><th>サンプル定義の追加先</th><td><code>apps/web/crates/circuit-library-model/src/lib.rs</code>（<code>sample_entries</code>）</td></tr>
-        <tr><th>回路図のカスタム要素</th><td><code>docs/design-system/components/circuit-dropzone.js</code>（ワイヤと制御線）、各ゲートは <code>docs/design-system/components/*.js</code></td></tr>
+        <tr><th>回路図のカスタム要素</th><td><code>docs/design-system/components/circuit-dropzone.js</code>（ワイヤと制御線）、回路全体は <code>docs/design-system/components/quantum-circuit.js</code>、各ゲートは <code>docs/design-system/components/*.js</code></td></tr>
         <tr><th>元の定義</th><td><code>~/Work/oss/Quirk/src/ui/menu.js</code>（<code>symmetryBreakingLink</code>）</td></tr>
       </tbody>
     </table>
@@ -242,6 +159,7 @@
 </section>
 
 <footer class="doc-foot">
+  <p><a href="sample-circuits.html">9 本のサンプル回路の読み方</a></p>
   <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
   <p class="meta">qni-webgpu · 対称性の破れ（Symmetry Breaking）· 2026-05</p>
 </footer>
