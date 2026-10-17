@@ -119,13 +119,19 @@ class ZDetectControlResetFakeTests(unittest.TestCase):
         self.assertEqual(build([[ZDCR] * 9], 9),
                          [("measure", w, w) for w in range(9)] + [("reset", w) for w in range(9)])
 
-    def test_axis_projector_limit_includes_zdcr(self):
-        with self.assertRaises(CircuitBuildError):
-            build([[ZDCR] + ["•"] * 7 + ["XDetector"]], 9)
+    def test_axis_projector_aux_includes_zdcr(self):
+        self.assertEqual(build([[ZDCR] + ["•"] * 7 + ["XDetector"]], 9), [
+            ("measure", 0, 0), ("h", 8),
+            ("detector_projector_aux", 8, list(range(8)), []),
+            ("h", 8), ("reset", 0),
+        ])
 
-    def test_axis_projector_limit_includes_anti_controls(self):
-        with self.assertRaises(CircuitBuildError):
-            build([[ZDCR] + ["◦"] * 7 + ["YDetector"]], 9)
+    def test_axis_projector_aux_includes_anti_controls(self):
+        self.assertEqual(build([[ZDCR] + ["◦"] * 7 + ["YDetector"]], 9), [
+            ("measure", 0, 0), ("sdg", 8), ("h", 8),
+            ("detector_projector_aux", 8, [0], list(range(1, 8))),
+            ("h", 8), ("s", 8), ("reset", 0),
+        ])
 
     def test_eight_wire_axis_projector_allowed(self):
         self.assertEqual(build([[ZDCR] + ["•"] * 6 + ["XDetector"]], 8), [

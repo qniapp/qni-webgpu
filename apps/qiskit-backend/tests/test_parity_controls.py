@@ -9,7 +9,7 @@ import math
 import unittest
 
 from qni_qiskit_backend.circuit import (
-    CircuitBuildError, apply_column_to_qiskit, apply_columns_to_qiskit, column_parity_targets,
+    apply_column_to_qiskit, apply_columns_to_qiskit, column_parity_targets,
 )
 from qni_qiskit_backend.contract import parse_run_request
 from qni_qiskit_backend.runners import QiskitRunner, RunnerUnavailable, load_qiskit
@@ -119,9 +119,10 @@ class ParityFakeTests(unittest.TestCase):
         self.assertEqual([op for op in ops if op[0] == "detector_projector"],
                          [("detector_projector", 9, [0], [])])
 
-    def test_detector_limit_includes_parity_anchor_with_ordinary_controls(self):
-        with self.assertRaises(CircuitBuildError):
-            column_ops(["•"] * 7 + ["zpar", "XDetector"])
+    def test_detector_aux_includes_parity_anchor_with_ordinary_controls(self):
+        self.assertEqual(column_ops(["•"] * 7 + ["zpar", "XDetector"]), [
+            ("h", 8), ("detector_projector_aux", 8, list(range(8)), []), ("h", 8),
+        ])
 
     def test_single_parity_wire_needs_no_cx(self):
         self.assertEqual(column_ops(["xpar", "X"]),

@@ -195,8 +195,6 @@ def apply_column_to_qiskit(
         deferred.append((wire, token))
     if parity_targets:
         controls.append(parity_targets[0][0])
-    if detector_targets and 1 + len(controls) + len(anti_controls) > 8:
-        raise CircuitBuildError("detector target plus controls must be <= 8 qubits")
     # A QFT span can cover a control cell, unlike single-wire gates and swaps.
     # It would make the measured wire quantum again: reset would then differ
     # from WebGPU's per-pair Write0. Refuse rather than change that semantics.
@@ -227,10 +225,10 @@ def apply_column_to_qiskit(
         qc.h(wire)
     apply_swap(qc, swap_wires, controls, anti_controls, basis)
     operations = group_same_angle_phases(deferred)
-    if parity_targets or conditions or any(token in POSTSELECTION_TOKENS for _, token in deferred):
-        # WebGPU expands QFT after ordinary targets, including conditional
-        # gates and projectors, even when the QFT starts on an earlier wire.
-        operations.sort(key=lambda op: parse_qft_token(split_parametric(op[1])[0]) is not None)
+    # WebGPU always expands QFT after ordinary targets, even when the QFT
+    # starts on an earlier wire. A control inside its span can make this order
+    # observable to another target outside the span.
+    operations.sort(key=lambda op: parse_qft_token(split_parametric(op[1])[0]) is not None)
     for wire, token, partners in operations:
         if wire not in conditions:
             apply_gate(qc, wire, token, controls + partners, anti_controls, qubits, basis)
@@ -331,8 +329,22 @@ def apply_detector_measurement(
     if not controls and not anti_controls:
         qc.measure(target, target)
         return
+    use_auxiliary = 1 + len(controls) + len(anti_controls) > 8
     if not is_real_qiskit_circuit(qc):
-        qc.append(("detector_projector", target, list(controls), list(anti_controls)))
+        operation = "detector_projector_aux" if use_auxiliary else "detector_projector"
+        qc.append((operation, target, list(controls), list(anti_controls)))
+        return
+    if use_auxiliary:
+        auxiliary = shared_projector_auxiliary(qc)
+        # Entangle only the click predicate, never measure individual controls:
+        # reset samples the aux and implements {P, I-P}, preserving coherence
+        # throughout the no-click subspace. No classical result is needed.
+        for wire in anti_controls:
+            qc.x(wire)
+        qc.mcx(controls + anti_controls + [target], auxiliary[0])
+        qc.reset(auxiliary[0])
+        for wire in reversed(anti_controls):
+            qc.x(wire)
         return
     import numpy as np
     from qiskit.quantum_info import Kraus
@@ -351,13 +363,25 @@ def postselection_registers(qc: Any) -> list[Any]:
             if register.name.startswith("postselect_")]
 
 
+def shared_projector_auxiliary(qc: Any) -> Any:
+    from qiskit import QuantumRegister
+
+    # Both projectors return this qubit to |0>. Append it above the logical
+    # register (q0=LSB), so existing logical save indices remain unchanged.
+    auxiliary = next((r for r in qc.qregs if r.name == "postselection_aux"), None)
+    if auxiliary is None:
+        auxiliary = QuantumRegister(1, "postselection_aux")
+        qc.add_register(auxiliary)
+    return auxiliary
+
+
 def apply_postselection(
     qc: Any, target: int, token: str, controls: list[int], anti_controls: list[int]
 ) -> None:
     if not is_real_qiskit_circuit(qc):
         qc.append(("postselect", target, token, list(controls), list(anti_controls)))
         return
-    from qiskit import ClassicalRegister, QuantumRegister
+    from qiskit import ClassicalRegister
 
     # Measure only the rejection predicate into an ancilla. Measuring the target
     # itself would destroy coherence between inactive controlled branches.
@@ -366,10 +390,7 @@ def apply_postselection(
     # measurement dilation instead normalizes on-device, with no state readback.
     # This samples acceptance: finite-shot misses and WebGPU's 1e-12 cutoff
     # cannot be distinguished here (documented in docs/postselection.md).
-    auxiliary = next((r for r in qc.qregs if r.name == "postselection_aux"), None)
-    if auxiliary is None:
-        auxiliary = QuantumRegister(1, "postselection_aux")
-        qc.add_register(auxiliary)
+    auxiliary = shared_projector_auxiliary(qc)
     bit = ClassicalRegister(1, f"postselect_{len(postselection_registers(qc))}")
     qc.add_register(bit)
     x_basis = token in {"|+⟩⟨+|", "|-⟩⟨-|"}
