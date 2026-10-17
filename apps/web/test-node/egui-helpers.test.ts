@@ -4,9 +4,9 @@ const { EventEmitter } = require('node:events')
 
 const {
   dragPointer,
-  getPaletteGateCenter,
   evaluateWithRetry,
   getDragPreviewAboveStatePanelProbe,
+  getPaletteGateCenter,
   releasePointer,
   sampleCanvasPixels,
   waitForAppReady,
@@ -352,6 +352,22 @@ test('releasePointer releases relative to the egui canvas', async () => {
   })
 })
 
+test('getPaletteGateCenter places the detector after measurement on row two', () => {
+  assert.deepEqual(getPaletteGateCenter(1000, 26), { x: 495, y: 148 })
+})
+
+test('getPaletteGateCenter places the sample display gate in the third column', () => {
+  assert.deepEqual(getPaletteGateCenter(1000, 29), { x: 889, y: 100 })
+})
+
+test('getPaletteGateCenter places zpar after anticontrol on row two', () => {
+  assert.deepEqual(getPaletteGateCenter(1000, 27), { x: 255, y: 148 })
+})
+
+test('getPaletteGateCenter places xpar after zpar on row two', () => {
+  assert.deepEqual(getPaletteGateCenter(1000, 28), { x: 303, y: 148 })
+})
+
 test('sampleCanvasPixels passes screenshot bytes and css size into page evaluation', async () => {
   const page = makePage({
     evaluateImpl: async (_fn, arg) => arg,
@@ -432,7 +448,7 @@ test('getDragPreviewAboveStatePanelProbe preserves the current drag target contr
     dragFillPoint: probe.dragFillPoint,
     sourceFillPoint: probe.sourceFillPoint,
   }, {
-    source: { x: 159, y: 100 },
+    source: { x: 111, y: 100 },
     handleBelowSource: true,
     dragFillPoint: { name: 'fill', x: probe.handleCenter.x + 14, y: probe.handleCenter.y + 14 },
     sourceFillPoint: { name: 'sourceFill', x: probe.source.x + 14, y: probe.source.y + 14 },
@@ -441,7 +457,7 @@ test('getDragPreviewAboveStatePanelProbe preserves the current drag target contr
 
 export {}
 
-for (const [gateIndex, x] of [[13, 159], [14, 207], [15, 255], [17, 303], [18, 351], [19, 399], [26, 447], [27, 495], [28, 543], [22, 591], [23, 639], [21, 687]] as const) {
+for (const [gateIndex, x] of [[13, 111], [14, 159], [15, 207], [27, 255], [28, 303], [17, 351], [18, 399], [19, 447], [26, 495], [30, 543], [31, 591], [22, 639], [23, 687], [21, 735]] as const) {
   test(`palette helper locates gate ${gateIndex} in the second row`, () => {
     assert.deepEqual(getPaletteGateCenter(1000, gateIndex), { x, y: 148 })
   })

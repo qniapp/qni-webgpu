@@ -139,6 +139,7 @@ fn gate_token(kind: GateKind, span: usize, angle: Option<&ParametricAngle>) -> O
                 format!("{}{}", spec.url_token, span)
             }
         }
+        GateKind::SampleDisplay => format!("{}{}", spec.url_token, span.clamp(1, 3)),
         GateKind::AmplitudeDisplay => format!("{}{}", spec.url_token, span.clamp(1, 16)),
         GateKind::DensityMatrixDisplay => {
             let span = span.clamp(1, 8);

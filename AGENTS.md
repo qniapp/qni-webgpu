@@ -77,3 +77,7 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 - **表示ブロック** — 量子状態を可視化するが状態を変えない回路要素の総称 (Quirk が `Display` と呼ぶカテゴリに対応)。ユニタリ変換を行わないため厳密にはゲートではない。
   - 個別名: `ブロッホ球表示ブロック` / `確率表示ブロック` / `振幅表示ブロック`
   - コード識別子: `GateKind::BlochDisplay` / `GateKind::ProbabilityDisplay` / `GateKind::AmplitudeDisplay` (`Display` サフィックス) はそのまま維持。Quirk 互換のシリアライズ ID (`"Bloch"` / `"Probability"` / `"Amps"` ほか) もそのまま。
+- **サンプル表示ブロック** — 状態を収縮させずに 1 つのビット列をサンプリングして表示する表示ブロック。
+  - コード識別子: `GateKind::SampleDisplay`。シリアライズ ID は `"Sample1"` / `"Sample2"` / `"Sample3"`。
+- **パリティ制御** — 同じ列で条件を満たすものが奇数個のときに列の操作を適用する制御。個別名は `Z パリティ制御` / `X パリティ制御`。
+  - コード識別子: `GateKind::ZParityControl` / `GateKind::XParityControl`。シリアライズ ID は `"zpar"` / `"xpar"`。

@@ -45,6 +45,10 @@ pub(crate) struct ProbabilityResources {
     pub render_params_buffer: wgpu::Buffer,
     pub render_instance_buffer: wgpu::Buffer,
     pub last_render_params: Option<ProbabilityRenderParams>,
+    pub drag_render_params_buffer: wgpu::Buffer,
+    pub drag_render_instance_buffer: wgpu::Buffer,
+    pub drag_render_bind_group: wgpu::BindGroup,
+    pub last_drag_render_params: Option<ProbabilityRenderParams>,
 
     pub popup_value_pipeline: wgpu::RenderPipeline,
     pub popup_value_bind_group: wgpu::BindGroup,
@@ -108,6 +112,8 @@ impl ProbabilityResources {
         let render_bind_group_layout = create_render_bind_group_layout(device);
         let render_params_buffer = create_render_params_buffer(device);
         let render_instance_buffer = create_render_instance_buffer(device);
+        let drag_render_params_buffer = create_render_params_buffer(device);
+        let drag_render_instance_buffer = create_render_instance_buffer(device);
         let aggregate_buffer = create_aggregate_buffer(device);
         let popup_value_params_buffer = create_popup_value_params_buffer(device);
         let glyph_atlas = create_glyph_atlas(device, queue);
@@ -123,6 +129,14 @@ impl ProbabilityResources {
             &render_bind_group_layout,
             &output_buffer,
             &render_params_buffer,
+            &glyph_atlas,
+            &aggregate_buffer,
+        );
+        let drag_render_bind_group = create_render_bind_group(
+            device,
+            &render_bind_group_layout,
+            &output_buffer,
+            &drag_render_params_buffer,
             &glyph_atlas,
             &aggregate_buffer,
         );
@@ -164,6 +178,10 @@ impl ProbabilityResources {
             render_params_buffer,
             render_instance_buffer,
             last_render_params: None,
+            drag_render_params_buffer,
+            drag_render_instance_buffer,
+            drag_render_bind_group,
+            last_drag_render_params: None,
             popup_value_pipeline,
             popup_value_bind_group,
             popup_value_params_buffer,
@@ -714,6 +732,11 @@ fn create_render_pipeline(
                         wgpu::VertexAttribute {
                             offset: 28,
                             shader_location: 6,
+                            format: wgpu::VertexFormat::Uint32,
+                        },
+                        wgpu::VertexAttribute {
+                            offset: 32,
+                            shader_location: 7,
                             format: wgpu::VertexFormat::Uint32,
                         },
                     ],

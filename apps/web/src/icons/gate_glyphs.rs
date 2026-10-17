@@ -159,6 +159,29 @@ pub(super) fn draw_gate_icon(
             super::svg_icon::draw_glyph(painter, rect, digit_color, glyph);
             true
         }
+        GateKind::ZParityControl | GateKind::XParityControl => {
+            let axis = if kind == GateKind::ZParityControl {
+                "Z"
+            } else {
+                "X"
+            };
+            let center = rect.center();
+            painter.text(
+                center - egui::vec2(0.0, crate::tailwind::SPACING_2),
+                egui::Align2::CENTER_CENTER,
+                axis,
+                egui::FontId::proportional(crate::tailwind::TEXT_BASE),
+                colors.label,
+            );
+            painter.text(
+                center + egui::vec2(0.0, crate::tailwind::SPACING_2),
+                egui::Align2::CENTER_CENTER,
+                "par",
+                egui::FontId::proportional(crate::tailwind::TEXT_XS),
+                colors.label,
+            );
+            true
+        }
         GateKind::Control => {
             painter.circle_filled(p(24.0, 24.0), CONTROL_RADIUS * scale, color);
             true

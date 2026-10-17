@@ -18,6 +18,7 @@ use super::super::resources::StateVectorResources;
 /// hovered row index; probabilities never leave GPU memory in production.
 pub(crate) struct ProbabilityDisplayCallback {
     pub(crate) instances: Arc<[ProbabilityInstance]>,
+    pub(crate) use_drag_preview_buffer: bool,
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) background: [f32; 4],
@@ -25,6 +26,7 @@ pub(crate) struct ProbabilityDisplayCallback {
     pub(crate) border: [f32; 4],
     pub(crate) log_hint: [f32; 4],
     pub(crate) bar: [f32; 4],
+    pub(crate) sample_on_fill: [f32; 4],
     pub(crate) bar_edge: [f32; 4],
     pub(crate) hover_border: [f32; 4],
     pub(crate) text_color: [f32; 4],
@@ -83,7 +85,22 @@ impl egui_wgpu::CallbackTrait for ProbabilityDisplayCallback {
         if self.instances.is_empty() {
             return Vec::new();
         }
-        self.upload_external_probabilities(device, queue, resources);
+        if !self.use_drag_preview_buffer {
+            self.upload_external_probabilities(device, queue, resources);
+            #[cfg(target_arch = "wasm32")]
+            super::super::readback::SAMPLE_DISPLAY_SPANS.with(|cell| {
+                let mut spans = cell.borrow_mut();
+                spans.clear();
+                spans.extend(
+                    self.instances
+                        .iter()
+                        .filter(|instance| {
+                            instance.render_mode == ProbabilityInstance::SAMPLED_BITSTRING
+                        })
+                        .map(|instance| (instance.seed, instance.span)),
+                );
+            });
+        }
         let params = ProbabilityRenderParams {
             viewport_min: self.viewport_min,
             viewport_size: self.viewport_size,
@@ -94,27 +111,40 @@ impl egui_wgpu::CallbackTrait for ProbabilityDisplayCallback {
             border: self.border,
             log_hint: self.log_hint,
             bar: self.bar,
+            sample_on_fill: self.sample_on_fill,
             bar_edge: self.bar_edge,
             hover_border: self.hover_border,
             text_color: self.text_color,
         };
-        if resources.probability.last_render_params != Some(params) {
-            queue.write_buffer(
-                &resources.probability.render_params_buffer,
-                0,
-                bytemuck::bytes_of(&params),
-            );
-            resources.probability.last_render_params = Some(params);
+        let probability = &mut resources.probability;
+        let (params_buffer, instance_buffer, last_params) = if self.use_drag_preview_buffer {
+            (
+                &probability.drag_render_params_buffer,
+                &probability.drag_render_instance_buffer,
+                &mut probability.last_drag_render_params,
+            )
+        } else {
+            (
+                &probability.render_params_buffer,
+                &probability.render_instance_buffer,
+                &mut probability.last_render_params,
+            )
+        };
+        if *last_params != Some(params) {
+            queue.write_buffer(params_buffer, 0, bytemuck::bytes_of(&params));
+            *last_params = Some(params);
         }
         queue.write_buffer(
-            &resources.probability.render_instance_buffer,
+            instance_buffer,
             0,
             bytemuck::cast_slice(self.instances.as_ref()),
         );
-        if self.instances.iter().any(|instance| {
-            instance.render_mode == PROBABILITY_RENDER_MODE_SAMPLE
-                && instance.span >= PROBABILITY_AGGREGATE_MIN_SPAN
-        }) {
+        if !self.use_drag_preview_buffer
+            && self.instances.iter().any(|instance| {
+                instance.render_mode == PROBABILITY_RENDER_MODE_SAMPLE
+                    && instance.span >= PROBABILITY_AGGREGATE_MIN_SPAN
+            })
+        {
             let mut pass = egui_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("probability_aggregate_rows_pass"),
                 timestamp_writes: None,
@@ -143,9 +173,20 @@ impl egui_wgpu::CallbackTrait for ProbabilityDisplayCallback {
             return;
         }
         render_pass.set_pipeline(&resources.probability.render_pipeline);
-        render_pass.set_bind_group(0, &resources.probability.render_bind_group, &[]);
+        let (bind_group, instance_buffer) = if self.use_drag_preview_buffer {
+            (
+                &resources.probability.drag_render_bind_group,
+                &resources.probability.drag_render_instance_buffer,
+            )
+        } else {
+            (
+                &resources.probability.render_bind_group,
+                &resources.probability.render_instance_buffer,
+            )
+        };
+        render_pass.set_bind_group(0, bind_group, &[]);
         render_pass.set_vertex_buffer(0, resources.common.unit_quad_vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, resources.probability.render_instance_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
         render_pass.set_index_buffer(
             resources.common.unit_quad_index_buffer.slice(..),
             wgpu::IndexFormat::Uint16,

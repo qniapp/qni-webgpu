@@ -481,16 +481,29 @@ impl QniApp {
             .placed_gates
             .iter()
             .filter_map(|gate| {
-                if gate.kind != GateKind::ProbabilityDisplay {
+                if !matches!(
+                    gate.kind,
+                    GateKind::ProbabilityDisplay | GateKind::SampleDisplay
+                ) {
                     return None;
                 }
-                if dragging_gate_id == Some(gate.id) {
+                let dragging = dragging_gate_id == Some(gate.id);
+                if dragging
+                    && !(gate.kind == GateKind::SampleDisplay && self.dragging_live_display_snap)
+                {
                     return None;
                 }
                 let span = gate.span.get().clamp(1, 16) as u32;
                 let (slot, render_mode) = if let Some(slot) = self.probability_display_slot(gate.id)
                 {
-                    (slot, PROBABILITY_RENDER_MODE_SAMPLE)
+                    (
+                        slot,
+                        if gate.kind == GateKind::SampleDisplay {
+                            ProbabilityInstance::SAMPLED_BITSTRING
+                        } else {
+                            PROBABILITY_RENDER_MODE_SAMPLE
+                        },
+                    )
                 } else if self.external_gpu_display_placeholders_active()
                     && (next_probability_placeholder_slot as usize)
                         < crate::gpu::MAX_PROBABILITY_SLOTS
@@ -523,12 +536,15 @@ impl QniApp {
                         hovered_outcome
                     },
                     render_mode,
+                    seed: gate.id.as_u32(),
+                    _pad: 0,
                 })
             })
             .collect();
         if !probability_instances.is_empty() {
             let callback = ProbabilityDisplayCallback {
                 instances: probability_instances.into(),
+                use_drag_preview_buffer: false,
                 viewport_min: [callback_rect.min.x, callback_rect.min.y],
                 viewport_size: [callback_rect.width(), callback_rect.height()],
                 background: colors.surface.to_normalized_gamma_f32(),
@@ -536,6 +552,7 @@ impl QniApp {
                 border: colors.line.to_normalized_gamma_f32(),
                 log_hint: colors.probability_log_hint.to_normalized_gamma_f32(),
                 bar: colors.state_fill.to_normalized_gamma_f32(),
+                sample_on_fill: colors.sample_on_fill.to_normalized_gamma_f32(),
                 bar_edge: colors.popup_icon.to_normalized_gamma_f32(),
                 hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
                 text_color: colors.text_strong.to_normalized_gamma_f32(),

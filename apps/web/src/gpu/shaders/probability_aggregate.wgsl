@@ -6,6 +6,8 @@ struct ProbabilityInstance {
   span: u32,
   hovered_outcome: i32,
   render_mode: u32,
+  seed: u32,
+  _pad: u32,
 };
 
 @group(0) @binding(0) var<storage, read> probability_data: array<f32>;

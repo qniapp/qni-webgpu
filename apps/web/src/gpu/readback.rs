@@ -77,6 +77,8 @@ pub(crate) struct DensityGpuHandle {
 
 thread_local! {
     #[cfg(target_arch = "wasm32")]
+    pub(crate) static SAMPLE_DISPLAY_SPANS: RefCell<Vec<(u32, u32)>> = const { RefCell::new(Vec::new()) };
+    #[cfg(target_arch = "wasm32")]
     pub(crate) static GPU_READBACK: RefCell<Option<GpuReadbackState>> = const { RefCell::new(None) };
     /// Latest GPU buffer + queue handle for the bloch overlay output. Set in
     /// `prepare()`; consumed by the test-only async API
@@ -551,4 +553,105 @@ pub(crate) async fn read_density_matrix_cell_impl(
     drop(value_data);
     value_staging.unmap();
     Ok(output)
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub async fn read_sample_display_outcome(gate_id: u32, span: u32) -> Result<u32, JsValue> {
+    if !(1..=3).contains(&span) {
+        return Err(JsValue::from_str("Sample span must be 1..3"));
+    }
+    if !SAMPLE_DISPLAY_SPANS.with(|cell| cell.borrow().contains(&(gate_id, span))) {
+        return Err(JsValue::from_str(
+            "Sample display span does not match live metadata",
+        ));
+    }
+    let handle = PROBABILITY_GPU_HANDLE
+        .with(|cell| cell.borrow().clone())
+        .ok_or_else(|| JsValue::from_str("Probability GPU resources unavailable"))?;
+    let slot = PROBABILITY_SLOT_MAP
+        .with(|cell| cell.borrow().iter().position(|id| *id == gate_id))
+        .ok_or_else(|| JsValue::from_str("Sample display slot unavailable"))?;
+    let device = &handle.device;
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("sample_readback"),
+        source: wgpu::ShaderSource::Wgsl(super::shaders::PROBABILITY_RENDER_SHADER.into()),
+    });
+    let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        label: Some("sample_readback"),
+        layout: None,
+        module: &shader,
+        entry_point: Some("sample_readback"),
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
+        cache: None,
+    });
+    let params = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("sample_readback_params"),
+        size: 16,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    handle.queue.write_buffer(
+        &params,
+        0,
+        bytemuck::cast_slice(&[slot as u32, span, gate_id, 0]),
+    );
+    let result = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("sample_readback_result"),
+        size: 4,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+        mapped_at_creation: false,
+    });
+    let staging = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("sample_readback_staging"),
+        size: 4,
+        usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let bindings = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("sample_readback"),
+        layout: &pipeline.get_bind_group_layout(0),
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: handle.output_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: params.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 6,
+                resource: result.as_entire_binding(),
+            },
+        ],
+    });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("sample_readback"),
+    });
+    {
+        let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("sample_readback"),
+            timestamp_writes: None,
+        });
+        pass.set_pipeline(&pipeline);
+        pass.set_bind_group(0, &bindings, &[]);
+        pass.dispatch_workgroups(1, 1, 1);
+    }
+    encoder.copy_buffer_to_buffer(&result, 0, &staging, 0, 4);
+    handle.queue.submit(Some(encoder.finish()));
+    let slice = staging.slice(..);
+    let (sender, receiver) = oneshot::channel();
+    slice.map_async(wgpu::MapMode::Read, move |result| {
+        let _ = sender.send(result);
+    });
+    receiver
+        .await
+        .map_err(|_| JsValue::from_str("sample readback dropped"))?
+        .map_err(|err| JsValue::from_str(&format!("sample readback failed: {err:?}")))?;
+    let data = slice.get_mapped_range();
+    let outcome = bytemuck::cast_slice::<u8, u32>(&data)[0];
+    drop(data);
+    staging.unmap();
+    Ok(outcome)
 }

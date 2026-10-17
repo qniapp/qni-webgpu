@@ -221,7 +221,8 @@ fn start_intent(
             starts_live_display_snap: gate.kind.is_sampled_measurement()
                 || matches!(
                     gate.kind,
-                    crate::gates::GateKind::AmplitudeDisplay
+                    crate::gates::GateKind::SampleDisplay
+                        | crate::gates::GateKind::AmplitudeDisplay
                         | crate::gates::GateKind::DensityMatrixDisplay
                         | crate::gates::GateKind::BlochDisplay
                 ),

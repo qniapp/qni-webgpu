@@ -27,7 +27,10 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
             m10: [inv_sqrt2, 0.0],
             m11: [-inv_sqrt2, 0.0],
         },
-        GateKind::Control | GateKind::AntiControl => GateMatrix {
+        GateKind::Control
+        | GateKind::AntiControl
+        | GateKind::ZParityControl
+        | GateKind::XParityControl => GateMatrix {
             m00: [1.0, 0.0],
             m01: [0.0, 0.0],
             m10: [0.0, 0.0],
@@ -41,6 +44,7 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
         | GateKind::XDetector
         | GateKind::YDetector
         | GateKind::ProbabilityDisplay
+        | GateKind::SampleDisplay
         | GateKind::AmplitudeDisplay
         | GateKind::DensityMatrixDisplay
         | GateKind::Spacer

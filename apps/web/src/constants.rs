@@ -211,7 +211,7 @@ pub(crate) const PALETTE_SECTION_GAP: f32 = crate::tailwind::SPACING_2;
 pub(crate) const SECTION_DIVIDER_WIDTH: f32 = 2.0;
 // Palette separator spans the full two-row palette height.
 pub(crate) const PALETTE_SEPARATOR_WIDTH: f32 = SECTION_DIVIDER_WIDTH;
-pub(crate) const PALETTE_DISPLAY_COLUMNS: usize = 2;
+pub(crate) const PALETTE_DISPLAY_COLUMNS: usize = 3;
 pub(crate) const PALETTE_DISPLAY_ROWS: usize = 2;
 pub(crate) const PALETTE_PADDING_X: f32 = crate::tailwind::SPACING_4;
 pub(crate) const PALETTE_PADDING_Y: f32 = crate::tailwind::SPACING_5;
