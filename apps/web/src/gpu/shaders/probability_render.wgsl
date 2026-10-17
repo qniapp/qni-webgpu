@@ -9,6 +9,11 @@ struct ProbabilityRenderParams {
   log_hint: vec4<f32>,
   bar: vec4<f32>,
   sample_on_fill: vec4<f32>,
+  sample_on_glow: vec4<f32>,
+  sample_on_edge: vec4<f32>,
+  sample_off_fill: vec4<f32>,
+  sample_off_edge: vec4<f32>,
+  sample_frame: vec4<f32>,
   bar_edge: vec4<f32>,
   hover_border: vec4<f32>,
   text_color: vec4<f32>,
@@ -271,31 +276,65 @@ fn sampled_outcome(slot: u32, span: u32, seed: u32) -> u32 {
   return last_possible;
 }
 
+fn sample_wire(input: VsOut, local_y: f32) -> u32 {
+  return u32(clamp(floor((local_y - input.rect_size.y * 0.5 + f32(input.span) * SAMPLE_WIRE_PITCH * 0.5) / SAMPLE_WIRE_PITCH), 0.0, f32(input.span - 1u)));
+}
+
+fn sample_wire_center_y(input: VsOut, wire: u32) -> f32 {
+  return input.rect_size.y * 0.5 + (f32(wire) - f32(input.span - 1u) * 0.5) * SAMPLE_WIRE_PITCH;
+}
+
+// The preview state and an unsampleable state both show every lamp off.
+fn sample_lit(input: VsOut, wire: u32) -> bool {
+  if (input.render_mode == SAMPLE_PREVIEW_MODE) { return false; }
+  let outcome = sampled_outcome(input.slot, input.span, input.seed);
+  if (outcome == SAMPLE_INVALID) { return false; }
+  return ((outcome >> wire) & 1u) != 0u;
+}
+
+fn sample_round_box_sdf(p: vec2<f32>, half_size: vec2<f32>, radius: f32) -> f32 {
+  let q = abs(p) - half_size + vec2<f32>(radius);
+  return length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+}
+
+fn sample_coverage(distance: f32) -> f32 {
+  return clamp(0.5 - distance, 0.0, 1.0);
+}
+
+// Straight-alpha "over", matching the pipeline's ALPHA_BLENDING.
+fn sample_layer(base: vec4<f32>, top: vec4<f32>, alpha: f32) -> vec4<f32> {
+  let a = clamp(alpha * top.a, 0.0, 1.0);
+  let out_a = a + base.a * (1.0 - a);
+  if (out_a <= 0.0) { return vec4<f32>(0.0); }
+  return vec4<f32>((top.rgb * a + base.rgb * base.a * (1.0 - a)) / out_a, out_a);
+}
+
+// Design A: one rounded-square tile per wire, the size of a normal gate.
+// A lit tile glows from its centre and carries a bright rim; an unlit tile is
+// flat grey. Tiles of a multi-wire block are joined by a thin connector.
 fn sample_color(input: VsOut, local_y: f32) -> vec4<f32> {
-  var outcome = 0u;
-  if (input.render_mode != SAMPLE_PREVIEW_MODE) {
-    outcome = sampled_outcome(input.slot, input.span, input.seed);
+  let wire = sample_wire(input, local_y);
+  let lit = sample_lit(input, wire);
+  let p = vec2<f32>(input.local.x - input.rect_size.x * 0.5, local_y - sample_wire_center_y(input, wire));
+  let half_cell = input.rect_size.x * 0.5;
+  var color = vec4<f32>(0.0);
+
+  let connector_top = sample_wire_center_y(input, 0u);
+  let connector_bottom = sample_wire_center_y(input, input.span - 1u);
+  if (local_y >= connector_top && local_y <= connector_bottom) {
+    color = sample_layer(color, params.sample_frame, sample_coverage(abs(input.local.x - input.rect_size.x * 0.5) - 1.0));
   }
-  let wire = u32(clamp(floor((local_y - input.rect_size.y * 0.5 + f32(input.span) * SAMPLE_WIRE_PITCH * 0.5) / SAMPLE_WIRE_PITCH), 0.0, f32(input.span - 1u)));
-  let center_y = input.rect_size.y * 0.5 + (f32(wire) - f32(input.span - 1u) * 0.5) * SAMPLE_WIRE_PITCH;
-  let bit = (outcome >> wire) & 1u;
-  var color = params.background;
-  if (outcome == SAMPLE_INVALID) {
-    color = params.placeholder_background;
-  } else if (bit != 0u) {
-    color = params.sample_on_fill;
-  }
-  if (input.local.x < 1.0 || local_y < 1.0 || input.local.x >= input.rect_size.x - 1.0 || local_y >= input.rect_size.y - 1.0) {
-    return params.border;
-  }
-  let text_w = select(3.0, 2.0, bit != 0u) * SAMPLE_CHAR_W;
-  let p = vec2<f32>(input.local.x - (input.rect_size.x - text_w) * 0.5, local_y - center_y + SAMPLE_CHAR_H * 0.5);
-  if (outcome != SAMPLE_INVALID && all(p >= vec2<f32>(0.0)) && p.x < text_w && p.y < SAMPLE_CHAR_H) {
-    let index = u32(floor(p.x / SAMPLE_CHAR_W));
-    let glyph = select(select(GLYPH_F, GLYPH_N, bit != 0u), GLYPH_O, index == 0u);
-    let uv = vec2<f32>((f32(glyph) + fract(p.x / SAMPLE_CHAR_W)) / f32(GLYPH_COUNT), p.y / SAMPLE_CHAR_H);
-    let alpha = textureSampleLevel(atlas, atlas_sampler, uv, 0.0).r;
-    return over(vec4<f32>(params.text_color.rgb * alpha, alpha), color);
+
+  let d = sample_round_box_sdf(p, vec2<f32>(half_cell), 6.0);
+  if (lit) {
+    let rim = 2.0;
+    color = sample_layer(color, params.sample_on_edge, sample_coverage(d));
+    let glow = 1.0 - smoothstep(0.0, half_cell - rim, length(p));
+    let fill = mix(params.sample_on_fill, params.sample_on_glow, glow);
+    color = sample_layer(color, fill, sample_coverage(d + rim));
+  } else {
+    color = sample_layer(color, params.sample_off_edge, sample_coverage(d));
+    color = sample_layer(color, params.sample_off_fill, sample_coverage(d + 1.0));
   }
   return color;
 }

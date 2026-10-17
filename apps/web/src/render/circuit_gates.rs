@@ -306,6 +306,11 @@ impl QniApp {
                         draw_gate_glyph(painter, gate_rect, gate.kind, colors);
                     }
                 }
+            } else if gate.kind == GateKind::SampleDisplay
+                && self.probability_display_slot(gate.id).is_some()
+            {
+                // The GPU overlay paints the sample lamps with transparent gaps
+                // between wires; a CPU body underneath would show through.
             } else {
                 draw_gate_body(painter, body_rect, gate.kind, colors);
                 if gate.kind == GateKind::AntiControl {
@@ -553,6 +558,11 @@ impl QniApp {
                 log_hint: colors.probability_log_hint.to_normalized_gamma_f32(),
                 bar: colors.state_fill.to_normalized_gamma_f32(),
                 sample_on_fill: colors.sample_on_fill.to_normalized_gamma_f32(),
+                sample_on_glow: colors.sample_on_glow.to_normalized_gamma_f32(),
+                sample_on_edge: colors.sample_on_edge.to_normalized_gamma_f32(),
+                sample_off_fill: colors.sample_off_fill.to_normalized_gamma_f32(),
+                sample_off_edge: colors.sample_off_edge.to_normalized_gamma_f32(),
+                sample_frame: colors.sample_frame.to_normalized_gamma_f32(),
                 bar_edge: colors.popup_icon.to_normalized_gamma_f32(),
                 hover_border: colors.gate_hover_border.to_normalized_gamma_f32(),
                 text_color: colors.text_strong.to_normalized_gamma_f32(),
