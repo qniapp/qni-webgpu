@@ -6,6 +6,9 @@ use crate::constants::SECTION_DIVIDER_WIDTH;
 
 use super::gpu_status_pill::gpu_status_pill;
 
+const TUTORIAL_URL: &str = "https://qniapp.github.io/qni-tutorial-webgpu/";
+const TUTORIAL_TOOLTIP: &str = "Open tutorial in a new tab";
+
 const TOOL_SIZE: egui::Vec2 = egui::vec2(crate::tailwind::SPACING_8, crate::tailwind::SPACING_8);
 const ICON_SIZE: egui::Vec2 = egui::vec2(18.0, 18.0); // Lucide 24×24 viewBox scaled to 18px.
 
@@ -48,6 +51,9 @@ impl QniApp {
                         }
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             self.show_exec_mode_toggle(ui, colors);
+                            if self.mode.uses_browser_state() {
+                                tutorial_link(ui, colors);
+                            }
                         });
                     });
                 });
@@ -188,6 +194,56 @@ impl QniApp {
     }
 }
 
+fn tutorial_link(ui: &mut egui::Ui, colors: &Colors) -> egui::Response {
+    let text = ui
+        .painter()
+        .layout_job(egui::text::LayoutJob::single_section(
+            "Tutorial".to_owned(),
+            egui::TextFormat {
+                font_id: egui::FontId::proportional(crate::tailwind::TEXT_SM),
+                line_height: Some(crate::tailwind::LEADING_5),
+                color: colors.toolbar_icon,
+                ..Default::default()
+            },
+        ));
+    let (rect, response) = ui.allocate_exact_size(
+        egui::vec2(
+            text.size().x + 2.0 * crate::tailwind::SPACING_2,
+            crate::tailwind::SPACING_8,
+        ),
+        egui::Sense::click(),
+    );
+    let response = response
+        .on_hover_text(TUTORIAL_TOOLTIP)
+        .on_hover_cursor(egui::CursorIcon::PointingHand);
+    let hovered = response.hovered();
+    publish_toolbar_button_debug_json(TUTORIAL_TOOLTIP, rect, hovered);
+    let hover_t = ui
+        .ctx()
+        .animate_bool_with_time(response.id.with("hover"), hovered, 0.12);
+    if hover_t > 0.0 {
+        ui.painter().rect_filled(
+            rect,
+            egui::CornerRadius::same(crate::tailwind::ROUNDED_MD),
+            with_alpha(colors.toolbar_hover_bg, (255.0 * hover_t) as u8),
+        );
+    }
+    ui.painter().galley_with_override_text_color(
+        rect.center() - text.size() / 2.0,
+        text,
+        if hovered {
+            colors.toolbar_icon_hover
+        } else {
+            colors.toolbar_icon
+        },
+    );
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Link, true, "Tutorial"));
+    if response.clicked() {
+        ui.ctx().open_url(egui::OpenUrl::new_tab(TUTORIAL_URL));
+    }
+    response
+}
+
 fn toolbar_frame(colors: &Colors) -> egui::Frame {
     egui::Frame {
         inner_margin: egui::Margin::symmetric(
@@ -278,6 +334,7 @@ fn icon_button(
 #[cfg(all(target_arch = "wasm32", debug_assertions))]
 fn publish_toolbar_button_debug_json(tooltip: &str, rect: egui::Rect, hovered: bool) {
     let target = match tooltip {
+        TUTORIAL_TOOLTIP => Some(crate::test_hooks::QNI_TOOLBAR_TUTORIAL_GEOMETRY_JSON),
         "Duplicate circuit" => Some(crate::test_hooks::QNI_TOOLBAR_DUPLICATE_GEOMETRY_JSON),
         "Lock circuit" | "Unlock circuit" | "Locked (sample) — duplicate to edit" => {
             Some(crate::test_hooks::QNI_TOOLBAR_LOCK_GEOMETRY_JSON)
@@ -543,4 +600,61 @@ fn icon_point(icon_rect: egui::Rect, x: f32, y: f32) -> egui::Pos2 {
         icon_rect.left() + icon_rect.width() * x / 24.0,
         icon_rect.top() + icon_rect.height() * y / 24.0,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tutorial_link_snapshot() {
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            tutorial_link(ui, &Colors::new());
+        });
+        insta::assert_debug_snapshot!(output.shapes);
+    }
+
+    #[test]
+    fn tutorial_click_requests_a_new_tab() {
+        let ctx = egui::Context::default();
+        let mut rect = egui::Rect::NOTHING;
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            rect = tutorial_link(ui, &Colors::new()).rect;
+        });
+        let position = rect.center();
+        let mut output = egui::FullOutput::default();
+        for pressed in [true, false] {
+            output = ctx.run_ui(
+                egui::RawInput {
+                    events: vec![
+                        egui::Event::PointerMoved(position),
+                        egui::Event::PointerButton {
+                            pos: position,
+                            button: egui::PointerButton::Primary,
+                            pressed,
+                            modifiers: egui::Modifiers::NONE,
+                        },
+                    ],
+                    ..Default::default()
+                },
+                |ui| {
+                    tutorial_link(ui, &Colors::new());
+                },
+            );
+        }
+        let urls: Vec<_> = output
+            .platform_output
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                egui::OutputCommand::OpenUrl(url) => Some((url.url.as_str(), url.new_tab)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            urls,
+            vec![("https://qniapp.github.io/qni-tutorial-webgpu/", true)]
+        );
+    }
 }
