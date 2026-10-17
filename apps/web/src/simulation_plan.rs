@@ -4,6 +4,8 @@
 //! the ordered WebGPU op stream, then validate that the fixed GPU buffers can
 //! hold the plan. Per AGENTS.md, production simulation remains GPU-only.
 
+#[cfg(test)]
+mod arith_tests;
 mod capacity;
 mod column_analysis;
 mod flag_sources;

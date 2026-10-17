@@ -49,6 +49,9 @@ pub(super) fn encode_batched_recompute(
                 output_slot.as_u32(),
             ),
             SimulationOp::ApplyGate(_) => state.encode_apply_gate(&mut encoder, resources),
+            SimulationOp::Arithmetic(params) => {
+                state.encode_arithmetic(&mut encoder, resources, params.state_count)
+            }
             SimulationOp::Postselect { gate_id, .. } => {
                 state.encode_postselection(&mut encoder, resources, gate_id.as_u32(), state_count)
             }
@@ -93,6 +96,7 @@ struct DispatchState {
     pair_count: u32,
     dispatch_x: u32,
     gate_slot: u64,
+    arithmetic_slot: u64,
     bloch_slot: u64,
     measure_reduce_slot: u64,
     measure_collapse_slot: u64,
@@ -115,6 +119,7 @@ impl DispatchState {
             pair_count,
             dispatch_x,
             gate_slot: 0,
+            arithmetic_slot: 0,
             bloch_slot: 0,
             measure_reduce_slot: 0,
             measure_collapse_slot: 0,
@@ -217,6 +222,34 @@ impl DispatchState {
             pass.dispatch_workgroups(self.dispatch_x, 1, 1);
         }
         self.gate_slot += 1;
+        self.in_index = 1 - self.in_index;
+    }
+
+    fn encode_arithmetic(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        resources: &StateVectorResources,
+        state_count: u32,
+    ) {
+        let arithmetic = &resources.arithmetic;
+        let size = std::mem::size_of::<super::super::params::ArithmeticParams>() as u64;
+        encoder.copy_buffer_to_buffer(
+            &arithmetic.params_staging_buffer,
+            self.arithmetic_slot * size,
+            &arithmetic.params_buffer,
+            0,
+            size,
+        );
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("arithmetic"),
+                timestamp_writes: None,
+            });
+            pass.set_pipeline(&arithmetic.pipeline);
+            pass.set_bind_group(0, &arithmetic.bind_groups[self.in_index], &[]);
+            pass.dispatch_workgroups(state_count.div_ceil(64), 1, 1);
+        }
+        self.arithmetic_slot += 1;
         self.in_index = 1 - self.in_index;
     }
 

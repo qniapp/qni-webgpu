@@ -1,4 +1,10 @@
 export const kernels = {
+  arithmetic: {
+    uniform: 'ArithmeticParams',
+    wgsl: 'ArithmeticParams',
+    bindings: ['stateA:r', 'stateB:rw', 'uniform:u'],
+    workgroup: 64,
+  },
   state_compute: {
     uniform: 'GateParams',
     wgsl: 'GateParams',
@@ -104,7 +110,9 @@ export const fingerprints: [string, string, number][] = [
   ['gpu/recompute/dispatch.rs', 'let dispatch_x = outcomes.min(256);', 1],
   ['gpu/recompute/dispatch.rs', 'let dispatch_y = outcomes.div_ceil(dispatch_x);', 1],
   ['gpu/recompute/dispatch.rs', 'pass.dispatch_workgroups(cells.div_ceil(64), 1, 1);', 1],
-  ['gpu/recompute/dispatch.rs', 'self.in_index = 1 - self.in_index;', 3],
+  // Matrix, arithmetic, postselection normalization, and measurement collapse each swap buffers.
+  ['gpu/recompute/dispatch.rs', 'self.in_index = 1 - self.in_index;', 4],
+  ['gpu/recompute/dispatch.rs', 'pass.dispatch_workgroups(state_count.div_ceil(64), 1, 1);', 1],
   ['gpu/recompute.rs', 'let dispatch_x = pair_count.div_ceil(STATE_WORKGROUP_SIZE);', 1],
   ['gpu/recompute/clear.rs', `encoder.copy_buffer_to_buffer(
 &resources.common.state_seed_buffer,

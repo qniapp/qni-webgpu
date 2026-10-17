@@ -355,6 +355,15 @@ fn token_to_gate(token: &str) -> Option<DecodedToken> {
 
 /// Decode a token without its measurement variable suffix.
 fn base_token_to_gate(token: &str) -> Option<(GateKind, usize, Option<ParametricAngle>)> {
+    for (prefix, kind) in [("inc", GateKind::Increment), ("dec", GateKind::Decrement)] {
+        if let Some(rest) = token.strip_prefix(prefix) {
+            if rest.starts_with('0') || !rest.bytes().all(|byte| byte.is_ascii_digit()) {
+                return None;
+            }
+            let span: usize = rest.parse().ok()?;
+            return (1..=16).contains(&span).then_some((kind, span, None));
+        }
+    }
     if let Some(rest) = token.strip_prefix("QFT†") {
         let span: usize = rest.parse().ok()?;
         return Some((GateKind::QftDaggerGate, span, None));
@@ -1023,5 +1032,64 @@ mod tests {
         let expected = BB84_JSON.replace(r#",[1]]}"#, "]}");
 
         assert_eq!(round_trip(BB84_JSON), expected);
+    }
+
+    #[test]
+    fn arithmetic_suffix_families_round_trip() {
+        let columns = (1..=16)
+            .flat_map(|span| [format!(r#"["inc{span}"]"#), format!(r#"["dec{span}"]"#)])
+            .collect::<Vec<_>>()
+            .join(",");
+        let json = format!(r#"{{"cols":[{columns}]}}"#);
+        let circuit = parse_circuit_json(&json);
+        assert_eq!(
+            crate::url_circuit::circuit_to_json(
+                &circuit.gates,
+                &circuit.blocks,
+                "",
+                qubit_count(16)
+            ),
+            json
+        );
+    }
+
+    #[test]
+    fn arithmetic_requires_valid_span_suffix() {
+        assert_eq!(
+            ["inc", "dec", "inc0", "dec0", "inc17", "dec17", "inc-1", "decx", "inc01", "dec+1"]
+                .map(base_token_to_gate),
+            [None; 10]
+        );
+    }
+
+    #[test]
+    fn arithmetic_decodes_gate_kinds_and_spans() {
+        assert_eq!(
+            ["inc1", "inc16", "dec1", "dec16"].map(base_token_to_gate),
+            [
+                Some((GateKind::Increment, 1, None)),
+                Some((GateKind::Increment, 16, None)),
+                Some((GateKind::Decrement, 1, None)),
+                Some((GateKind::Decrement, 16, None)),
+            ]
+        );
+    }
+
+    #[test]
+    fn arithmetic_palette_templates_use_single_wire_defaults() {
+        assert_eq!(
+            ["inc", "dec", "inc1", "dec1"].map(palette_token_to_gate),
+            [
+                Some((GateKind::Increment, None)),
+                Some((GateKind::Decrement, None)),
+                Some((GateKind::Increment, None)),
+                Some((GateKind::Decrement, None)),
+            ]
+        );
+    }
+
+    #[test]
+    fn arithmetic_palette_rejects_multiwire_templates() {
+        assert_eq!(["inc2", "dec16"].map(palette_token_to_gate), [None, None]);
     }
 }

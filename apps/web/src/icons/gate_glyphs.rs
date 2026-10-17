@@ -101,6 +101,14 @@ pub(super) fn draw_gate_icon(
     let p = |x: f32, y: f32| map_svg_point_in_rect(rect, SvgPoint::new(x, y), viewbox);
 
     match kind {
+        GateKind::Increment => {
+            draw_increment_icon(painter, rect, color);
+            true
+        }
+        GateKind::Decrement => {
+            draw_decrement_icon(painter, rect, color);
+            true
+        }
         GateKind::PostSelectOff
         | GateKind::PostSelectOn
         | GateKind::PostSelectAntiX
@@ -243,6 +251,27 @@ pub(super) fn draw_gate_icon(
         // the body code knows how to fall back on with `kind.label()`.
         _ => false,
     }
+}
+
+// Replaceable text placeholders until dedicated arithmetic artwork is available.
+fn draw_increment_icon(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {
+    painter.text(
+        rect.center(),
+        egui::Align2::CENTER_CENTER,
+        "+1",
+        egui::FontId::proportional(TEXT_BASE),
+        color,
+    );
+}
+
+fn draw_decrement_icon(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {
+    painter.text(
+        rect.center(),
+        egui::Align2::CENTER_CENTER,
+        "−1",
+        egui::FontId::proportional(TEXT_BASE),
+        color,
+    );
 }
 
 /// SVG 起点でテクスチャ描画するゲートに対する `GateGlyph` への対応。

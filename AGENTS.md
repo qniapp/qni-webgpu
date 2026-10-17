@@ -83,3 +83,5 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
   - コード識別子: `GateKind::SampleDisplay`。シリアライズ ID は `"Sample1"` / `"Sample2"` / `"Sample3"`。
 - **パリティ制御** — 同じ列で条件を満たすものが奇数個のときに列の操作を適用する制御。個別名は `Z パリティ制御` / `X パリティ制御`。
   - コード識別子: `GateKind::ZParityControl` / `GateKind::XParityControl`。シリアライズ ID は `"zpar"` / `"xpar"`。
+- **算術ゲート** — 範囲内のワイヤを、一番上を最下位ビットとする整数レジスタとみなし、2^n を法として 1 を加算・減算するゲート。個別名は `インクリメントゲート` / `デクリメントゲート`。
+  - コード識別子: `GateKind::Increment` / `GateKind::Decrement`。シリアライズ ID は `"inc1"`〜`"inc16"` / `"dec1"`〜`"dec16"`。

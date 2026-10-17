@@ -4,6 +4,7 @@
 事後選択ゲートの条件付き状態と生存率、外部 Qiskit 実行での扱いは [事後選択](postselection.md) を参照する。
 サンプル表示ブロックとパリティ制御の使い方、および外部 GPU 実行の制限は[サンプル表示ブロックとパリティ制御](sample-parity.md)を参照する。
 X 軸・Y 軸の標本測定は [X 軸検出器・Y 軸検出器](axis-detectors.md) を参照する。
+インクリメント・デクリメントの仕様と外部実行は[算術ゲート](arith-gates.md)を参照する。
 
 ## Prerequisites
 
@@ -317,14 +318,14 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - 描画は GPU 完結: `BLOCH_OVERLAY_SHADER` (vertex+fragment) が `bloch_output_buffer` を直接 sample してアロー線・先端ドットを描く (`BlochOverlayCallback`)。`MEASUREMENT_DIGIT_SHADER` も同様に `measurement_aux_buffer.z` (outcome) を sample し、起動時に rasterize した Geist Mono Regular の `0` / `1` atlas から outcome 桁を描画する。本番経路で GPU → CPU リードバックは発生しない。
 - `read_bloch_vectors()` / `read_measurement_outcomes()` (wasm_bindgen) は **テスト専用の async on-demand readback**: 呼ばれた時に staging buffer + map_async で `[gateId, x, y, z, …]` / `[gateId, outcome, …]` を返す。本番のレンダーには影響しない。Playwright は `readBlochVectors` / `readMeasurementOutcomes` ヘルパー経由で await して使う。
 - Spacer ゲートは qni `packages/elements/icon/spacer-gate.svg` を踏襲した装飾専用 NOP。viewbox 上の (9,21)–(15,27)、(21,21)–(27,27)、(33,21)–(39,27) に塗りつぶし矩形 3 つで `…` を描く。色は `text-neutral-900` (#171717)。`simulation_plan::linearize_ops` では Swap と同じく状態変更 op を出さない。
-- パレットは 2 段。1 段目は単量子ビットのユニタリ (H, X, Y, Z, √X, S, S†, T, T†, P, Rx, Ry, Rz)、2 段目は特殊ゲート (SWAP, •, ◦, Zpar, Xpar, |0⟩, |1⟩, Measurement, Z Detect-Control-Reset, X 軸検出器, Y 軸検出器, QFT, QFT†, Spacer, 事後選択 |0⟩ / |1⟩ / |+⟩ / |−⟩)。右側にはブロッホ球・確率・サンプル・振幅・密度行列の表示ブロックを置く。両段とも左寄せで揃える（qni の `flex flex-row` レイアウトに合わせる）。
+- パレットは 2 段。1 段目は単量子ビットのユニタリ (H, X, Y, Z, √X, S, S†, T, T†, P, Rx, Ry, Rz) と算術ゲート (+1 / −1)、2 段目は特殊ゲート (SWAP, •, ◦, Zpar, Xpar, |0⟩, |1⟩, Measurement, Z Detect-Control-Reset, X 軸検出器, Y 軸検出器, QFT, QFT†, Spacer, 事後選択 |0⟩ / |1⟩ / |+⟩ / |−⟩)。右側にはブロッホ球・確率・サンプル・振幅・密度行列の表示ブロックを置く。両段とも左寄せで揃える（qni の `flex flex-row` レイアウトに合わせる）。
 - パレットの寸法は qni `apps/www/app/views/application/_palette_md.html.erb` に合わせる: ゲート間 8px (`space-x-2`)、行間 8px (`space-y-2`)、横パディング 16px (`px-4`)、縦パディング 20px (`py-5`)、角丸 12px (`rounded-xl`)。
 - |0⟩ の桁は `semantic_off`、|1⟩ の桁は `semantic_on` で描画する。Flexoki Light では red-600 / blue-600。桁のフォントは Geist Mono Regular で、スラッシュ付きの `0` により `O` と見間違えにくくする。
-- Z Detect-Control-Reset は、列の先頭で Z 基底で測定し、結果が 1 のとき Control と同じく同列の操作を制御する。Measurement は制御を無視し、表示ブロックは条件付き表示になる。列の末尾で対象量子ビットを `|0⟩` にリセットする。左半分に検出器、右半分に固定の `|0⟩`、中央に制御点を描く。右側の数字は測定結果ではなくリセット先を示す。測定変数や条件は付けられない。Qiskit モードでも同じ意味で実行し、表示ブロックの値を保存した後にリセットする。同じ列の QFT の範囲が対象量子ビットと重なる場合は外部実行では非対応。パリティ制御との組み合わせには対応し、Z 基底測定はパリティ集約前、リセットは表示値の保存後かつ集約解除前に行う。試行ごとの標本抽出と平均表示の違いを含む詳細は[外部 GPU API 互換方針](implementation/external-gpu-api-compatibility.md#ゲート対応)を参照する。
+- Z Detect-Control-Reset は、列の先頭で Z 基底で測定し、結果が 1 のとき Control と同じく同列の操作を制御する。Measurement は制御を無視し、表示ブロックは条件付き表示になる。列の末尾で対象量子ビットを `|0⟩` にリセットする。左半分に検出器、右半分に固定の `|0⟩`、中央に制御点を描く。右側の数字は測定結果ではなくリセット先を示す。測定変数や条件は付けられない。Qiskit モードでも同じ意味で実行し、表示ブロックの値を保存した後にリセットする。同じ列の QFT または算術ゲートの範囲が対象量子ビットと重なる場合は外部実行では非対応。パリティ制御との組み合わせには対応し、Z 基底測定はパリティ集約前、リセットは表示値の保存後かつ集約解除前に行う。試行ごとの標本抽出と平均表示の違いを含む詳細は[外部 GPU API 互換方針](implementation/external-gpu-api-compatibility.md#ゲート対応)を参照する。
 - 事後選択 |0⟩ / |1⟩ / |+⟩ / |−⟩ は GPU モードでも実行できる。外部実行のヒストグラムはすべての事後選択を通過した試行だけを数え、合計が `shots` より少なくなることがある。残った試行がない表示ブロックは未定義になる。列ごとの増減率と `kept: N%` はローカル WebGPU の計算値であり、外部実行は生存率を返さない。有限試行数による取りこぼしなどの制限は[事後選択の外部 Qiskit 実行](postselection.md#外部-qiskit-実行)を参照する。
 - CNOT は Control ゲート (C) と X ゲートを同じ列に置いて表す。
-- Control / Anti Control は、同じ列の単量子ビットゲート、書き込みゲート、Swap、QFT / QFT† を条件付きで実行する。Bloch / Probability / Amplitude / Density Matrix 表示ブロックでは条件付き表示として使う。Measurement は制御を無視する。X 軸検出器・Y 軸検出器は制御条件と対象の負の固有状態を合わせた部分空間を測定する。
-- Probability / QFT / QFT† は span 分だけ縦に伸び、回路上の長いゲートをドラッグ中も同じ span の preview を描く。span リサイズハンドルは 3 種とも同じ仕様で、上下 2 個の purple pill (24×6 px) をゲートホバーで表示し、上ハンドルは span を上方向へ、下ハンドルは下方向へ伸縮する。
+- Control / Anti Control は、同じ列の単量子ビットゲート、書き込みゲート、Swap、QFT / QFT†、算術ゲートを条件付きで実行する。Bloch / Probability / Amplitude / Density Matrix 表示ブロックでは条件付き表示として使う。Measurement は制御を無視する。X 軸検出器・Y 軸検出器は制御条件と対象の負の固有状態を合わせた部分空間を測定する。
+- 確率・サンプル・振幅・密度行列の表示ブロック、QFT / QFT†、算術ゲートは範囲のワイヤ数に応じて縦に伸び、ドラッグ中も同じ大きさのプレビューを描く。伸縮ハンドルは共通で、ホバー時に上下 2 個の紫色の丸角ハンドル (24×6 px) を表示し、上ハンドルは上方向へ、下ハンドルは下方向へ範囲を伸縮する。
 - ゲートをドラッグ中、既存列の手前 / 列間 / 直後に qni-style の一時 insertion dropzone を作る。drop すると `addShadowStepAfter` 相当で新しい semantic column を挿入し、後続列を右へ送る。
 - ドラッグ中は未スナップの移動だけでは `needs_recompute` を立てず、ゲートが回路スロットまたは挿入ドロップゾーンへスナップした時点で GPU 計算計画を作り直す。これにより、ドロップ前でも既存のブロッホ球表示ブロック / 確率表示ブロック / 振幅表示ブロック / 密度行列表示ブロック / 状態ベクトルパネルが仮配置を反映する。
 - 状態ベクトル panel の wheel zoom / aspect / resize 後は同じ frame で layout を作り直し、zoom anchor と circle radius / cell pitch を同期する。grid が viewport 内に収まる間も slack の範囲で pan を許し、cursor anchor が中央寄せ/overflow の境界で跳ねないようにする。
@@ -350,7 +351,7 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 条件を付けられるのは `H` / `X` / `Y` / `Z` / `X^½` / `S` / `S†` / `T` / `T†` の 9 種類で、`P` / `Rx` / `Ry` / `Rz` は対象外である。
 
 - 条件は前の列までの最新の書き込みを読む。同じ列のゲートは測定より先に実行されるため、その列の書き込みは読まない。同じ列で同じ変数へ複数回書くと、一番下の測定結果が次の列以降の値になる。一度も書かれていない変数は 0 として扱い、ゲートを実行しない。
-- 同じ列の Control / Anti Control は変数条件と組み合わせる。測定自体はこれらの制御を無視する。表示ブロックは列の測定後の状態を表示する。Swap は条件付きゲートより先に、QFT は条件付きゲートより後に実行する。
+- 同じ列の Control / Anti Control は変数条件と組み合わせる。測定自体はこれらの制御を無視する。表示ブロックは列の測定後の状態を表示する。Swap は条件付きゲートより先に、QFT と算術ゲートは条件付きゲートより後に開始行順で実行する。
 - GPU モードの Qiskit 実行にも対応する。各書き込みに専用の古典ビットを割り当て、`if_test` で条件付きゲートを実行する。同じ量子ビットの再測定やリセットでも、以前に別の変数へ書いた値を上書きしない。測定は通常の回路ビットにも記録し、変数用の古典ビットは公開ヒストグラムから除いて同じビット列の件数を合算する。
 - WebGPU はゲート ID を種として各測定で 1 回だけ標本抽出する。Qiskit は試行ごとに測定して条件分岐するため、ヒストグラムと確率・密度行列・ブロッホベクトルの表示は試行集団を表す。振幅表示だけは従来の測定と同じく、Aer の `save_amplitudes` が返す 1 試行分の保存振幅を使う。試行平均でも混合状態の振幅でもない。GPU モードでも状態ベクトルパネルはローカル WebGPU の 1 回の結果であり、外部の平均表示とは一致しない場合がある。
 - 事後選択を含む場合も、条件分岐は各試行内で先に行う。ヒストグラムはすべての事後選択を通過した試行だけを数え、確率・密度行列・ブロッホベクトルの表示はその列までの事後選択を通過した試行で平均し、振幅表示はその中の 1 試行を使う。後の事後選択は以前の表示を選別し直さない。変数用ビットの 1 は棄却理由にならない。

@@ -7,8 +7,8 @@ use crate::constants::{
 };
 use crate::gates::{
     default_palette_angle, palette_gate_kind, GateKind, ParametricAngle, PALETTE_DISPLAY_GATES,
-    PALETTE_DISPLAY_INDICES, PALETTE_GATES_ROW2, PALETTE_GATES_ROW2_INDICES, PALETTE_GATE_COUNT,
-    PALETTE_ROW1_COUNT,
+    PALETTE_DISPLAY_INDICES, PALETTE_GATES_ROW1_INDICES, PALETTE_GATES_ROW2,
+    PALETTE_GATES_ROW2_INDICES, PALETTE_GATE_COUNT, PALETTE_ROW1_COUNT,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -214,8 +214,11 @@ pub(crate) fn palette_start_x(width: f32, layout: &PaletteLayout) -> f32 {
 }
 
 fn palette_gates_local_pos(index: usize) -> Option<egui::Pos2> {
-    if index < PALETTE_ROW1_COUNT {
-        return Some(egui::pos2(index as f32 * (PALETTE_SIZE + PALETTE_GAP), 0.0));
+    if let Some(col) = PALETTE_GATES_ROW1_INDICES
+        .iter()
+        .position(|candidate| *candidate == index)
+    {
+        return Some(egui::pos2(col as f32 * (PALETTE_SIZE + PALETTE_GAP), 0.0));
     }
     let col = PALETTE_GATES_ROW2_INDICES
         .iter()
@@ -272,7 +275,7 @@ fn hit_test_gates(local_pos: egui::Pos2) -> Option<usize> {
     let row = row_from_y(local_pos.y)?;
     let col = col_from_x(local_pos.x)?;
     if row == 0 {
-        (col < PALETTE_ROW1_COUNT).then_some(col)
+        PALETTE_GATES_ROW1_INDICES.get(col).copied()
     } else {
         PALETTE_GATES_ROW2_INDICES.get(col).copied()
     }

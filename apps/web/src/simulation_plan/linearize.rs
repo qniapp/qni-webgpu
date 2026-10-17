@@ -81,7 +81,7 @@ pub(crate) fn linearize_ops(
         let mut swap_targets: Vec<&PlacedGate> = Vec::new();
         let mut parity_targets: Vec<&PlacedGate> = Vec::new();
 
-        let mut qft_gates: Vec<&PlacedGate> = Vec::new();
+        let mut register_gates: Vec<&PlacedGate> = Vec::new();
         for gate in column_gates {
             match gate.kind {
                 GateKind::Control | GateKind::AntiControl | GateKind::ZDetectControlReset => {}
@@ -99,7 +99,10 @@ pub(crate) fn linearize_ops(
                 }
                 GateKind::AmplitudeDisplay => amplitude_targets.push(gate),
                 GateKind::DensityMatrixDisplay => density_targets.push(gate),
-                GateKind::QftGate | GateKind::QftDaggerGate => qft_gates.push(gate),
+                GateKind::QftGate
+                | GateKind::QftDaggerGate
+                | GateKind::Increment
+                | GateKind::Decrement => register_gates.push(gate),
                 _ => targets.push(gate),
             }
         }
@@ -251,7 +254,7 @@ pub(crate) fn linearize_ops(
         if detector_targets.is_empty()
             && parity_targets.is_empty()
             && targets.is_empty()
-            && qft_gates.is_empty()
+            && register_gates.is_empty()
             && measurement_targets.is_empty()
             && bloch_targets.is_empty()
             && probability_targets.is_empty()
@@ -273,20 +276,41 @@ pub(crate) fn linearize_ops(
             ops.push(SimulationOp::ApplyGate(params));
         }
 
-        // QFT-family gates expand to their textbook decomposition (H +
-        // controlled-phase rotations). Column controls are threaded through
-        // every decomposed operation, making the whole QFT conditional while
-        // preserving the usual internal QFT controlled-phase gates.
-        qft_gates.sort_by_key(|a| a.id);
-        for qft in &qft_gates {
-            let dagger = qft.kind == GateKind::QftDaggerGate;
-            let qft_controls = qft_external_controls(qft, qubits, controls);
+        // Register gates share QFT's ordering after ordinary targets and
+        // before measurements. Internal controls are excluded from each span.
+        // Arithmetic is one permutation dispatch; QFT expands to H/phase ops.
+        // Row order is stable across editor insertion order and URL/Qiskit
+        // serialization, including controls hidden inside another span.
+        register_gates.sort_by_key(|a| (a.wire, a.id));
+        for gate in &register_gates {
+            let gate_controls = register_external_controls(gate, qubits, controls);
+            if matches!(gate.kind, GateKind::Increment | GateKind::Decrement) {
+                let span = gate
+                    .span
+                    .clamped_for(gate.kind, n - gate.wire.as_usize())
+                    .get();
+                ops.push(SimulationOp::Arithmetic(crate::gpu::ArithmeticParams {
+                    state_count,
+                    target_shift: gate.wire.as_usize() as u32,
+                    target_mask: (1u32 << span) - 1,
+                    amount: if gate.kind == GateKind::Increment {
+                        1
+                    } else {
+                        u32::MAX
+                    },
+                    control_mask: gate_controls.mask(),
+                    control_value: gate_controls.value(),
+                    _pad: [0; 2],
+                }));
+                continue;
+            }
+            let dagger = gate.kind == GateKind::QftDaggerGate;
             ops.extend(linearize_qft(
-                qft,
+                gate,
                 qubits,
                 state_count,
                 dagger,
-                qft_controls,
+                gate_controls,
             ));
         }
 
@@ -528,10 +552,9 @@ fn phase_group_roles(targets: &[&PlacedGate], qubits: QubitCount) -> HashMap<Gat
     roles
 }
 
-/// Return only controls outside the QFT span. A decoded URL can contain a
-/// control token on a row covered by the QFT body; treating it as an external
-/// control would create self-controlled H / duplicate controlled-phase ops.
-fn qft_external_controls(
+/// Return only controls outside a register-gate span. This mirrors QFT's
+/// existing rule for decoded control tokens hidden under a multi-wire body.
+fn register_external_controls(
     gate: &PlacedGate,
     qubits: QubitCount,
     controls: ColumnControls,

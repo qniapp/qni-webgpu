@@ -52,7 +52,8 @@ const DEFAULT_GATE_SIZE = UI_CONSTANTS.GATE_SIZE
 // qni reference: space-x-2 / space-y-2 (Tailwind) → 0.5rem (8px).
 const DEFAULT_PALETTE_GAP = UI_CONSTANTS.PALETTE_GAP
 const DEFAULT_PALETTE_ROW_Y = UI_CONSTANTS.PALETTE_ROW_Y
-const DEFAULT_PALETTE_ROW1_COUNT = 13
+const DEFAULT_PALETTE_ROW1_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 36, 37]
+const DEFAULT_PALETTE_ROW1_COUNT = DEFAULT_PALETTE_ROW1_INDICES.length
 const DEFAULT_PALETTE_ROW_GAP = UI_CONSTANTS.PALETTE_ROW_GAP
 const DEFAULT_PALETTE_SECTION_GAP = UI_CONSTANTS.PALETTE_SECTION_GAP
 const DEFAULT_PALETTE_SEPARATOR_WIDTH = UI_CONSTANTS.PALETTE_SEPARATOR_WIDTH
@@ -570,9 +571,10 @@ export const getPaletteGateCenter = (
 
   const row2Col = DEFAULT_PALETTE_GATES_ROW2_INDICES.indexOf(gateIndex)
   const displaySlot = DEFAULT_PALETTE_DISPLAY_INDICES.indexOf(gateIndex)
-  if (gateIndex < row1Count) {
+  const row1Col = DEFAULT_PALETTE_ROW1_INDICES.indexOf(gateIndex)
+  if (row1Col >= 0) {
     return {
-      x: paletteStartX + gateIndex * (gateSize + gap) + gateSize / 2,
+      x: paletteStartX + row1Col * (gateSize + gap) + gateSize / 2,
       y: rowY + gateSize / 2,
     }
   }

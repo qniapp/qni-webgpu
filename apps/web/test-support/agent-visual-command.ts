@@ -37,7 +37,8 @@ type ParsedOperation = {
 const DEFAULT_GATE_SIZE = UI_CONSTANTS.GATE_SIZE
 const DEFAULT_PALETTE_GAP = UI_CONSTANTS.PALETTE_GAP
 const DEFAULT_PALETTE_ROW_Y = UI_CONSTANTS.PALETTE_ROW_Y
-const DEFAULT_PALETTE_ROW1_COUNT = 13
+const DEFAULT_PALETTE_ROW1_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 36, 37]
+const DEFAULT_PALETTE_ROW1_COUNT = DEFAULT_PALETTE_ROW1_INDICES.length
 const DEFAULT_PALETTE_ROW_GAP = UI_CONSTANTS.PALETTE_ROW_GAP
 const DEFAULT_PALETTE_SECTION_GAP = UI_CONSTANTS.PALETTE_SECTION_GAP
 const DEFAULT_PALETTE_SEPARATOR_WIDTH = UI_CONSTANTS.PALETTE_SEPARATOR_WIDTH
@@ -132,6 +133,10 @@ const GATE_ALIASES = new Map([
   ['amplitude-display', 24],
   ['amplitudedisplay', 24],
   ['amplitude_display', 24],
+  ['+1', 36],
+  ['inc', 36],
+  ['−1', 37],
+  ['dec', 37],
   ['zpar', 31],
   ['zparitycontrol', 31],
   ['xpar', 32],
@@ -244,8 +249,9 @@ export const buildDragOperation = ({
   const row2Col = DEFAULT_PALETTE_GATES_ROW2_INDICES.indexOf(gateIndex)
   const displaySlot = DEFAULT_PALETTE_DISPLAY_INDICES.indexOf(gateIndex)
   const paletteLocal = (() => {
-    if (gateIndex < paletteRow1Count) {
-      return { x: gateIndex * (gateSize + paletteGap), y: 0 }
+    const row1Col = DEFAULT_PALETTE_ROW1_INDICES.indexOf(gateIndex)
+    if (row1Col >= 0) {
+      return { x: row1Col * (gateSize + paletteGap), y: 0 }
     }
     if (row2Col >= 0) {
       return { x: row2Col * (gateSize + paletteGap), y: gateSize + paletteRowGap }
