@@ -25,7 +25,12 @@ pub(super) fn collect_probability_requests(
     let n = qubits.get();
     let mut requests = Vec::new();
     for column in analysis.columns() {
-        for display in column.displays(GateKind::ProbabilityDisplay) {
+        // Both displays consume the same conditional marginals; Sample draws in the GPU shader.
+        for display in column
+            .displays(GateKind::ProbabilityDisplay)
+            .into_iter()
+            .chain(column.displays(GateKind::SampleDisplay))
+        {
             let span = display
                 .span
                 .clamped_for(display.kind, n - display.wire.as_usize());
@@ -191,6 +196,49 @@ mod tests {
     ) -> Vec<super::ExternalProbabilityRequest> {
         let columns = crate::simulation_plan::SimulationColumnAnalysis::from_gates(gates, qubits);
         collect_probability_requests(&columns, qubits)
+    }
+
+    #[test]
+    fn sample_requests_preserve_controls_and_drop_covered_parity() {
+        let actual = [
+            (r#"{"cols":[["•","Sample1"]]}"#, 1, 1),
+            (r#"{"cols":[["◦","Sample1"]]}"#, 1, 0),
+            (r#"{"cols":[["zpar","zpar","Sample1"]]}"#, 1, 1),
+            (r#"{"cols":[["xpar","xpar","Sample1"]]}"#, 1, 1),
+            (r#"{"cols":[["Sample3","zpar","xpar"]]}"#, 0, 0),
+        ]
+        .map(|(json, mask, value)| {
+            let gates = crate::url_circuit::parse_circuit_json(json).gates;
+            let request = requests(&gates, qubit_count(3));
+            (
+                (request[0].controls.mask(), request[0].controls.value()),
+                (mask, value),
+            )
+        });
+        assert_eq!(
+            actual.map(|(actual, _)| actual),
+            actual.map(|(_, expected)| expected)
+        );
+    }
+
+    #[test]
+    fn serializes_sample_spans_clamped_at_register_bottom() {
+        let actual = (1..=3)
+            .map(|span| {
+                let gate = PlacedGate::new(
+                    crate::app::GateId::from_u32(7),
+                    GateKind::SampleDisplay,
+                    crate::app::CircuitColumnIndex::new(2),
+                    crate::app::WireIndex::new(1),
+                    crate::gates::GateSpan::try_new(span).unwrap(),
+                    None,
+                );
+                probability_requests_json(&requests(&[gate], qubit_count(3)))
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(actual, [1, 2, 2].map(|span| format!(
+            "[{{\"gate_id\":7,\"column\":2,\"span\":{span},\"base_bit\":1,\"control_mask\":0,\"control_value\":0}}]"
+        )));
     }
 
     #[test]

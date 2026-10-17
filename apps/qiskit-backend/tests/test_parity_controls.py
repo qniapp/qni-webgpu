@@ -167,10 +167,11 @@ for _token in ("Probability2", "Amps2", "Density2"):
     setattr(ParityFakeTests, f"test_span_drop_{_token}", span_case(_token))
 
 
-def sample_rejection_case(token):
+def sample_acceptance_case(token, parity):
     def test(self):
-        with self.assertRaises(CircuitBuildError):
-            column_ops([token, "xpar", "zpar", "xpar", "X"])
+        anchor = parity[0][0]
+        self.assertEqual(column_ops([token, "xpar", "zpar", "xpar", "X"]),
+                         shell(parity, [("mcx", [anchor], 4)]))
     return test
 
 
@@ -182,7 +183,8 @@ def sample_span_case(token, expected):
 
 for _token, _expected in (("Sample1", [(1, "xpar"), (2, "zpar"), (3, "xpar")]),
                           ("Sample2", [(2, "zpar"), (3, "xpar")])):
-    setattr(ParityFakeTests, f"test_reject_parity_compilation_{_token}", sample_rejection_case(_token))
+    setattr(ParityFakeTests, f"test_accept_parity_compilation_{_token}",
+            sample_acceptance_case(_token, _expected))
     setattr(ParityFakeTests, f"test_helper_span_drop_{_token}", sample_span_case(_token, _expected))
 
 

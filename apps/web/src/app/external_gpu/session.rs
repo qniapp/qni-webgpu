@@ -108,12 +108,6 @@ fn supported_external_controlled_target(kind: GateKind) -> bool {
 }
 
 fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Option<String> {
-    if let Some(gate) = placed_gates
-        .iter()
-        .find(|gate| gate.kind == GateKind::SampleDisplay)
-    {
-        return Some(gate.kind.label().to_owned());
-    }
     let max_column = placed_gates
         .iter()
         .map(|gate| gate.column.as_usize())
@@ -144,6 +138,7 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
                         | GateKind::AmplitudeDisplay
                         | GateKind::BlochDisplay
                         | GateKind::ProbabilityDisplay
+                        | GateKind::SampleDisplay
                         | GateKind::DensityMatrixDisplay
                 )
             {
@@ -600,7 +595,7 @@ mod gate_tests {
     use crate::gates::GateKind;
 
     #[test]
-    fn external_gpu_rejects_only_sample_before_execution() {
+    fn external_gpu_accepts_sample_and_parity_before_execution() {
         let rejected: Vec<_> = [
             GateKind::SampleDisplay,
             GateKind::ZParityControl,
@@ -619,7 +614,7 @@ mod gate_tests {
             unsupported_external_gpu_gate_for_gates(&gates)
         })
         .collect();
-        assert_eq!(rejected, vec![Some("Sample".into()), None, None]);
+        assert_eq!(rejected, vec![None, None, None]);
     }
 
     #[test]
@@ -653,6 +648,28 @@ mod gate_tests {
         assert_eq!(
             payload,
             r#"{"qubits":1,"columns":[["ZDetectControlReset"]],"shots":1024,"outputs":{"histogram":true}}"#
+        );
+    }
+
+    #[test]
+    fn external_gpu_payload_preserves_sample_tokens_and_spans() {
+        let gates = flagged_gates(r#"{"cols":[["Sample1"],["Sample2"],["Sample3"]]}"#);
+        let columns = crate::url_circuit::circuit_columns_to_json(
+            &gates,
+            crate::qubit_count::QubitCount::try_new(3).unwrap(),
+        );
+        let payload = super::qiskit_run_payload_with_display_outputs(
+            3,
+            &columns,
+            super::Shots::DEFAULT,
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+        );
+        assert_eq!(
+            payload,
+            r#"{"qubits":3,"columns":[["Sample1"],["Sample2"],["Sample3"]],"shots":1024,"outputs":{"histogram":true}}"#
         );
     }
 
@@ -726,19 +743,12 @@ mod gate_tests {
     }
 
     #[test]
-    fn external_gpu_still_rejects_sample_with_ordinary_or_parity_controls() {
-        let results = ["•", "zpar", "xpar"].map(|control| {
+    fn external_gpu_accepts_sample_with_ordinary_or_parity_controls() {
+        let results = ["•", "◦", "zpar", "xpar"].map(|control| {
             let gates = flagged_gates(&format!(r#"{{"cols":[["{control}","Sample1"]]}}"#));
             unsupported_external_gpu_gate_for_gates(&gates)
         });
-        assert_eq!(
-            results,
-            [
-                Some("Sample".to_owned()),
-                Some("Sample".to_owned()),
-                Some("Sample".to_owned())
-            ]
-        );
+        assert_eq!(results, [None, None, None, None]);
     }
 
     #[test]
