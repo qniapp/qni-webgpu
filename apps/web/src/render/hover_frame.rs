@@ -10,10 +10,7 @@ const ROUNDED_GATE_HOVER_GAP_RADIUS: u8 = 8;
 fn display_block_has_square_body(kind: GateKind) -> bool {
     matches!(
         kind,
-        GateKind::SampleDisplay
-            | GateKind::ProbabilityDisplay
-            | GateKind::AmplitudeDisplay
-            | GateKind::DensityMatrixDisplay
+        GateKind::ProbabilityDisplay | GateKind::AmplitudeDisplay | GateKind::DensityMatrixDisplay
     )
 }
 
@@ -37,5 +34,18 @@ pub(crate) fn hover_frame_inner_corner_radius(kind: GateKind) -> egui::CornerRad
         egui::CornerRadius::ZERO
     } else {
         egui::CornerRadius::same(ROUNDED_GATE_HOVER_GAP_RADIUS)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sample_hover_frame_keeps_rounded_tile_corners() {
+        assert_eq!(
+            hover_frame_corner_radius(GateKind::SampleDisplay),
+            egui::CornerRadius::same(ROUNDED_GATE_HOVER_FRAME_RADIUS)
+        );
     }
 }

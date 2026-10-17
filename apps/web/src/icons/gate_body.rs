@@ -2,8 +2,8 @@
 
 use eframe::egui;
 
-use crate::colors::Colors;
-use crate::constants::GATE_SIZE;
+use crate::colors::{lerp_color, with_alpha, Colors};
+use crate::constants::{GATE_SIZE, LINE_GAP};
 use crate::gates::GateKind;
 
 use super::gate_glyphs::draw_gate_icon;
@@ -56,6 +56,8 @@ pub(crate) fn draw_gate_glyph(
 }
 
 const GATE_CORNER_RADIUS: u8 = 6;
+/// How far the lit Sample tile's outermost glow ring reaches past the tile.
+const SAMPLE_TILE_HALO: f32 = 2.0;
 
 pub(crate) fn draw_drag_gate_body(
     painter: &egui::Painter,
@@ -82,20 +84,7 @@ fn draw_gate_body_with_fill(
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
         painter.circle_filled(gate_rect.center(), radius, fill);
     } else if kind == GateKind::SampleDisplay {
-        painter.rect_filled(gate_rect, egui::CornerRadius::ZERO, colors.surface);
-        painter.rect_stroke(
-            gate_rect,
-            egui::CornerRadius::ZERO,
-            egui::Stroke::new(1.0, colors.line),
-            egui::StrokeKind::Inside,
-        );
-        painter.text(
-            gate_rect.center(),
-            egui::Align2::CENTER_CENTER,
-            "010",
-            egui::FontId::monospace(crate::tailwind::TEXT_SM),
-            colors.text_strong,
-        );
+        draw_sample_palette_icon(painter, gate_rect, colors);
         return;
     } else if kind == GateKind::ProbabilityDisplay {
         draw_probability_preview_body(painter, gate_rect, colors);
@@ -192,6 +181,64 @@ fn draw_gate_icon_with_fallback(
             kind.label(),
             egui::FontId::proportional(18.0),
             colors.label,
+        );
+    }
+}
+
+/// Static unlit tiles for a placed Sample that has no GPU slot yet. Live
+/// samples are drawn by WebGPU; the CPU never decides which tile is lit.
+pub(crate) fn draw_sample_placeholder_tiles(
+    painter: &egui::Painter,
+    body_rect: egui::Rect,
+    colors: &Colors,
+) {
+    let tile = egui::vec2(body_rect.width(), body_rect.width());
+    let mut center = body_rect.center_top() + egui::vec2(0.0, body_rect.width() * 0.5);
+    while center.y < body_rect.bottom() {
+        draw_sample_tile(
+            painter,
+            egui::Rect::from_center_size(center, tile),
+            false,
+            colors,
+        );
+        center.y += LINE_GAP;
+    }
+}
+
+/// Palette icon: one lit tile filling the gate body, inset so the halo stays
+/// inside the palette cell.
+fn draw_sample_palette_icon(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
+    let size = rect.width().min(rect.height()) - 2.0 * SAMPLE_TILE_HALO;
+    let tile = egui::Rect::from_center_size(rect.center(), egui::Vec2::splat(size));
+    draw_sample_tile(painter, tile, true, colors);
+}
+
+fn draw_sample_tile(painter: &egui::Painter, tile: egui::Rect, lit: bool, colors: &Colors) {
+    let corner =
+        |inset: f32| egui::CornerRadius::same((tile.width() * 0.15 - inset).max(0.0).round() as u8);
+    if !lit {
+        painter.rect_filled(tile, corner(0.0), colors.sample_off_edge);
+        painter.rect_filled(tile.shrink(1.0), corner(1.0), colors.sample_off_fill);
+        return;
+    }
+    // egui has no blur: the halo is a few translucent rings and the hot core a
+    // few concentric discs.
+    for (expand, alpha) in [(SAMPLE_TILE_HALO, 60), (1.0, 120)] {
+        painter.rect_filled(
+            tile.expand(expand),
+            corner(-expand),
+            with_alpha(colors.sample_on_glow, alpha),
+        );
+    }
+    painter.rect_filled(tile, corner(0.0), colors.sample_on_glow);
+    painter.rect_filled(tile.shrink(1.0), corner(1.0), colors.sample_on_fill);
+    let core_radius = tile.width() * 0.3;
+    for step in 1..=3 {
+        let t = step as f32 / 3.0;
+        painter.circle_filled(
+            tile.center(),
+            core_radius * (1.4 - 0.4 * t),
+            lerp_color(colors.sample_on_fill, colors.sample_on_core, t),
         );
     }
 }
@@ -411,6 +458,36 @@ mod tests {
                 ui.painter(),
                 egui::Rect::from_min_size(egui::pos2(16.0, 16.0), egui::Vec2::splat(GATE_SIZE)),
                 GateKind::ZDetectControlReset,
+                &Colors::new(),
+            );
+        });
+        insta::assert_debug_snapshot!(output.shapes);
+    }
+
+    #[test]
+    fn sample_palette_icon_snapshot() {
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            draw_gate_body(
+                ui.painter(),
+                egui::Rect::from_min_size(egui::pos2(16.0, 16.0), egui::Vec2::splat(GATE_SIZE)),
+                GateKind::SampleDisplay,
+                &Colors::new(),
+            );
+        });
+        insta::assert_debug_snapshot!(output.shapes);
+    }
+
+    #[test]
+    fn sample_placeholder_tiles_snapshot() {
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            draw_sample_placeholder_tiles(
+                ui.painter(),
+                egui::Rect::from_min_size(
+                    egui::pos2(16.0, 16.0),
+                    egui::vec2(GATE_SIZE, LINE_GAP + GATE_SIZE),
+                ),
                 &Colors::new(),
             );
         });
