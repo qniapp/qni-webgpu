@@ -89,3 +89,30 @@ test('fixed CPU reference values', () => {
   assert.equal(rand(1), 0.238451287150383)
   assert.equal(rand(42), 0.42170950770378113)
 })
+
+test('measurement reduction packs joint controls into a padded 32-byte uniform', () => {
+  assert.deepEqual(
+    Array.from(new Uint32Array(pack('MeasureReduceParams', {
+      qubit_bit: 2,
+      state_count: 8,
+      output_slot: 3,
+      seed: 7,
+      control_mask: 3,
+      control_value: 1,
+    }))),
+    [2, 8, 3, 7, 3, 1, 0, 0],
+  )
+})
+
+test('measurement collapse packs joint controls into a padded 32-byte uniform', () => {
+  assert.deepEqual(
+    Array.from(new Uint32Array(pack('MeasureCollapseParams', {
+      qubit_bit: 2,
+      state_count: 8,
+      aux_slot: 3,
+      control_mask: 3,
+      control_value: 1,
+    }))),
+    [2, 8, 3, 0, 3, 1, 0, 0],
+  )
+})

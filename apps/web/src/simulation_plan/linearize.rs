@@ -63,7 +63,13 @@ pub(crate) fn linearize_ops(
         let controls = column.controls();
         let detector_targets = column.displays(GateKind::ZDetectControlReset);
         for detector in &detector_targets {
-            push_measurement(&mut ops, detector, qubits, &mut measurement_slots);
+            push_measurement(
+                &mut ops,
+                detector,
+                qubits,
+                &mut measurement_slots,
+                ColumnControls::NONE,
+            );
         }
         let mut targets: Vec<&PlacedGate> = Vec::new();
         let mut bloch_targets: Vec<&PlacedGate> = Vec::new();
@@ -81,7 +87,9 @@ pub(crate) fn linearize_ops(
                 GateKind::Spacer => {
                     // Non-mutating decoration.
                 }
-                GateKind::Measurement => measurement_targets.push(gate),
+                GateKind::Measurement | GateKind::XDetector | GateKind::YDetector => {
+                    measurement_targets.push(gate);
+                }
                 GateKind::BlochDisplay => bloch_targets.push(gate),
                 GateKind::ProbabilityDisplay => probability_targets.push(gate),
                 GateKind::AmplitudeDisplay => amplitude_targets.push(gate),
@@ -89,6 +97,11 @@ pub(crate) fn linearize_ops(
                 GateKind::QftGate | GateKind::QftDaggerGate => qft_gates.push(gate),
                 _ => targets.push(gate),
             }
+        }
+
+        measurement_targets.sort_by_key(|gate| gate.id);
+        for detector in &measurement_targets {
+            push_detector_basis(&mut ops, detector, qubits, state_count, false);
         }
 
         // Swap step → `push_swap_3cnot` (the 3-CNOT decomposition qni uses,
@@ -224,10 +237,24 @@ pub(crate) fn linearize_ops(
 
         // Measurements run after the column's unitaries: reduce + sample,
         // then collapse. Each consumes one aux slot.
-        measurement_targets.sort_by_key(|a| a.id);
         for measurement in &measurement_targets {
-            let slot = push_measurement(&mut ops, measurement, qubits, &mut measurement_slots);
+            let measurement_controls = if measurement.kind == GateKind::Measurement {
+                ColumnControls::NONE
+            } else {
+                controls
+            };
+            let slot = push_measurement(
+                &mut ops,
+                measurement,
+                qubits,
+                &mut measurement_slots,
+                measurement_controls,
+            );
             measurement_slot_by_gate.insert(measurement.id, slot);
+        }
+
+        for detector in measurement_targets.iter().rev() {
+            push_detector_basis(&mut ops, detector, qubits, state_count, true);
         }
 
         // Bloch captures see the post-measurement state.
@@ -350,6 +377,7 @@ fn push_measurement(
     gate: &PlacedGate,
     qubits: QubitCount,
     slots: &mut SlotAllocator<Measurement>,
+    controls: ColumnControls,
 ) -> SlotIndex<Measurement> {
     let qubit_bit = gate
         .wire
@@ -360,12 +388,41 @@ fn push_measurement(
         gate_id: gate.id,
         qubit_bit,
         output_slot: slot,
+        controls,
     });
     ops.push(SimulationOp::MeasureCollapse {
         qubit_bit,
         aux_slot: slot,
+        controls,
     });
     slot
+}
+
+fn push_detector_basis(
+    ops: &mut Vec<SimulationOp>,
+    detector: &PlacedGate,
+    qubits: QubitCount,
+    state_count: u32,
+    inverse: bool,
+) {
+    let kinds: &[GateKind] = match (detector.kind, inverse) {
+        (GateKind::XDetector, _) => &[GateKind::H],
+        (GateKind::YDetector, false) => &[GateKind::SDagger, GateKind::H],
+        (GateKind::YDetector, true) => &[GateKind::H, GateKind::S],
+        _ => &[],
+    };
+    for &kind in kinds {
+        let bit = detector
+            .wire
+            .to_qubit_bit(qubits)
+            .expect("column gates are within the register");
+        ops.push(SimulationOp::ApplyGate(gate_params_controlled(
+            kind,
+            bit,
+            ColumnControls::NONE,
+            state_count,
+        )));
+    }
 }
 
 /// How a `P` gate takes part in its column's multi-controlled phase.
@@ -652,6 +709,111 @@ mod tests {
             SimulationOp::ApplyGate(params) => *params,
             _ => panic!("expected apply-gate op"),
         }
+    }
+
+    fn detector_column(kind: GateKind) -> Vec<SimulationOp> {
+        let kinds = [
+            GateKind::Control,
+            GateKind::AntiControl,
+            kind,
+            GateKind::Z,
+            GateKind::Measurement,
+            GateKind::BlochDisplay,
+        ];
+        let gates: Vec<_> = kinds
+            .into_iter()
+            .enumerate()
+            .map(|(wire, kind)| {
+                PlacedGate::new(
+                    GateId::from_u32(wire as u32 + 1),
+                    kind,
+                    crate::app::CircuitColumnIndex::new(0),
+                    crate::app::WireIndex::new(wire),
+                    crate::gates::GateSpan::SINGLE,
+                    None,
+                )
+            })
+            .collect();
+        linearize_ops(&gates, qubit_count(6), 0)
+    }
+
+    fn expected_detector_column(setup: &[GateKind], cleanup: &[GateKind]) -> Vec<SimulationOp> {
+        let mut controls = ColumnControls::NONE.with_control(QubitBit::new(0));
+        controls.add_anti_control(QubitBit::new(1));
+        let basis = |kind| {
+            SimulationOp::ApplyGate(gate_params_controlled(
+                kind,
+                QubitBit::new(2),
+                ColumnControls::NONE,
+                64,
+            ))
+        };
+        let mut ops: Vec<_> = setup.iter().copied().map(basis).collect();
+        ops.push(SimulationOp::ApplyGate(gate_params_controlled(
+            GateKind::Z,
+            QubitBit::new(3),
+            controls,
+            64,
+        )));
+        for (id, bit, slot, controls) in [(3, 2, 0, controls), (5, 4, 1, ColumnControls::NONE)] {
+            ops.push(SimulationOp::MeasureReduceSample {
+                gate_id: GateId::from_u32(id),
+                qubit_bit: QubitBit::new(bit),
+                output_slot: SlotIndex::new(slot),
+                controls,
+            });
+            ops.push(SimulationOp::MeasureCollapse {
+                qubit_bit: QubitBit::new(bit),
+                aux_slot: SlotIndex::new(slot),
+                controls,
+            });
+        }
+        ops.extend(cleanup.iter().copied().map(basis));
+        ops.push(SimulationOp::CaptureBloch {
+            gate_id: GateId::from_u32(6),
+            qubit_bit: QubitBit::new(5),
+            output_slot: SlotIndex::new(0),
+            controls,
+        });
+        ops
+    }
+
+    #[test]
+    fn x_detector_wraps_column_in_uncontrolled_hadamards() {
+        assert_eq!(
+            format!("{:?}", detector_column(GateKind::XDetector)),
+            format!(
+                "{:?}",
+                expected_detector_column(&[GateKind::H], &[GateKind::H])
+            )
+        );
+    }
+
+    #[test]
+    fn y_detector_wraps_column_in_uncontrolled_inverse_bases() {
+        assert_eq!(
+            format!("{:?}", detector_column(GateKind::YDetector)),
+            format!(
+                "{:?}",
+                expected_detector_column(
+                    &[GateKind::SDagger, GateKind::H],
+                    &[GateKind::H, GateKind::S]
+                )
+            )
+        );
+    }
+
+    #[test]
+    fn z_measurement_ignores_column_controls() {
+        let ops = detector_column(GateKind::Measurement);
+        assert!(ops
+            .iter()
+            .filter_map(|op| match op {
+                SimulationOp::MeasureReduceSample { controls, .. }
+                | SimulationOp::MeasureCollapse { controls, .. } => Some(controls),
+                _ => None,
+            })
+            .all(|controls| controls.is_uncontrolled()));
     }
 
     #[test]

@@ -42,7 +42,7 @@ const DEFAULT_PALETTE_ROW_GAP = UI_CONSTANTS.PALETTE_ROW_GAP
 const DEFAULT_PALETTE_SECTION_GAP = UI_CONSTANTS.PALETTE_SECTION_GAP
 const DEFAULT_PALETTE_SEPARATOR_WIDTH = UI_CONSTANTS.PALETTE_SEPARATOR_WIDTH
 const DEFAULT_PALETTE_DISPLAY_COLUMNS = UI_CONSTANTS.PALETTE_DISPLAY_COLUMNS
-const DEFAULT_PALETTE_GATES_ROW2_INDICES = [13, 14, 15, 17, 18, 19, 26, 22, 23, 21]
+const DEFAULT_PALETTE_GATES_ROW2_INDICES = [13, 14, 15, 17, 18, 19, 26, 27, 28, 22, 23, 21]
 const DEFAULT_PALETTE_DISPLAY_INDICES = [16, 20, 24, 25]
 const DEFAULT_CIRCUIT_PADDING = UI_CONSTANTS.CIRCUIT_PADDING
 const DEFAULT_QUBIT_LABEL_WIDTH = UI_CONSTANTS.QUBIT_LABEL_WIDTH
@@ -108,6 +108,12 @@ const GATE_ALIASES = new Map([
   ['measure', 19],
   ['measurement', 19],
   ['meter', 19],
+  ['zdetectcontrolreset', 26],
+  ['z-detect-control-reset', 26],
+  ['xdetector', 27],
+  ['x-detector', 27],
+  ['ydetector', 28],
+  ['y-detector', 28],
   ['probability', 20],
   ['probability-display', 20],
   ['probabilitydisplay', 20],

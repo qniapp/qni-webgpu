@@ -376,6 +376,24 @@ impl GateKind {
                 ],
                 transitions: &[],
             },
+            GateKind::XDetector => GateInfo {
+                name: "X Detector",
+                paragraphs: &[
+                    "Samples the negative X eigenstate, or its joint subspace with column controls.",
+                    "0 = no click; 1 = click. Without controls these mean +1 and -1 eigenvalues.",
+                    "Without controls, equivalent to H → Measurement → H.",
+                ],
+                transitions: &[],
+            },
+            GateKind::YDetector => GateInfo {
+                name: "Y Detector",
+                paragraphs: &[
+                    "Samples the negative Y eigenstate, or its joint subspace with column controls.",
+                    "0 = no click; 1 = click. Without controls these mean +1 and -1 eigenvalues.",
+                    "Without controls, equivalent to S† → H → Measurement → H → S.",
+                ],
+                transitions: &[],
+            },
             GateKind::Measurement => GateInfo {
                 name: "Measurement Gate",
                 paragraphs: &["Measures whether a qubit is ON or OFF."],
