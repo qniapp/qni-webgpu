@@ -519,12 +519,21 @@ const FORMER_CLEAR = { x: 108, y: 22 }
 const ZERO = '{"cols":[["|0>"]]}'
 const ZERO_X = '{"cols":[["|0>"],["X"]]}'
 
-async function dropXOnSlot1(page: Page) {
+async function dropXOnSlot1(page: Page, beforeRelease?: () => Promise<void>) {
   const box = (await page.locator('qni-webgpu-test canvas').boundingBox())!
   await page.mouse.move(box.x + PALETTE_H_X + 48, box.y + 100)
   await page.mouse.down()
   await page.mouse.move(box.x + 300, box.y + 180, { steps: 8 })
   await page.mouse.move(box.x + SLOT_1_X, box.y + 216, { steps: 8 })
+  await beforeRelease?.()
+  await page.mouse.up()
+}
+
+async function removeGateAtSlot(page: Page, slot: number) {
+  const box = (await page.locator('qni-webgpu-test canvas').boundingBox())!
+  await page.mouse.move(box.x + 162 + slot * 56, box.y + 216)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 400, box.y + 360, { steps: 8 })
   await page.mouse.up()
 }
 
@@ -537,6 +546,64 @@ async function waitForCircuit(page: Page, json: string) {
 }
 
 const circuitJSON = (page: Page) => page.evaluate(() => (window as any).runner.circuitJSON())
+
+test('embed state panel follows a gate added after the initial selected step', async ({ page }) => {
+  await hostEmbed(page, ZERO, H_GATE_TUTORIAL)
+  await waitForStepZero(page)
+  await dropXOnSlot1(page)
+  await waitForCircuit(page, ZERO_X)
+  // Leave the circuit so a hover preview cannot mask the locked panel state.
+  await page.mouse.move(900, 100)
+  await expect.poll(async () => page.evaluate(async () =>
+    Array.from(await (window as any).readState())))
+    .toEqual([0, 0, 1, 0])
+})
+
+test('embed edit supersedes a step selected during the drag', async ({ page }) => {
+  await hostEmbed(page, ZERO, H_GATE_TUTORIAL)
+  await waitForStepZero(page)
+  await dropXOnSlot1(page, () => page.evaluate(() => (window as any).runner.selectStep(-1)))
+  await waitForCircuit(page, ZERO_X)
+  await page.mouse.move(900, 100)
+  await expect.poll(async () => page.evaluate(async () =>
+    Array.from(await (window as any).readState())))
+    .toEqual([0, 0, 1, 0])
+})
+
+test('embed state panel follows removal of a gate after the selected step', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["|0>"],["X"],["X"]]}', H_GATE_TUTORIAL)
+  await waitForStepZero(page)
+  await removeGateAtSlot(page, 2)
+  await waitForCircuit(page, ZERO_X)
+  await page.mouse.move(900, 100)
+  await expect.poll(async () => page.evaluate(async () => ({
+    selected: (window as any).runner.selectedStep(),
+    values: Array.from(await (window as any).readState()),
+  }))).toEqual({ selected: 1, values: [0, 0, 1, 0] })
+})
+
+for (const action of ['undo', 'redo'] as const) {
+  test(`embed state panel follows ${action} after a gate edit`, async ({ page }) => {
+    await hostEmbed(page, action === 'undo' ? ZERO_X : ZERO, H_GATE_TUTORIAL)
+    await waitForStepZero(page)
+    if (action === 'undo') {
+      await removeGateAtSlot(page, 1)
+      await waitForCircuit(page, ZERO)
+      await clickToolbar(page, UNDO)
+    } else {
+      await dropXOnSlot1(page)
+      await waitForCircuit(page, ZERO_X)
+      await clickToolbar(page, UNDO)
+      await waitForCircuit(page, ZERO)
+      await clickToolbar(page, REDO)
+    }
+    await waitForCircuit(page, ZERO_X)
+    await page.mouse.move(900, 100)
+    await expect.poll(async () => page.evaluate(async () =>
+      Array.from(await (window as any).readState())))
+      .toEqual([0, 0, 1, 0])
+  })
+}
 
 test('embed toolbar undo restores the circuit before an edit', async ({ page }) => {
   await hostEmbed(page, ZERO, H_GATE_TUTORIAL)
