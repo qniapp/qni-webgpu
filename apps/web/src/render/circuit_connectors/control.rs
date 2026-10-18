@@ -2,13 +2,12 @@ use eframe::egui;
 
 use crate::app::{GateId, QniApp};
 use crate::colors::Colors;
-use crate::constants::GATE_SIZE;
 use crate::gates::GateKind;
-use crate::layout::LayoutMetrics;
+use crate::layout::{CircuitProjection, LayoutMetrics};
 use crate::simulation_plan::ColumnAnalysis;
 
 use super::super::circuit::gate_slot_index_for_render;
-use super::draw_vertical_connector;
+use super::{along_wires, draw_wire_connector, screen_time};
 
 // The anti-control icon is a hollow 40px-gate glyph; split the vertical
 // connector through its hollow center while leaving the line visible between
@@ -20,7 +19,7 @@ pub(super) fn draw_control_connectors(
     painter: &egui::Painter,
     metrics: &LayoutMetrics,
     colors: &Colors,
-    circuit_origin: egui::Pos2,
+    projection: CircuitProjection,
     dragging_gate_id: Option<GateId>,
 ) {
     let analysis = ColumnAnalysis::from_gates(&app.placed_gates, |gate| {
@@ -37,9 +36,10 @@ pub(super) fn draw_control_connectors(
         let mut targets = Vec::new();
         let mut anti_control_gaps = Vec::new();
         for gate in column.gates() {
-            let center = circuit_origin
-                + crate::render::circuit::gate_draw_pos(gate, app.dragging).to_vec2()
-                + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+            let center = crate::render::circuit::gate_square_center(
+                projection,
+                crate::render::circuit::gate_draw_pos(gate, app.dragging),
+            );
             if matches!(
                 gate.kind,
                 GateKind::Control
@@ -50,7 +50,7 @@ pub(super) fn draw_control_connectors(
             ) {
                 controls.push(center);
                 if gate.kind == GateKind::AntiControl {
-                    anti_control_gaps.push(center.y);
+                    anti_control_gaps.push(along_wires(projection, center));
                 }
             } else {
                 // Swap counts as a controllable target so a controlled-SWAP
@@ -79,17 +79,17 @@ pub(super) fn draw_control_connectors(
         }
         let mut min_y = f32::INFINITY;
         let mut max_y = f32::NEG_INFINITY;
-        for point in controls.iter().chain(targets.iter()) {
-            min_y = min_y.min(point.y);
-            max_y = max_y.max(point.y);
+        for &point in controls.iter().chain(targets.iter()) {
+            min_y = min_y.min(along_wires(projection, point));
+            max_y = max_y.max(along_wires(projection, point));
         }
         // Anchor the line at the shared slot center. Dragged gates only join
         // this render column after their preview center is on the real slot;
         // insert previews stay out so the connector never drifts away from a
         // transparent Control / AntiControl body.
-        let x = circuit_origin.x + metrics.slot_centers[column.slot];
+        let time = screen_time(projection, metrics.slot_centers[column.slot]);
         for (start_y, end_y) in connector_segments(min_y, max_y, &anti_control_gaps) {
-            draw_vertical_connector(painter, x, start_y, end_y, colors.box_fill);
+            draw_wire_connector(painter, projection, time, start_y, end_y, colors.box_fill);
         }
     }
 }
@@ -139,7 +139,7 @@ mod tests {
                 ui.painter(),
                 &metrics,
                 &app.colors(),
-                egui::Pos2::ZERO,
+                CircuitProjection::horizontal(egui::Pos2::ZERO),
                 None,
             );
         });

@@ -32,7 +32,7 @@ impl DragController {
                     &metrics.slot_centers,
                 );
                 let target = drag.click_copy.map(|click| click.target).or_else(|| {
-                    if distance > SNAP_DISTANCE {
+                    if !pointer.snap_allowed || distance > SNAP_DISTANCE {
                         return None;
                     }
                     snapped

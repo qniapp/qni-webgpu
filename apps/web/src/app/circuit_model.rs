@@ -15,6 +15,8 @@ use crate::qubit_count::{QubitCapacity, QubitCount, QubitCountError};
 
 use super::QniApp;
 
+mod block_edges;
+pub(crate) use block_edges::BlockEdges;
 mod circuit_blocks;
 pub(crate) use circuit_blocks::{CircuitBlock, CircuitBlocks};
 mod column_index;
@@ -149,6 +151,64 @@ pub(crate) struct SpanResizeDrag {
     pub(crate) start_pointer_y: f32,
     pub(crate) start_wire: usize,
     pub(crate) start_span: usize,
+}
+
+/// Left or right edge of a circuit block.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CircuitBlockEdge {
+    Left,
+    Right,
+}
+
+/// Upper or lower label of a circuit block.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CircuitBlockLabelSlot {
+    Top,
+    Bottom,
+}
+
+/// The circuit block under the pointer and the part of it that is hovered.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct CircuitBlockHover {
+    pub(crate) index: usize,
+    pub(crate) handle: Option<CircuitBlockEdge>,
+    pub(crate) label: Option<CircuitBlockLabelSlot>,
+}
+
+/// In-flight circuit-block gesture. Positions are circuit-local.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum CircuitBlockDrag {
+    /// The palette's comment block on its way to the circuit. `target` is the
+    /// column range it wraps when dropped now.
+    Palette {
+        cursor: egui::Pos2,
+        target: Option<(CircuitColumnIndex, CircuitColumnIndex)>,
+    },
+    Resize {
+        index: usize,
+        edge: CircuitBlockEdge,
+    },
+    /// A press on a label: a click opens the editor, a drag moves the block,
+    /// and a drag out of the circuit band removes it.
+    Label {
+        index: usize,
+        slot: CircuitBlockLabelSlot,
+        press_pos: egui::Pos2,
+        grab_dx: f32,
+        cursor: egui::Pos2,
+        moved: bool,
+        removing: bool,
+    },
+}
+
+/// Inline label editor for a circuit block. UI-only.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct CircuitBlockEditor {
+    pub(crate) index: usize,
+    pub(crate) slot: CircuitBlockLabelSlot,
+    pub(crate) draft: String,
+    pub(crate) select_all_pending: bool,
+    pub(crate) commit_after_frame: bool,
 }
 
 #[derive(Clone, Copy, Debug)]

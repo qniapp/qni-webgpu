@@ -164,6 +164,32 @@ pub(crate) const COMPACT_LINE_LEFT_OFFSET: f32 = crate::tailwind::SPACING_10;
 pub(crate) const COMPACT_QUBIT_LABEL_GAP: f32 = crate::tailwind::SPACING_2;
 /// Compact right gutter past the last wire end (16px).
 pub(crate) const COMPACT_CIRCUIT_PADDING: f32 = crate::tailwind::SPACING_4;
+/// Vertical layout: distance from the circuit area top to where the wires
+/// start, leaving room for the qubit labels above them.
+pub(crate) const VERTICAL_LINE_TOP_OFFSET: f32 = crate::tailwind::SPACING_8;
+/// Vertical layout: distance from the circuit area's right edge to wire 0,
+/// so the step bar ends as far inside the canvas edge as the panels.
+pub(crate) const VERTICAL_WIRE0_RIGHT_INSET: f32 = STEP_OUTSET_Y + VERTICAL_SCREEN_INSET;
+/// Vertical layout: inset of the state panel and the palette carousel from
+/// the central panel's rect, which already sits inside its own margin.
+pub(crate) const VERTICAL_SCREEN_INSET: f32 = crate::tailwind::SPACING_2;
+/// Vertical layout: gap between the circuit area and the panels above and
+/// below it.
+pub(crate) const VERTICAL_CIRCUIT_GAP: f32 = crate::tailwind::SPACING_4;
+/// Height of the full-width toolbar strip at the top of the canvas.
+pub(crate) const TOOLBAR_HEIGHT: f32 =
+    crate::tailwind::SPACING_8 + 2.0 * crate::tailwind::SPACING_1_5;
+
+pub(crate) const CAROUSEL_GATES_PER_PAGE: usize = 4;
+pub(crate) const CAROUSEL_GATE_SIZE: f32 = crate::tailwind::SPACING_12;
+pub(crate) const CAROUSEL_GATE_GAP: f32 = crate::tailwind::SPACING_4;
+pub(crate) const CAROUSEL_ARROW_SIZE: f32 = crate::tailwind::SPACING_12;
+pub(crate) const CAROUSEL_ARROW_INSET: f32 = crate::tailwind::SPACING_1;
+pub(crate) const CAROUSEL_DOT_SIZE: f32 = crate::tailwind::SPACING_2;
+pub(crate) const CAROUSEL_DOT_GAP: f32 = crate::tailwind::SPACING_2;
+pub(crate) const CAROUSEL_DOT_TOP_GAP: f32 = crate::tailwind::SPACING_3;
+pub(crate) const CAROUSEL_PADDING_TOP: f32 = crate::tailwind::SPACING_4;
+pub(crate) const CAROUSEL_PADDING_BOTTOM: f32 = crate::tailwind::SPACING_3;
 
 // qni circuit-block geometry, from the `min-width: 768px` rules in
 // `packages/elements/src/circuit-block-element.ts` (qniapp/qni@acf87bf):
@@ -209,7 +235,7 @@ pub(crate) const PALETTE_ROW_GAP: f32 = crate::tailwind::SPACING_2;
 pub(crate) const PALETTE_SECTION_GAP: f32 = crate::tailwind::SPACING_2;
 // 2px vertical divider used by UI section separators.
 pub(crate) const SECTION_DIVIDER_WIDTH: f32 = 2.0;
-// Palette separator spans the full two-row palette height.
+// Palette separator spans the Display section's rows.
 pub(crate) const PALETTE_SEPARATOR_WIDTH: f32 = SECTION_DIVIDER_WIDTH;
 pub(crate) const PALETTE_DISPLAY_COLUMNS: usize = 3;
 pub(crate) const PALETTE_DISPLAY_ROWS: usize = 2;

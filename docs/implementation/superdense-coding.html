@@ -13,6 +13,7 @@
   <script src="../design-system/components/control-gate.js"></script>
   <script src="../design-system/components/swap-gate.js"></script>
   <script src="../design-system/components/measurement-gate.js"></script>
+  <script src="../design-system/components/probability-display.js"></script>
   <script src="../design-system/components/quantum-circuit.js"></script>
   <style>
     .sc-figure {
@@ -47,7 +48,7 @@
   <p class="eyebrow">qni-webgpu · implementation spec · sample circuit</p>
   <h1 class="page-title">超高密度符号化（Superdense Coding）</h1>
   <p class="page-lede">
-    あらかじめ共有した<strong>もつれ（Bell ペア）</strong>を使い、<strong>1 量子ビットを送るだけで 2 古典ビット</strong>を伝えるプロトコル。
+    あらかじめ共有した<strong>もつれ（ベルペア）</strong>を使い、<strong>1 量子ビットを送るだけで 2 古典ビット</strong>を伝えるプロトコル。
     送り手（アリス）は自分の量子ビットに Z と X を掛けて 2 ビットを符号化し、その 1 量子ビットを受け手（ボブ）へ渡す。
     ボブは手元の 2 量子ビットをベル測定して 2 ビットを復号する。<a href="quantum-teleportation.html">量子テレポーテーション</a>の双対にあたる。
     Quirk の同名サンプルを qni-webgpu へ移植する候補（<a href="quirk-sample-circuits.html">Quirk サンプル回路の移植候補</a> の区分 A）。
@@ -65,10 +66,12 @@
     </p>
 
     <div class="sc-figure">
-      <quantum-circuit cols='[[1,1,1,"H"],[1,1,1,"•","X"],[1,1,"Swap","Swap"],[1,1,1,1,"Swap","Swap"],["|1>","|1>"],["•",1,"Z"],[1,"•","X"],[1,1,"Swap",1,"Swap"],[1,1,1,1,"•","X"],[1,1,1,1,"H"],[1,1,1,1,"Measure","Measure"]]'></quantum-circuit>
+      <quantum-circuit cols='[["{Bell pair"],[1,1,1,"H"],[1,1,1,"•","X"],["}"],[1],["{distribute"],[1,1,"Swap","Swap"],[1,1,1,1,"Swap","Swap"],["}"],[1],["{message"],["|1&gt;","|1&gt;"],["Probability2"],["}"],[1],["{encode"],["•",1,"Z"],[1,"•","X"],["}"],[1],["{send"],[1,1,"Swap",1,"Swap"],["}"],[1],["{decode"],[1,1,1,1,"•","X"],[1,1,1,1,"H"],[1,1,1,1,"Probability2"],[1,1,1,1,"Measure","Measure"],["}"]]'></quantum-circuit>
     </div>
 
     <div class="sc-legend" aria-hidden="true">
+      <span class="item">青い上下罫線の帯 = 回路ブロック（上下に同じラベル）</span>
+      <span class="item">Probability = 確率表示ブロック（縦長の箱）</span>
       <span class="item"><span class="glyph"><write1-gate></write1-gate></span>|1⟩（|1⟩ を書き込む）</span>
       <span class="item"><span class="glyph"><h-gate></h-gate></span>アダマール</span>
       <span class="item"><span class="glyph"><control-gate></control-gate></span>制御</span>
@@ -91,17 +94,14 @@
   <h2>§ 02 回路の読み方</h2>
   <div class="card">
     <table class="spec">
-      <thead><tr><th>ステップ</th><th>操作</th><th>意味</th></tr></thead>
+      <thead><tr><th>回路ブロック</th><th>操作</th><th>意味</th></tr></thead>
       <tbody>
-        <tr><td>1 – 2</td><td>H(q3) → CNOT(q3→q4)</td><td>q3・q4 で<strong>ベルペア（もつれ）を生成</strong>する</td></tr>
-        <tr><td>3</td><td>Swap(q2↔q3)</td><td>ベルペアの片割れを<strong>アリス（q2）へ配る</strong></td></tr>
-        <tr><td>4</td><td>Swap(q4↔q5)</td><td>もう片方を<strong>ボブ（q5）へ配る</strong>。これでアリスとボブが事前にもつれを共有した状態になる</td></tr>
-        <tr><td>5</td><td>q0・q1 に |1⟩</td><td>送るメッセージ<strong>「11」</strong>を 2 つの送信ビットに書き込む</td></tr>
-        <tr><td>6</td><td>CZ(q0→q2)</td><td>ビット b<sub>0</sub> を符号化（q0 = 1 なので q2 に Z を掛ける）</td></tr>
-        <tr><td>7</td><td>CNOT(q1→q2)</td><td>ビット b<sub>1</sub> を符号化（q1 = 1 なので q2 に X を掛ける）</td></tr>
-        <tr><td>8</td><td>Swap(q2↔q4)</td><td><strong>送信</strong>。符号化したアリスの量子ビットをボブ側（q4）へ移す。送るのは<strong>1 量子ビットだけ</strong></td></tr>
-        <tr><td>9 – 10</td><td>CNOT(q4→q5) → H(q4)</td><td>ボブの<strong>ベル測定</strong>の準備（ベルペアを作る回路の逆）</td></tr>
-        <tr><td>11</td><td>q4, q5 を測定</td><td>復号。q4 → b<sub>0</sub>、q5 → b<sub>1</sub> で<strong>「11」</strong>が得られる</td></tr>
+        <tr><td><code>Bell pair</code></td><td>H(q3) → CNOT(q3→q4)</td><td>ベルペアを作る。</td></tr>
+        <tr><td><code>distribute</code></td><td>Swap(q2↔q3) → Swap(q4↔q5)</td><td>アリスとボブへ片割れを配る。</td></tr>
+        <tr><td><code>message</code></td><td>q0・q1 に |1⟩ → Probability2</td><td>送信ビットを 11 に固定し、確率を表示する。</td></tr>
+        <tr><td><code>encode</code></td><td>CZ(q0→q2) → CNOT(q1→q2)</td><td>2 ビットを 1 量子ビットへの操作で符号化する。</td></tr>
+        <tr><td><code>send</code></td><td>Swap(q2↔q4)</td><td>符号化した 1 量子ビットを送る。</td></tr>
+        <tr><td><code>decode</code></td><td>CNOT(q4→q5) → H(q4) → Probability2 → 測定</td><td>復号した 11 の確率を表示し、q4・q5 を測る。</td></tr>
       </tbody>
     </table>
   </div>
@@ -110,6 +110,7 @@
 <section class="block" id="meaning">
   <h2>§ 03 何を意味するか</h2>
   <div class="card">
+    <p>message（q0–q1）と decode（q4–q5）の Probability2 は、どちらも 11（値 3）が 100 % になる。q0 ↔ q4、q1 ↔ q5 の対応で、送信した 2 ビットがそのまま届いたことがわかる。</p>
     <p>
       アリスが自分の 1 量子ビットに掛けるゲートで、もつれた 2 量子ビット系は 4 つの直交した<strong>ベル状態</strong>のどれかに移る。
       4 状態は完全に区別できるので、ボブはベル測定で 2 ビットを誤りなく取り出せる:
@@ -158,12 +159,13 @@
       元との差: qni チュートリアルは 7 量子ビットで、ベルペアを専用の量子ビットで作って Swap でアリスとボブへ配り、
       送るメッセージを <code>H</code> と測定でランダムに作る（Quirk の同名サンプルは <code>Counting2</code> でメッセージを次々に変え、
       確率表示で復号結果と見比べる）。本サンプルは同じ<strong>「ベルペアを作って配る → 符号化 → 送信 Swap → 復号」</strong>の骨格を
-      残しつつ、メッセージを「11」に固定し、ランダム生成や状態表示を省いた 6 量子ビットの形にした。
+      残しつつ、メッセージを「11」に固定し、ランダム生成を省き、送受信の確率表示ブロックを加えた 6 量子ビットの形にした。
     </p>
   </div>
 </section>
 
 <footer class="doc-foot">
+  <p><a href="sample-circuits.html">9 本のサンプル回路の読み方</a></p>
   <p class="back"><a href="../implementation.html">← 実装仕様インデックスに戻る</a></p>
   <p class="meta">qni-webgpu · 超高密度符号化（Superdense Coding）· 2026-05</p>
 </footer>
