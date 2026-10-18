@@ -53,3 +53,4 @@
 - 回路YAML（最小PoC）: `operations` は空配列でもよい。
 - 回路YAML（最小PoC）: `operations` は必須。
 - 回路YAML（最小PoC）: `gate` は大文字（`X`, `H`, `Y`, `Z`, `S`, `T`）を使う。
+- ドラッグ表示: ドラッグ中の見た目は元の Qni (`qniapp/qni` の `packages/elements/css/*_gate.css`) に合わせる。通常時は透明な操作にも紫の角丸本体を追加し、記号は明るく、括弧やメーターは薄紫にする。Qni の紫を Flexoki の `drag_fill` (purple-600) と `drag_accent` (purple-300) に対応させる。ブロッホ球は球面を変えず 2 px の紫の輪郭、サンプル表示はタイル全体の外側に紫の枠を付ける。セルの外とセルに重なった状態、通常のドラッグと Shift で作る複製で共通とし、複製元は通常時の見た目を保つ。

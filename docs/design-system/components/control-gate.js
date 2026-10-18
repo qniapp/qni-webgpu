@@ -20,7 +20,9 @@
     cursor: grab;
   }
   :host([state="drag"]) {
-    color: var(--purple-600);             /* Flexoki purple-600 / drag_fill */
+    color: var(--bg);                     /* Flexoki bg / label */
+    background: var(--purple-600);        /* Flexoki purple-600 / drag_fill */
+    border-radius: 6px;
     cursor: grabbing;
   }
 

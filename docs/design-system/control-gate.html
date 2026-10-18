@@ -215,7 +215,7 @@
         <tr><td>制御マーカ</td><td><code>cyan-400</code></td><td><code>box_fill</code> ロール。塗りつぶし円と縦コネクタで共有</td></tr>
         <tr><td>縦コネクタ</td><td><code>cyan-400</code></td><td><code>CONNECTOR_STROKE_WIDTH = 4.0</code> の矩形として描く</td></tr>
         <tr><td>ホバー枠</td><td><code>purple-400</code></td><td><code>gate_hover_border</code> ロール。回路上では stroke-only</td></tr>
-        <tr><td>ドラッグ中</td><td><code>purple-600</code></td><td><code>drag_fill</code> ロール。マーカ色だけを置き換える</td></tr>
+        <tr><td>ドラッグ中</td><td><code>purple-600</code></td><td><code>drag_fill</code> ロール。40 × 40 px、角丸 6 px の本体を追加してワイヤを覆い、記号は <code>label</code> (<code>bg</code>) で描く</td></tr>
         <tr><td>ワイヤ</td><td><code>ui-2</code></td><td>透明な 40px 領域の背面にそのまま見える</td></tr>
       </tbody>
     </table>
@@ -227,7 +227,7 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>占有領域</th><td><code>40 × 40 px</code>。本体塗りはないが、ホバー / ドラッグ / 当たり判定はこの領域で持つ</td></tr>
+        <tr><th>占有領域</th><td><code>40 × 40 px</code>。通常時は透明で、ホバー / ドラッグ / 当たり判定はこの領域で持つ。ドラッグ中は領域全体を角丸本体で覆う</td></tr>
         <tr><th>表示記号</th><td>viewBox 48 上の <code>cx=24, cy=24, r=8</code> 塗りつぶし円。40px 表示時の見た目は半径約 6.67px</td></tr>
         <tr><th>占有スロット</th><td><code>56 × 56 px</code>。40px 領域はスロット中央に置く</td></tr>
         <tr><th>縦コネクタ</th><td>列の中心 x に、<code>4 px</code> 幅の矩形を置く。最上端の制御 / 対象中心から最下端の制御 / 対象中心までを隙間なく結ぶ</td></tr>
@@ -273,7 +273,7 @@
         <div class="actual"><control-gate state="hover"></control-gate></div>
       </div>
       <div class="col">
-        <div class="caption">③ ドラッグ<br>purple-600</div>
+        <div class="caption">③ ドラッグ中<br>purple-600 本体 + bg 記号</div>
         <div class="actual"><control-gate state="drag"></control-gate></div>
       </div>
       <div class="col">

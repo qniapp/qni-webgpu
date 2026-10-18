@@ -1,7 +1,7 @@
 use eframe::wgpu;
 
 use super::super::params::{
-    MeasurementDigitParams, SurvivalLabelInstance, MAX_OPS_PER_RECOMPUTE, MAX_POSTSELECTION_SLOTS,
+    SurvivalLabelInstance, SurvivalLabelParams, MAX_OPS_PER_RECOMPUTE, MAX_POSTSELECTION_SLOTS,
 };
 use super::super::survival_glyph_atlas::{
     rasterize_survival_glyph_atlas, SURVIVAL_GLYPH_ATLAS_HEIGHT, SURVIVAL_GLYPH_ATLAS_WIDTH,
@@ -24,7 +24,7 @@ pub(crate) struct PostselectionResources {
     pub(crate) bind_group_layout: wgpu::BindGroupLayout,
     pub(crate) render_params_buffer: wgpu::Buffer,
     pub(crate) instance_buffer: wgpu::Buffer,
-    pub(crate) last_params: Option<MeasurementDigitParams>,
+    pub(crate) last_params: Option<SurvivalLabelParams>,
 }
 
 fn buffer(device: &wgpu::Device, size: u64, usage: wgpu::BufferUsages) -> wgpu::Buffer {
@@ -194,7 +194,7 @@ impl PostselectionResources {
         });
         let render_params_buffer = buffer(
             device,
-            std::mem::size_of::<MeasurementDigitParams>() as u64,
+            std::mem::size_of::<SurvivalLabelParams>() as u64,
             U::UNIFORM | U::COPY_DST,
         );
         let instance_buffer = buffer(

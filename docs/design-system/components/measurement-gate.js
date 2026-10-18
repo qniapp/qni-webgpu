@@ -21,7 +21,12 @@
     user-select: none;
     cursor: grab;
   }
-  :host([state="drag"]) { cursor: grabbing; }
+  :host([state="drag"]) {
+    cursor: grabbing;
+    background: var(--purple-600);        /* Flexoki purple-600 / drag_fill */
+    border-radius: 6px;
+    color: var(--bg);                     /* Flexoki bg / label */
+  }
   :host([outcome="0"]),
   :host([outcome="1"]) { color: var(--ui-2); } /* measurement_fired_icon */
 
@@ -54,6 +59,8 @@
   :host([outcome="1"]) .digit-one { display: block; }
   .digit-zero { color: var(--red-600); fill: var(--red-600); }
   .digit-one { color: var(--blue-600); fill: var(--blue-600); }
+  :host([state="drag"]) .meter { color: var(--purple-300); } /* Flexoki purple-300 / drag_accent */
+  :host([state="drag"]) .digit-layer { color: var(--bg); fill: var(--bg); } /* Flexoki bg / label */
 </style>
 <div class="hover-frame"></div>
 <svg class="meter" viewBox="0 0 48 48" aria-hidden="true">
