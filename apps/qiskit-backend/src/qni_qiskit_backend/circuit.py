@@ -100,6 +100,7 @@ def apply_column_to_qiskit(
     anti_controls: list[int] = []
     swap_wires: list[int] = []
     measurement_wires: list[int] = []
+    detector_targets: list[tuple[int, str]] = []
     has_readonly_display = False
     deferred: list[tuple[int, str]] = []
     for wire, raw in enumerate(column):
@@ -117,6 +118,11 @@ def apply_column_to_qiskit(
             continue
         if token == "…":
             continue
+        if token in {"XDetector", "YDetector"}:
+            if wire >= qubits:
+                raise CircuitBuildError("detector references a wire beyond qubits")
+            detector_targets.append((wire, token))
+            continue
         if token == "Measure":
             measurement_wires.append(wire)
             continue
@@ -124,6 +130,12 @@ def apply_column_to_qiskit(
             has_readonly_display = True
             continue
         deferred.append((wire, token))
+    if detector_targets and 1 + len(controls) + len(anti_controls) > 8:
+        raise CircuitBuildError("detector target plus controls must be <= 8 qubits")
+    for wire, token in detector_targets:
+        if token == "YDetector":
+            qc.sdg(wire)
+        qc.h(wire)
     apply_swap(qc, swap_wires, controls, anti_controls, basis)
     for wire, token, partners in group_same_angle_phases(deferred):
         apply_gate(qc, wire, token, controls + partners, anti_controls, qubits, basis)
@@ -133,10 +145,48 @@ def apply_column_to_qiskit(
         anti_controls,
         basis,
         has_column_content=bool(
-            deferred or swap_wires or measurement_wires or has_readonly_display
+            deferred
+            or swap_wires
+            or measurement_wires
+            or detector_targets
+            or has_readonly_display
         ),
     )
-    apply_measurements(qc, measurement_wires, controls, anti_controls)
+    detector_wires = {wire for wire, _ in detector_targets}
+    for wire in sorted(measurement_wires + list(detector_wires)):
+        if wire in detector_wires:
+            apply_detector_measurement(qc, wire, controls, anti_controls)
+            if not any(basis[c] == 0 for c in controls) and not any(
+                basis[c] == 1 for c in anti_controls
+            ):
+                basis[wire] = None
+        else:
+            apply_measurements(qc, [wire], controls, anti_controls)
+    for wire, token in reversed(detector_targets):
+        qc.h(wire)
+        if token == "YDetector":
+            qc.s(wire)
+
+
+def apply_detector_measurement(
+    qc: Any, target: int, controls: list[int], anti_controls: list[int]
+) -> None:
+    if not controls and not anti_controls:
+        qc.measure(target, target)
+        return
+    if not is_real_qiskit_circuit(qc):
+        qc.append(("detector_projector", target, list(controls), list(anti_controls)))
+        return
+    import numpy as np
+    from qiskit.quantum_info import Kraus
+
+    # Qarg i occupies bit i: target=1, positive controls=1, anti-controls=0.
+    qargs = [target] + controls + anti_controls
+    dimension = 1 << len(qargs)
+    click_index = (1 << (1 + len(controls))) - 1
+    projector = np.zeros((dimension, dimension), dtype=complex)
+    projector[click_index, click_index] = 1
+    qc.append(Kraus([projector, np.eye(dimension) - projector]), qargs)
 
 
 def group_same_angle_phases(
