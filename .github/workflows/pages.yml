@@ -58,7 +58,7 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Build Web app
-        run: env -u NO_COLOR TRUNK_COLOR=never trunk build --release --public-url /qni-webgpu/
+        run: env -u NO_COLOR TRUNK_COLOR=never TRUNK_BUILD_FEATURES=pages trunk build --release --public-url /qni-webgpu/
         working-directory: apps/web
 
       - name: Upload Pages artifact

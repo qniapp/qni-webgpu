@@ -1,0 +1,8 @@
+---
+source: src/app/exec_mode.rs
+expression: labels
+---
+[
+    "Circuit 1",
+    "Tutorial",
+]

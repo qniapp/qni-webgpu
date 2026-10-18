@@ -127,6 +127,23 @@ WebGPU 用の特別なフラグは付けない。
 スクリーンショットや一時アーティファクトは `apps/web/output/playwright/` か Playwright の `test-results/` に置き、必要な確認が終わったらコミット対象にしない。
 OS 全体のスクリーンショットが取れない環境では、Playwright の `page.screenshot()` / `locator('#egui-canvas').screenshot()` を使う。
 
+## GitHub Pages のローカル実行専用版
+
+GitHub Pages は `pages` Cargo 機能を有効にしてビルドする。
+右上の Local/GPU 切替は表示せず、常にブラウザ内の WebGPU を使用する。
+`?mode=gpu` も無視して URL から取り除く。
+16 量子ビットを超える回路もすべてのワイヤを表示するが、状態は計算せず、外部実行にも切り替えない。
+
+```sh
+cd apps/web
+TRUNK_BUILD_FEATURES=pages trunk build --release --public-url /qni-webgpu/
+```
+
+既定ビルドではこの機能は無効であり、ABCI のビルド・配備手順や Local/GPU 切替は変わらない。
+埋め込み用の `startEmbed` は従来どおり切替を表示せず、ローカル実行のみを使う。
+CI の `web-check` では Pages 版を追加ビルドし、`playwright.pages.config.ts` で専用テストを実行する。
+既定版の切替テストと `web-playwright` ジョブの 4 分割並列実行はそのまま維持する。
+
 ## Playwright / Cucumber rollout
 
 ```
