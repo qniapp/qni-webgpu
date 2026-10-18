@@ -28,31 +28,29 @@ impl QniApp {
 
         let pointer_start = pointer_pressed || (pointer_down && !self.pointer_was_down);
         self.pointer_was_down = pointer_down;
-        if self.dragging.is_some() && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+        let gesture_active = self.dragging.is_some() || self.circuit_block_drag.is_some();
+        if gesture_active && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
             // Undo while a gesture is in progress restores its checkpoint
             // without moving back through completed edits. Keep the fixed
             // column selection, which the circuit reload otherwise clears.
             let breakpoint_step = self.breakpoint_step;
+            self.circuit_block_drag = None;
             self.undo_circuit(ctx);
             self.breakpoint_step = breakpoint_step;
             return;
         }
         // `local_pos` is the cursor in *circuit space* — the same
-        // coordinate frame the gate draw position lives in. We undo the horizontal
-        // scroll and the restricted-palette shift here once so every
-        // downstream hit-test (gate body, slot snap, step preview,
-        // palette drop on circuit) gets a cursor it can compare directly
-        // against the gate draw position. Palette pickup itself uses `pos` (screen)
-        // so it isn't affected by the offset.
-        let circuit_origin = self.circuit_origin(content_rect, self.circuit_scroll_x);
-        let local_pos = pos.map(|p| (p - circuit_origin).to_pos2());
-        let geometry = CircuitInputGeometry::new(
-            content_rect,
-            screen_rect,
-            self.layout_qubits(),
-            self.min_circuit_slots(),
-            &self.palette,
-        );
+        // coordinate frame the gate draw position lives in. We undo the
+        // projection (time scroll, restricted-palette shift, and the
+        // vertical layout's rotation) here once so every downstream
+        // hit-test (gate body, slot snap, step preview, palette drop on
+        // circuit) gets a cursor it can compare directly against the gate
+        // draw position. Palette pickup itself uses `pos` (screen) so it
+        // isn't affected by the projection.
+        let projection = self.circuit_projection(content_rect, self.circuit_scroll_time);
+        let local_pos = pos.map(|p| projection.to_local(p));
+        let geometry = CircuitInputGeometry::for_app(self, content_rect, screen_rect);
+        let circuit_hit_allowed = geometry.circuit_hit_allowed(pos);
         let drag_pointer = DragPointer {
             screen_pos: pos,
             local_pos,
@@ -60,9 +58,10 @@ impl QniApp {
             start: pointer_start,
             released: pointer_released,
             shift_at_start: None,
+            snap_allowed: circuit_hit_allowed,
         };
 
-        let angle_label_gate_id = (!self.library.active_locked())
+        let angle_label_gate_id = (!self.library.active_locked() && circuit_hit_allowed)
             .then(|| {
                 self.angle_label_at_local_pos(
                     local_pos,
@@ -91,10 +90,11 @@ impl QniApp {
         let pointer_over_picker = self
             .picker_overlay_rect
             .is_some_and(|rect| pos.is_some_and(|pos| rect.contains(pos)));
-        if (pointer_over_picker || pointer_over_state_panel)
-            && self.dragging.is_none()
+        let no_gesture = self.dragging.is_none()
             && self.span_resize_drag.is_none()
-        {
+            && self.circuit_pan.is_none()
+            && self.circuit_block_drag.is_none();
+        if (pointer_over_picker || pointer_over_state_panel) && no_gesture {
             DragController::clear_idle_hover(self, ctx);
             return;
         }
@@ -106,6 +106,14 @@ impl QniApp {
             drag_pointer.screen_pos,
             &geometry.metrics,
         );
+        if DragController::update_circuit_pan(
+            self,
+            drag_pointer,
+            self.max_circuit_scroll(content_rect, &geometry.metrics),
+            ctx,
+        ) {
+            return;
+        }
         if self.angle_editor.is_some() && self.dragging.is_none() && self.span_resize_drag.is_none()
         {
             if drag_pointer.start {
@@ -122,12 +130,27 @@ impl QniApp {
             }
             return;
         }
-        if angle_label_gate_id.is_some()
-            && self.dragging.is_none()
-            && self.span_resize_drag.is_none()
-        {
+        if angle_label_gate_id.is_some() && no_gesture {
             DragController::clear_idle_hover(self, ctx);
             ctx.set_cursor_icon(egui::CursorIcon::Text);
+            return;
+        }
+        if self.circuit_block_editor.is_some() && no_gesture {
+            let on_edited_label = local_pos
+                .and_then(|cursor| self.circuit_block_hover_at(cursor, &geometry.metrics, ctx))
+                .zip(self.circuit_block_editor.as_ref())
+                .is_some_and(|(hover, editor)| {
+                    hover.index == editor.index && hover.label == Some(editor.slot)
+                });
+            if drag_pointer.start && !on_edited_label {
+                if let Some(editor) = self.circuit_block_editor.as_mut() {
+                    editor.commit_after_frame = true;
+                }
+            }
+            DragController::clear_idle_hover(self, ctx);
+            if on_edited_label {
+                ctx.set_cursor_icon(egui::CursorIcon::Text);
+            }
             return;
         }
 
@@ -148,15 +171,23 @@ impl QniApp {
             shift_at_start: press.map(|(_, shift)| shift),
             screen_pos: press_pos.or(drag_pointer.screen_pos),
             local_pos: press_pos
-                .map(|p| (p - circuit_origin).to_pos2())
+                .map(|p| projection.to_local(p))
                 .or(drag_pointer.local_pos),
             ..drag_pointer
         };
         if drag_pointer.start
-            && self.dragging.is_none()
-            && self.span_resize_drag.is_none()
+            && no_gesture
             && DragController::handle_pointer_start(self, start_pointer, &geometry, ctx)
         {
+            if self.circuit_pan.is_some() {
+                DragController::update_circuit_pan(
+                    self,
+                    drag_pointer,
+                    self.max_circuit_scroll(content_rect, &geometry.metrics),
+                    ctx,
+                );
+                return;
+            }
             self.clear_click_copy_after_motion(ctx, true);
             if self.dragging.is_some() {
                 DragController::update_gate_drag_preview(self, drag_pointer, &geometry.metrics);
@@ -169,6 +200,9 @@ impl QniApp {
         // Active resizable-span drag → update span from total Δy and skip
         // the rest of the input pipeline (gate drag, hover) for this frame.
         if DragController::update_active_span_resize(self, drag_pointer, ctx) {
+            return;
+        }
+        if DragController::update_circuit_block_drag(self, drag_pointer, &geometry.metrics, ctx) {
             return;
         }
 

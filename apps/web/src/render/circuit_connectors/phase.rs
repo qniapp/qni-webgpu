@@ -5,11 +5,11 @@ use crate::app::{DragState, GateId, PlacedGate, QniApp, WireIndex};
 use crate::colors::Colors;
 use crate::constants::GATE_SIZE;
 use crate::gates::{GateKind, ParametricAngle};
-use crate::layout::LayoutMetrics;
+use crate::layout::{CircuitProjection, LayoutMetrics};
 use crate::simulation_plan::{AnalyzedColumn, ColumnAnalysis, PhaseGroupKey};
 
 use super::super::circuit::gate_slot_index_for_render;
-use super::draw_vertical_connector;
+use super::{along_wires, draw_wire_connector, screen_time};
 
 pub(in crate::render) const ANGLE_LABEL_FONT_SIZE: f32 = crate::tailwind::TEXT_XS;
 pub(in crate::render) const ANGLE_LABEL_ROW_HEIGHT: f32 = crate::tailwind::LEADING_4;
@@ -79,27 +79,20 @@ pub(super) fn draw_phase_connectors_and_labels(
     painter: &egui::Painter,
     metrics: &LayoutMetrics,
     colors: &Colors,
-    circuit_origin: egui::Pos2,
+    projection: CircuitProjection,
     drag: Option<DragState>,
 ) {
     let render_columns = ColumnAnalysis::from_gates(&app.placed_gates, |gate| {
         gate_slot_index_for_render(gate, metrics, drag)
     });
-    draw_phase_phase_connectors(
-        &render_columns,
-        painter,
-        metrics,
-        colors,
-        circuit_origin,
-        drag,
-    );
+    draw_phase_phase_connectors(&render_columns, painter, metrics, colors, projection, drag);
     draw_parametric_angle_labels(
         app,
         &render_columns,
         painter,
         metrics,
         colors,
-        circuit_origin,
+        projection,
         drag,
     );
     draw_flag_labels(
@@ -108,7 +101,7 @@ pub(super) fn draw_phase_connectors_and_labels(
         painter,
         metrics,
         colors,
-        circuit_origin,
+        projection,
         drag,
     );
 }
@@ -119,14 +112,13 @@ fn draw_flag_labels(
     painter: &egui::Painter,
     metrics: &LayoutMetrics,
     colors: &Colors,
-    circuit_origin: egui::Pos2,
+    projection: CircuitProjection,
     drag: Option<DragState>,
 ) {
     // `aliceX` above `Measure>aliceX` and `if aliceX` above `X<aliceX`, with
     // the same top / outlined top / bottom placement rules as angle labels.
     for gate in &app.placed_gates {
-        let Some(label) = flag_label_info(gate, render_columns, metrics, circuit_origin, drag)
-        else {
+        let Some(label) = flag_label_info(gate, render_columns, metrics, projection, drag) else {
             continue;
         };
         draw_flag_label(painter, &label, colors);
@@ -147,13 +139,14 @@ fn flag_label_info(
     gate: &PlacedGate,
     render_columns: &ColumnAnalysis<'_>,
     metrics: &LayoutMetrics,
-    circuit_origin: egui::Pos2,
+    projection: CircuitProjection,
     drag: Option<DragState>,
 ) -> Option<FlagLabelInfo> {
     let flag = gate.flag.as_ref()?;
-    let center = circuit_origin
-        + crate::render::circuit::gate_draw_pos(gate, drag).to_vec2()
-        + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+    let center = crate::render::circuit::gate_square_center(
+        projection,
+        crate::render::circuit::gate_draw_pos(gate, drag),
+    );
     // A measurement never joins a control connector (qni measurements are not
     // controllable), so its label always sits on top.
     let connection_sides = if gate.kind == GateKind::Measurement {
@@ -163,10 +156,9 @@ fn flag_label_info(
             .map(|column| control_connection_sides(column, gate))
             .unwrap_or_default()
     };
-    let layout = angle_label_layout(connection_sides);
     // qni's negative margin and 12px line height leave 4px between the label ink and the
     // gate; the angle label anchor already lands the egui galley there.
-    let (pos, align) = angle_label_position(center, layout);
+    let (layout, pos, align) = angle_label_placement(projection, center, connection_sides);
     Some(FlagLabelInfo {
         prefix: flag.label_prefix(),
         name: flag.name().as_str().to_owned(),
@@ -217,7 +209,7 @@ fn draw_phase_phase_connectors(
     painter: &egui::Painter,
     metrics: &LayoutMetrics,
     colors: &Colors,
-    circuit_origin: egui::Pos2,
+    projection: CircuitProjection,
     drag: Option<DragState>,
 ) {
     // Phase-Phase connector. qni's
@@ -231,9 +223,10 @@ fn draw_phase_phase_connectors(
             let Some(key) = PhaseGroupKey::of(gate) else {
                 continue;
             };
-            let center = circuit_origin
-                + crate::render::circuit::gate_draw_pos(gate, drag).to_vec2()
-                + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+            let center = crate::render::circuit::gate_square_center(
+                projection,
+                crate::render::circuit::gate_draw_pos(gate, drag),
+            );
             groups.entry(key).or_default().push(center);
         }
         for points in groups.values() {
@@ -242,13 +235,13 @@ fn draw_phase_phase_connectors(
             }
             let mut min_y = f32::INFINITY;
             let mut max_y = f32::NEG_INFINITY;
-            for point in points {
-                min_y = min_y.min(point.y);
-                max_y = max_y.max(point.y);
+            for &point in points {
+                min_y = min_y.min(along_wires(projection, point));
+                max_y = max_y.max(along_wires(projection, point));
             }
             // Slot-center anchored — same rationale as the control connectors.
-            let x = circuit_origin.x + metrics.slot_centers[column.slot];
-            draw_vertical_connector(painter, x, min_y, max_y, colors.box_fill);
+            let time = screen_time(projection, metrics.slot_centers[column.slot]);
+            draw_wire_connector(painter, projection, time, min_y, max_y, colors.box_fill);
         }
     }
 }
@@ -259,7 +252,7 @@ fn draw_parametric_angle_labels(
     painter: &egui::Painter,
     metrics: &LayoutMetrics,
     colors: &Colors,
-    circuit_origin: egui::Pos2,
+    projection: CircuitProjection,
     drag: Option<DragState>,
 ) {
     // Angle labels for parametric gates. qni puts the angle text near the gate
@@ -277,7 +270,7 @@ fn draw_parametric_angle_labels(
             continue;
         }
         let Some(label) =
-            parametric_angle_label_info(gate, render_columns, metrics, circuit_origin, drag)
+            parametric_angle_label_info(gate, render_columns, metrics, projection, drag)
         else {
             continue;
         };
@@ -296,19 +289,19 @@ pub(in crate::render) fn parametric_angle_label_info(
     gate: &PlacedGate,
     render_columns: &ColumnAnalysis<'_>,
     metrics: &LayoutMetrics,
-    circuit_origin: egui::Pos2,
+    projection: CircuitProjection,
     drag: Option<DragState>,
 ) -> Option<AngleLabelInfo> {
     let angle = parametric_angle(gate)?;
     let text = angle.label();
-    let center = circuit_origin
-        + crate::render::circuit::gate_draw_pos(gate, drag).to_vec2()
-        + egui::vec2(GATE_SIZE / 2.0, GATE_SIZE / 2.0);
+    let center = crate::render::circuit::gate_square_center(
+        projection,
+        crate::render::circuit::gate_draw_pos(gate, drag),
+    );
     let connection_sides = phase_render_column(render_columns, gate, metrics, drag)
         .map(|column| angle_label_connection_sides(column, gate))
         .unwrap_or_default();
-    let layout = angle_label_layout(connection_sides);
-    let (pos, align) = angle_label_position(center, layout);
+    let (layout, pos, align) = angle_label_placement(projection, center, connection_sides);
     Some(AngleLabelInfo {
         gate_id: gate.id,
         text,
@@ -387,6 +380,31 @@ fn angle_label_layout(connection_sides: ConnectionSides) -> AngleLabelLayout {
         above_gate: !connection_sides.top || connection_sides.bottom,
         outline_with_background: connection_sides.top && connection_sides.bottom,
     }
+}
+
+/// Label layout and anchor. The vertical layout's connectors run across the
+/// wires, so its labels always sit in the gap after the gate in time.
+fn angle_label_placement(
+    projection: CircuitProjection,
+    gate_center: egui::Pos2,
+    connection_sides: ConnectionSides,
+) -> (AngleLabelLayout, egui::Pos2, egui::Align2) {
+    if projection.is_vertical() {
+        return (
+            AngleLabelLayout {
+                above_gate: false,
+                outline_with_background: false,
+            },
+            egui::pos2(
+                gate_center.x,
+                gate_center.y + GATE_SIZE / 2.0 + ANGLE_LABEL_TOP_OFFSET,
+            ),
+            egui::Align2::CENTER_TOP,
+        );
+    }
+    let layout = angle_label_layout(connection_sides);
+    let (pos, align) = angle_label_position(gate_center, layout);
+    (layout, pos, align)
 }
 
 fn angle_label_position(
@@ -725,7 +743,13 @@ mod tests {
     fn flag_label(gates: &[PlacedGate], index: usize) -> Option<FlagLabelInfo> {
         let metrics = crate::layout::layout_metrics(800.0, 3, 4);
         let analysis = ColumnAnalysis::from_gates(gates, |gate| Some(gate.column.as_usize()));
-        flag_label_info(&gates[index], &analysis, &metrics, egui::Pos2::ZERO, None)
+        flag_label_info(
+            &gates[index],
+            &analysis,
+            &metrics,
+            CircuitProjection::horizontal(egui::Pos2::ZERO),
+            None,
+        )
     }
 
     #[test]

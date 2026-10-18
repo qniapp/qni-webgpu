@@ -1,5 +1,5 @@
 use super::{
-    CircuitEntry, CircuitId, CircuitIdError, CircuitKind, CircuitLibrary, CircuitOrigin,
+    CircuitEntry, CircuitId, CircuitIdError, CircuitKind, CircuitLibrary, CircuitOrigin, BELL_JSON,
     DELAYED_CHOICE_ERASER_JSON, EMPTY_CIRCUIT_JSON, GROVER_SEARCH_JSON, QFT4_DECOMPOSED_JSON,
     REVERSIBLE_ADDITION_JSON, SUPERDENSE_CODING_JSON, SYMMETRY_BREAKING_JSON, TELEPORTATION_JSON,
 };
@@ -660,7 +660,7 @@ fn startup_url_selects_canonical_sample() {
     let mut library = CircuitLibrary::seed();
     library.set_active_current_circuit(EMPTY_CIRCUIT_JSON.to_owned());
 
-    library.resolve_startup_url_payload(r#"{"cols":[["H"],["•","X"]]}"#.to_owned());
+    library.resolve_startup_url_payload(BELL_JSON.to_owned());
 
     assert_eq!(library.active_id.as_str(), "bell");
 }

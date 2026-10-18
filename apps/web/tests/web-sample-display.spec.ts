@@ -12,12 +12,12 @@ import {
 
 type Column = (string | number)[]
 const PANEL_MARGIN = 8
-// Flexoki yellow-50 (lit tile core), ui-2 (unlit tile fill), bg-2 (circuit background).
-const LIT_CORE: [number, number, number, number] = [250, 238, 198, 255]
+// Flexoki blue-100 (lit tile core), ui-2 (unlit tile fill), bg-2 (circuit background).
+const LIT_CORE: [number, number, number, number] = [198, 221, 232, 255]
 const UNLIT_FILL: [number, number, number, number] = [218, 216, 206, 255]
 const BACKGROUND: [number, number, number, number] = [242, 240, 229, 255]
 const PIXEL_TOLERANCE = 8
-// The halo two pixels outside a lit tile is clearly yellow, far from the background.
+// The halo two pixels outside a lit tile is clearly blue, far from the background.
 const HALO_MIN_DISTANCE = 48
 const SPAN_RESIZE_HANDLE: [number, number, number, number] = [58, 169, 159, 255]
 const SPAN_RESIZE_HANDLE_TOLERANCE = 56

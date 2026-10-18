@@ -97,6 +97,7 @@ impl QniApp {
             ctx.request_repaint();
             return false;
         }
+        self.follow_embed_edit();
         self.library.update_active_unchecked(json.clone());
         self.persist_library();
         self.write_circuit_to_url(&json);
@@ -120,6 +121,7 @@ impl QniApp {
         }
         if let Some(json) = self.circuit_revision.undo() {
             self.replace_active_circuit_json_unchecked(&json, ctx);
+            self.follow_embed_edit();
         }
     }
 
@@ -129,6 +131,7 @@ impl QniApp {
         }
         if let Some(json) = self.circuit_revision.redo() {
             self.replace_active_circuit_json_unchecked(&json, ctx);
+            self.follow_embed_edit();
         }
     }
 
@@ -207,6 +210,9 @@ impl QniApp {
         self.hovered_step = None;
         self.angle_affordance = None;
         self.angle_editor = None;
+        self.hovered_circuit_block = None;
+        self.circuit_block_drag = None;
+        self.circuit_block_editor = None;
         let step_count =
             crate::url_circuit::summarize_circuit_json(json).map_or(0, |summary| summary.columns);
         self.breakpoint_step = self.initial_breakpoint_step(step_count);

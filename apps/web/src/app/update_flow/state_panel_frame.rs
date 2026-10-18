@@ -3,6 +3,7 @@ use eframe::egui;
 use super::StatePanelFrameState;
 use crate::app::QniApp;
 use crate::constants::{state_circle_default_aspect_index, MAX_QUBITS};
+use crate::render::vertical_default_aspect_index;
 use crate::shared::amplitude_qubits;
 
 impl QniApp {
@@ -34,15 +35,25 @@ impl QniApp {
         // to the valid [0, qubits] range so the choice stays sticky.
         let aspect_qubits = amplitude_qubits(state_count).clamp(1, MAX_QUBITS);
         if !self.state_panel.aspect_customized {
-            self.state_panel.aspect_index = state_circle_default_aspect_index(aspect_qubits);
+            self.state_panel.aspect_index = if self.orientation.is_vertical() {
+                vertical_default_aspect_index(aspect_qubits, screen_rect.width())
+            } else {
+                state_circle_default_aspect_index(aspect_qubits)
+            };
         } else {
             self.state_panel.aspect_index = self.state_panel.aspect_index.min(aspect_qubits);
+        }
+        if self.dragging.is_none() {
+            self.state_panel.vertical_viewport_height = None;
         }
         let layout = self.state_panel_layout(screen_rect, state_count);
         let (min_zoom, max_zoom) = layout.zoom_limits(self.state_panel.grid_zoom);
         self.state_panel.grid_zoom = self.state_panel.grid_zoom.clamp(min_zoom, max_zoom);
 
         let layout = self.state_panel_layout(screen_rect, state_count);
+        if self.orientation.is_vertical() {
+            self.state_panel.vertical_viewport_height = Some(layout.viewport_rect.height());
+        }
         self.clamp_state_panel_offset(&layout, screen_rect);
         self.clamp_state_grid_offset(&layout);
 
@@ -82,7 +93,11 @@ impl QniApp {
 
         // Order matters: resize handles take priority over strip and viewport
         // hits. The restart action occupies a separate area inside the strip.
-        self.process_state_panel_strip_drag(ui, &state_frame.layout, screen_rect, handle_rect);
+        // The vertical layout pins the panel, so it neither moves nor resizes.
+        let movable = !self.orientation.is_vertical();
+        if movable {
+            self.process_state_panel_strip_drag(ui, &state_frame.layout, screen_rect, handle_rect);
+        }
         self.process_state_panel_viewport_pan_and_zoom(
             ctx,
             ui,
@@ -94,7 +109,12 @@ impl QniApp {
         let aspect_qubits = amplitude_qubits(state_frame.state_count).clamp(1, MAX_QUBITS);
         self.process_aspect_dims(ctx, ui, aspect_qubits, dims_hit);
         self.process_aspect_popover(ctx, ui, aspect_qubits, dims_hit, state_rect);
-        self.process_resize_handles(ctx, ui, &state_frame.layout);
+        if movable {
+            self.process_resize_handles(ctx, ui, &state_frame.layout);
+        } else {
+            self.state_panel.resize_drag = None;
+            self.state_panel.hovered_resize_corner = None;
+        }
         if state_frame.layout.show_restart_button
             && crate::render::restart_button::interact(
                 ui,

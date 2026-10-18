@@ -1,4 +1,5 @@
 import { UI_CONSTANTS } from './generated-ui-constants'
+import { fullPaletteCircuitOffsetY, getPaletteGateCenter } from './palette-layout'
 
 type DragOperationInput = {
   cssWidth: number
@@ -6,13 +7,6 @@ type DragOperationInput = {
   wire: string | number
   slot: string | number
   gateSize?: number
-  paletteGap?: number
-  paletteRowY?: number
-  paletteRow1Count?: number
-  paletteRowGap?: number
-  paletteSectionGap?: number
-  paletteSeparatorWidth?: number
-  paletteDisplayColumns?: number
   circuitPadding?: number
   qubitLabelWidth?: number
   qubitLabelGap?: number
@@ -35,15 +29,6 @@ type ParsedOperation = {
 }
 
 const DEFAULT_GATE_SIZE = UI_CONSTANTS.GATE_SIZE
-const DEFAULT_PALETTE_GAP = UI_CONSTANTS.PALETTE_GAP
-const DEFAULT_PALETTE_ROW_Y = UI_CONSTANTS.PALETTE_ROW_Y
-const DEFAULT_PALETTE_ROW1_COUNT = 13
-const DEFAULT_PALETTE_ROW_GAP = UI_CONSTANTS.PALETTE_ROW_GAP
-const DEFAULT_PALETTE_SECTION_GAP = UI_CONSTANTS.PALETTE_SECTION_GAP
-const DEFAULT_PALETTE_SEPARATOR_WIDTH = UI_CONSTANTS.PALETTE_SEPARATOR_WIDTH
-const DEFAULT_PALETTE_DISPLAY_COLUMNS = UI_CONSTANTS.PALETTE_DISPLAY_COLUMNS
-const DEFAULT_PALETTE_GATES_ROW2_INDICES = [13, 14, 15, 31, 32, 17, 18, 19, 26, 34, 35, 22, 23, 21, 27, 28, 29, 30]
-const DEFAULT_PALETTE_DISPLAY_INDICES = [16, 20, 33, 24, 25]
 const DEFAULT_CIRCUIT_PADDING = UI_CONSTANTS.CIRCUIT_PADDING
 const DEFAULT_QUBIT_LABEL_WIDTH = UI_CONSTANTS.QUBIT_LABEL_WIDTH
 const DEFAULT_QUBIT_LABEL_GAP = UI_CONSTANTS.QUBIT_LABEL_GAP
@@ -213,13 +198,6 @@ export const buildDragOperation = ({
   wire,
   slot,
   gateSize = DEFAULT_GATE_SIZE,
-  paletteGap = DEFAULT_PALETTE_GAP,
-  paletteRowY = DEFAULT_PALETTE_ROW_Y,
-  paletteRow1Count = DEFAULT_PALETTE_ROW1_COUNT,
-  paletteRowGap = DEFAULT_PALETTE_ROW_GAP,
-  paletteSectionGap = DEFAULT_PALETTE_SECTION_GAP,
-  paletteSeparatorWidth = DEFAULT_PALETTE_SEPARATOR_WIDTH,
-  paletteDisplayColumns = DEFAULT_PALETTE_DISPLAY_COLUMNS,
   circuitPadding = DEFAULT_CIRCUIT_PADDING,
   qubitLabelWidth = DEFAULT_QUBIT_LABEL_WIDTH,
   qubitLabelGap = DEFAULT_QUBIT_LABEL_GAP,
@@ -231,33 +209,7 @@ export const buildDragOperation = ({
   const gateIndex = getGateIndex(gate)
   const wireIndex = parseWire(wire)
   const slotIndex = parseSlot(slot)
-  const row1Width = paletteRow1Count > 0 ? paletteRow1Count * gateSize + (paletteRow1Count - 1) * paletteGap : 0
-  const row2Count = DEFAULT_PALETTE_GATES_ROW2_INDICES.length
-  const row2Width = row2Count > 0 ? row2Count * gateSize + (row2Count - 1) * paletteGap : 0
-  const gatesWidth = Math.max(row1Width, row2Width)
-  const displayWidth = paletteDisplayColumns * gateSize + (paletteDisplayColumns - 1) * paletteGap
-  const displayX = gatesWidth + paletteSectionGap + paletteSeparatorWidth + paletteSectionGap
-  const totalWidth = displayX + displayWidth
-  const panelMargin = 8
-  const offset = (cssWidth - 2 * panelMargin - totalWidth) / 2
-  const paletteStartX = panelMargin + Math.sign(offset) * Math.round(Math.abs(offset))
-  const row2Col = DEFAULT_PALETTE_GATES_ROW2_INDICES.indexOf(gateIndex)
-  const displaySlot = DEFAULT_PALETTE_DISPLAY_INDICES.indexOf(gateIndex)
-  const paletteLocal = (() => {
-    if (gateIndex < paletteRow1Count) {
-      return { x: gateIndex * (gateSize + paletteGap), y: 0 }
-    }
-    if (row2Col >= 0) {
-      return { x: row2Col * (gateSize + paletteGap), y: gateSize + paletteRowGap }
-    }
-    if (displaySlot >= 0) {
-      return {
-        x: displayX + (displaySlot % paletteDisplayColumns) * (gateSize + paletteGap),
-        y: Math.floor(displaySlot / paletteDisplayColumns) * (gateSize + paletteRowGap),
-      }
-    }
-    throw new Error(`Unknown palette gate index: ${gateIndex}`)
-  })()
+  const from = getPaletteGateCenter(cssWidth, gateIndex)
   const lineLeftOffset = circuitPadding + qubitLabelWidth + qubitLabelGap
 
   return {
@@ -265,13 +217,10 @@ export const buildDragOperation = ({
     gateIndex,
     wire: wireIndex,
     slot: slotIndex,
-    from: {
-      x: paletteStartX + paletteLocal.x + gateSize / 2,
-      y: paletteRowY + paletteLocal.y + gateSize / 2 + verticalOffset,
-    },
+    from: { x: from.x, y: from.y + verticalOffset },
     to: {
       x: lineLeftOffset + gateSize + slotIndex * slotSpacing,
-      y: lineY + wireIndex * lineGap + verticalOffset,
+      y: lineY + fullPaletteCircuitOffsetY(cssWidth) + wireIndex * lineGap + verticalOffset,
     },
   }
 }
