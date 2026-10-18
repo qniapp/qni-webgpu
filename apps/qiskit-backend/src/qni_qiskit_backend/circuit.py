@@ -121,6 +121,12 @@ class QftSpec:
     dagger: bool
 
 
+@dataclass(frozen=True)
+class ArithmeticSpec:
+    span: int
+    decrement: bool
+
+
 def apply_columns_to_qiskit(qc: Any, columns: list[list[Any]], qubits: int) -> None:
     basis = initial_basis_tracker(qubits)
     flags = MeasurementFlags()
@@ -195,16 +201,17 @@ def apply_column_to_qiskit(
         deferred.append((wire, token))
     if parity_targets:
         controls.append(parity_targets[0][0])
-    # A QFT span can cover a control cell, unlike single-wire gates and swaps.
+    # A resizable span can cover a control cell, unlike single-wire gates and swaps.
     # It would make the measured wire quantum again: reset would then differ
     # from WebGPU's per-pair Write0. Refuse rather than change that semantics.
     for wire, token in deferred:
-        qft = parse_qft_token(split_parametric(token)[0])
-        if qft is not None and any(
-            wire <= detector < wire + qft.span
+        spec = parse_resizable_token(split_parametric(token)[0])
+        if spec is not None and any(
+            wire <= detector < wire + spec.span
             for detector in detect_control_reset_wires
         ):
-            raise CircuitBuildError("QFT span overlaps a ZDetectControlReset wire")
+            name = "QFT" if isinstance(spec, QftSpec) else "arithmetic"
+            raise CircuitBuildError(f"{name} span overlaps a ZDetectControlReset wire")
     for wire in detect_control_reset_wires:
         qc.measure(wire, wire)
     # Mirror linearize.rs in place: the topmost parity wire reversibly stores
@@ -225,10 +232,9 @@ def apply_column_to_qiskit(
         qc.h(wire)
     apply_swap(qc, swap_wires, controls, anti_controls, basis)
     operations = group_same_angle_phases(deferred)
-    # WebGPU always expands QFT after ordinary targets, even when the QFT
-    # starts on an earlier wire. A control inside its span can make this order
-    # observable to another target outside the span.
-    operations.sort(key=lambda op: parse_qft_token(split_parametric(op[1])[0]) is not None)
+    # Resizable gates follow ordinary targets, in stable row order shared by
+    # QFT and arithmetic. Internal controls can make this order observable.
+    operations.sort(key=lambda op: parse_resizable_token(split_parametric(op[1])[0]) is not None)
     for wire, token, partners in operations:
         if wire not in conditions:
             apply_gate(qc, wire, token, controls + partners, anti_controls, qubits, basis)
@@ -298,9 +304,9 @@ def column_parity_targets(column: list[Any], qubits: int) -> list[tuple[int, str
             if wire >= qubits:
                 raise CircuitBuildError("parity control references a wire beyond qubits")
             parity.append((wire, token))
-        qft = parse_qft_token(split_parametric(token)[0])
-        if qft is not None:
-            span = qft.span
+        spec = parse_resizable_token(split_parametric(token)[0])
+        if spec is not None:
+            span = spec.span
         elif is_readonly_display_token(token) and token != "Bloch":
             suffix = re.search(r"\d+$", token)
             span = int(suffix.group()) if suffix else 1
@@ -461,13 +467,18 @@ def apply_gate(
         raise CircuitBuildError("gate references a wire beyond qubits")
     base, angle = split_parametric(token)
     upper = base.upper()
-    qft = parse_qft_token(base)
-    if qft is not None:
-        qft_controls, qft_anti_controls = qft_external_controls(
-            wire, qft.span, controls, anti_controls
+    spec = parse_resizable_token(base)
+    if spec is not None:
+        external_controls, external_anti_controls = resizable_external_controls(
+            wire, spec.span, controls, anti_controls
         )
-        apply_qft(qc, wire, qft, qubits, qft_controls, qft_anti_controls)
-        track_qft(basis, qft_controls, qft_anti_controls, wire, qft.span)
+        if isinstance(spec, ArithmeticSpec):
+            if angle is not None:
+                raise CircuitBuildError(f"unsupported gate token: {token}")
+            apply_arithmetic(qc, wire, spec, qubits, external_controls, external_anti_controls)
+        else:
+            apply_qft(qc, wire, spec, qubits, external_controls, external_anti_controls)
+        track_resizable(basis, external_controls, external_anti_controls, wire, spec.span)
         return
     if base in POSTSELECTION_TOKENS:
         apply_postselection(qc, wire, base, controls, anti_controls)
@@ -586,7 +597,7 @@ def apply_qft_swaps(
 ) -> None:
     # Bit-reversal swap network swap(wire+i, wire+span-1-i) for the first half
     # of the span. Any column controls ride along so a controlled-QFT gates the
-    # swaps too. The QFT's overall basis effect is set by track_qft (called from
+    # swaps too. The QFT's overall basis effect is set by track_resizable (called from
     # apply_gate after apply_qft), so the swaps need no per-step basis update here.
     for i in range(span // 2):
         first = wire + i
@@ -654,18 +665,51 @@ def parse_qft_token(token: str) -> QftSpec | None:
     return QftSpec(span=span, dagger=dagger)
 
 
-def qft_external_controls(
+def parse_arithmetic_token(token: str) -> ArithmeticSpec | None:
+    if not token.startswith(("inc", "dec")):
+        return None
+    if re.fullmatch(r"(?:inc|dec)(?:[1-9]|1[0-6])", token) is None:
+        raise CircuitBuildError(f"unsupported gate token: {token}")
+    return ArithmeticSpec(span=int(token[3:]), decrement=token.startswith("dec"))
+
+
+def parse_resizable_token(token: str) -> QftSpec | ArithmeticSpec | None:
+    return parse_qft_token(token) or parse_arithmetic_token(token)
+
+
+def apply_arithmetic(
+    qc: Any,
+    wire: int,
+    spec: ArithmeticSpec,
+    qubits: int,
+    controls: list[int],
+    anti_controls: list[int],
+) -> None:
+    if wire + spec.span > qubits:
+        raise CircuitBuildError("arithmetic span references a wire beyond qubits")
+    # Carry propagates from high to low so each predicate sees the original
+    # lower bits. Reversing these exact self-inverse primitives gives borrow.
+    offsets = range(spec.span) if spec.decrement else reversed(range(spec.span))
+    for offset in offsets:
+        lower_controls = controls + list(range(wire, wire + offset))
+        if lower_controls or anti_controls:
+            apply_controlled_x(qc, wire + offset, lower_controls, anti_controls)
+        else:
+            qc.x(wire + offset)
+
+
+def resizable_external_controls(
     wire: int,
     span: int,
     controls: list[int],
     anti_controls: list[int],
 ) -> tuple[list[int], list[int]]:
-    def outside_qft_span(control: int) -> bool:
+    def outside_span(control: int) -> bool:
         return control < wire or control >= wire + span
 
     return (
-        [control for control in controls if outside_qft_span(control)],
-        [anti_control for anti_control in anti_controls if outside_qft_span(anti_control)],
+        [control for control in controls if outside_span(control)],
+        [anti_control for anti_control in anti_controls if outside_span(anti_control)],
     )
 
 
@@ -740,7 +784,7 @@ def mark_unknown(basis: BasisTracker, wire: int, span: int) -> None:
         basis[wire + offset] = None
 
 
-def track_qft(
+def track_resizable(
     basis: BasisTracker,
     controls: list[int],
     anti_controls: list[int],

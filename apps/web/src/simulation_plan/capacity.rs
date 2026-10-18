@@ -37,6 +37,7 @@ pub(crate) fn validate_simulation_plan_capacity(
 ) -> Result<(), SimulationPlanCapacityError> {
     let mut postselection_ops = 0usize;
     let mut gate_ops = 0usize;
+    let mut arithmetic_ops = 0usize;
     let mut bloch_ops = 0usize;
     let mut measure_reduce_ops = 0usize;
     let mut measure_collapse_ops = 0usize;
@@ -55,6 +56,7 @@ pub(crate) fn validate_simulation_plan_capacity(
                 }
             }
             SimulationOp::ApplyGate(_) => gate_ops += 1,
+            SimulationOp::Arithmetic(_) => arithmetic_ops += 1,
             SimulationOp::Postselect { output_slot, .. } => {
                 postselection_ops += 1;
                 let slot = output_slot.as_u32() as usize;
@@ -129,6 +131,7 @@ pub(crate) fn validate_simulation_plan_capacity(
     }
     for (label, count) in [
         ("gate", gate_ops),
+        ("arithmetic", arithmetic_ops),
         ("postselection", postselection_ops),
         ("bloch", bloch_ops),
         ("measure_reduce", measure_reduce_ops),
@@ -167,6 +170,21 @@ mod tests {
             max_amplitude_slots: 1,
             max_density_slots: 1,
         }
+    }
+
+    #[test]
+    fn arithmetic_op_limit_reports_staging_capacity() {
+        let op = SimulationOp::Arithmetic(crate::gpu::ArithmeticParams {
+            state_count: 2,
+            target_shift: 0,
+            target_mask: 1,
+            amount: 1,
+            control_mask: 0,
+            control_value: 0,
+            _pad: [0; 2],
+        });
+        let error = validate_simulation_plan_capacity(&[op, op], tiny_limits()).unwrap_err();
+        assert_eq!(error.to_string(), "arithmetic op count 2 exceeds MAX_OPS_PER_RECOMPUTE=1; split the circuit or grow the GPU staging buffer");
     }
 
     #[test]

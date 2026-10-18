@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  getCircuitOriginY,
   pixelRgbDistance,
   readEguiError,
   sampleCanvasPixels,
@@ -76,14 +77,10 @@ test('Local mode keeps edit utilities but hides the GPU run cluster', async ({ p
   const canvas = page.locator('#egui-canvas')
   const pixels = await sampleCanvasPixels(page, canvas, TOOLBAR_PROBES)
 
-  const REM = 32
   const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
-  const PALETTE_ROW_Y = 2.5 * REM
-  const PALETTE_ROW_GAP = 8
-  const PALETTE_PADDING_Y = 20
   const PALETTE_CIRCUIT_GAP = 48
-  const paletteBottom = PALETTE_ROW_Y + GATE_SIZE * 2 + PALETTE_ROW_GAP + PALETTE_PADDING_Y
-  const lineY = paletteBottom + PALETTE_CIRCUIT_GAP + GATE_SIZE / 2
+  const lineY = await getCircuitOriginY(page)
+  const paletteBottom = lineY - PALETTE_CIRCUIT_GAP - GATE_SIZE / 2
 
   const toolbarPaletteScanPoints: PixelSamplePoint[] = Array.from({ length: 92 }, (_, y) => ({
     name: `toolbarPaletteY${y}`,

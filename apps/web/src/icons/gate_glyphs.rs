@@ -102,6 +102,14 @@ pub(super) fn draw_gate_icon(
     let p = |x: f32, y: f32| map_svg_point_in_rect(rect, SvgPoint::new(x, y), viewbox);
 
     match kind {
+        GateKind::Increment => {
+            draw_increment_icon(painter, rect, color);
+            true
+        }
+        GateKind::Decrement => {
+            draw_decrement_icon(painter, rect, color);
+            true
+        }
         GateKind::PostSelectOff
         | GateKind::PostSelectOn
         | GateKind::PostSelectAntiX
@@ -259,6 +267,89 @@ pub(super) fn draw_gate_icon(
         // Anything that reaches here without matching is a non-typographic gate
         // the body code knows how to fall back on with `kind.label()`.
         _ => false,
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum ArithmeticSign {
+    Plus,
+    Minus,
+}
+
+const ARITHMETIC_GLYPH_SCALE: f32 = 0.02208;
+const ARITHMETIC_CAP_HEIGHT: f32 = 710.0;
+const ARITHMETIC_STROKE: f32 = 96.0;
+const ARITHMETIC_SIGN_WIDTH: f32 = 520.0;
+const ARITHMETIC_OPERAND_X: f32 = 576.0;
+const ARITHMETIC_INK_WIDTH: f32 = 855.0;
+const ARITHMETIC_ONE_OUTLINES: [&[[f32; 2]]; 3] = [
+    &[
+        [183.0, 0.0],
+        [279.0, 0.0],
+        [279.0, 710.0],
+        [204.0, 710.0],
+        [183.0, 631.0],
+    ],
+    &[[34.0, 522.0], [204.0, 522.0], [204.0, 606.0], [34.0, 606.0]],
+    &[[97.0, 560.0], [204.0, 560.0], [204.0, 638.0], [97.0, 606.0]],
+];
+
+fn draw_increment_icon(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {
+    draw_arithmetic_icon(painter, rect, color, ArithmeticSign::Plus);
+}
+
+fn draw_decrement_icon(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {
+    draw_arithmetic_icon(painter, rect, color, ArithmeticSign::Minus);
+}
+
+fn draw_arithmetic_icon(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    color: egui::Color32,
+    sign: ArithmeticSign,
+) {
+    let origin_x = VIEWBOX * 0.5 - ARITHMETIC_INK_WIDTH * ARITHMETIC_GLYPH_SCALE * 0.5;
+    let baseline = VIEWBOX * 0.5 + ARITHMETIC_CAP_HEIGHT * ARITHMETIC_GLYPH_SCALE * 0.5;
+    let p = |x: f32, y: f32| {
+        map_svg_point_in_rect(
+            rect,
+            SvgPoint::new(
+                origin_x + x * ARITHMETIC_GLYPH_SCALE,
+                baseline - y * ARITHMETIC_GLYPH_SCALE,
+            ),
+            VIEWBOX,
+        )
+    };
+    let bar = |center: [f32; 2], half_size: [f32; 2]| {
+        painter.rect_filled(
+            egui::Rect::from_two_pos(
+                p(center[0] - half_size[0], center[1] - half_size[1]),
+                p(center[0] + half_size[0], center[1] + half_size[1]),
+            ),
+            egui::CornerRadius::ZERO,
+            color,
+        );
+    };
+    let center = [ARITHMETIC_SIGN_WIDTH * 0.5, ARITHMETIC_CAP_HEIGHT * 0.5];
+    bar(
+        center,
+        [ARITHMETIC_SIGN_WIDTH * 0.5, ARITHMETIC_STROKE * 0.5],
+    );
+    if sign == ArithmeticSign::Plus {
+        bar(
+            center,
+            [ARITHMETIC_STROKE * 0.5, ARITHMETIC_SIGN_WIDTH * 0.5],
+        );
+    }
+    for outline in ARITHMETIC_ONE_OUTLINES {
+        painter.add(egui::Shape::convex_polygon(
+            outline
+                .iter()
+                .map(|&[x, y]| p(ARITHMETIC_OPERAND_X + x, y))
+                .collect(),
+            color,
+            egui::Stroke::NONE,
+        ));
     }
 }
 

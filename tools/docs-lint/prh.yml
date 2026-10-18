@@ -11,6 +11,15 @@ version: 1
 #     できるだけ「日本語の助詞」「日本語語幹」を伴うパターンに絞る。
 
 rules:
+  - expected: 算術ゲート
+    pattern: /アリスメティックゲート/
+
+  - expected: インクリメント
+    pattern: /インクレメント/
+
+  - expected: デクリメント
+    pattern: /デクレメント/
+
   - expected: ベルペア
     pattern: /Bell ペア/
   - expected: 回路ブロック
@@ -104,7 +113,6 @@ rules:
     patterns:
       - /コメント付きブロック/
       - /注釈ブロック/
-      - /回路ブロック/
 
   # ── ブロッホ + 和語 ──
   - expected: ブロッホ球

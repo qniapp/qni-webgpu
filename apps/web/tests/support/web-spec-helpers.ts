@@ -3,6 +3,9 @@ import type { Page } from 'playwright'
 import { dragPreviewAboveOverlayIssue } from '../../features/support/assertions'
 import {
   dragPointer,
+  getCircuitCellCenter,
+  getCircuitOriginY,
+  getCircuitWireY,
   getDragPreviewAboveStatePanelProbe,
   getPaletteGateCenter,
   readAmplitudeCell,
@@ -28,6 +31,9 @@ export {
   dragPreviewAboveOverlayIssue,
   chromium,
   dragPointer,
+  getCircuitCellCenter,
+  getCircuitOriginY,
+  getCircuitWireY,
   getDragPreviewAboveStatePanelProbe,
   getPaletteGateCenter,
   getPlainChromiumLaunchOptions,

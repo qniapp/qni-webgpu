@@ -114,10 +114,12 @@ fn draw_gate_body_with_fill(
         // the gate body's square corners.
         let radius = gate_rect.width().min(gate_rect.height()) / 2.0;
         painter.circle_filled(gate_rect.center(), radius, fill);
-    } else if matches!(kind, GateKind::QftGate | GateKind::QftDaggerGate) {
-        // QFT family — same green body as the other unitary gates. The
-        // letter rendering is delegated to `draw_gate_icon` along with
-        // every other SVG/SDF-backed typographic gate. For multi-qubit
+    } else if matches!(
+        kind,
+        GateKind::QftGate | GateKind::QftDaggerGate | GateKind::Increment | GateKind::Decrement
+    ) {
+        // Register gates share the unitary body and delegate their glyph
+        // to `draw_gate_icon`. For multi-qubit
         // spans the icon is anchored to a GATE_SIZE square at the vertical
         // centre so the lettering stays put even when the body is taller.
         painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
@@ -542,6 +544,63 @@ mod tests {
                     egui::pos2(16.0, 16.0),
                     egui::vec2(GATE_SIZE, LINE_GAP + GATE_SIZE),
                 ),
+                &Colors::new(),
+            );
+        });
+        insta::assert_debug_snapshot!(output.shapes);
+    }
+
+    fn arithmetic_icon_ink_center(kind: GateKind) -> egui::Pos2 {
+        let ctx = egui::Context::default();
+        let rect = egui::Rect::from_min_size(egui::pos2(16.0, 16.0), egui::Vec2::splat(GATE_SIZE));
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            draw_gate_body(ui.painter(), rect, kind, &Colors::new());
+        });
+        output
+            .shapes
+            .iter()
+            .skip(1)
+            .map(|shape| shape.shape.visual_bounding_rect())
+            .fold(egui::Rect::NOTHING, |ink, bounds| ink.union(bounds))
+            .center()
+    }
+
+    #[test]
+    fn arithmetic_icons_are_centred_in_the_gate() {
+        let centers = [GateKind::Increment, GateKind::Decrement].map(|kind| {
+            (arithmetic_icon_ink_center(kind) - egui::pos2(36.0, 36.0)).length() < 0.01
+        });
+        assert_eq!(centers, [true, true]);
+    }
+
+    #[test]
+    fn increment_body_snapshot() {
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            draw_gate_body(
+                ui.painter(),
+                egui::Rect::from_min_size(
+                    egui::pos2(16.0, 16.0),
+                    egui::vec2(GATE_SIZE, GATE_SIZE * 3.0),
+                ),
+                GateKind::Increment,
+                &Colors::new(),
+            );
+        });
+        insta::assert_debug_snapshot!(output.shapes);
+    }
+
+    #[test]
+    fn decrement_body_snapshot() {
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            draw_gate_body(
+                ui.painter(),
+                egui::Rect::from_min_size(
+                    egui::pos2(16.0, 16.0),
+                    egui::vec2(GATE_SIZE, GATE_SIZE * 3.0),
+                ),
+                GateKind::Decrement,
                 &Colors::new(),
             );
         });
