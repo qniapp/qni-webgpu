@@ -3,6 +3,7 @@ import {
   dragPreviewAboveOverlayIssue,
   chromium,
   dragPointer,
+  getCircuitOriginY,
   getDragPreviewAboveStatePanelProbe,
   getPaletteGateCenter,
   getPlainChromiumLaunchOptions,
@@ -172,7 +173,7 @@ test('dragged x gate uses Flexoki purple-600 before dropping back to green', asy
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   const xSource = getPaletteGateCenter(cssWidth, 1)
   const targetCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
   const signaturePoints: PixelSamplePoint[] = []
@@ -219,7 +220,7 @@ test('x gate uses a circular body in palette, circuit, and drag preview', async 
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   const xGateCenter = getPaletteGateCenter(cssWidth, 1)
   const placedXCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
   const dragXCenter = { x: placedXCenter.x + 80, y: placedXCenter.y + 40 }
@@ -371,7 +372,7 @@ test('drag preview preserves resized QFT span', async ({ page }) => {
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
 
   const placedCenter = { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }
@@ -411,7 +412,7 @@ test('placed circuit gate keeps its visual while dragging another gate', async (
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
 
   const sqrtXGateCenter = getPaletteGateCenter(cssWidth, 4)
   const hGateCenter = getPaletteGateCenter(cssWidth, 0)

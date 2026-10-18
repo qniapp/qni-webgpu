@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import {
   chromium,
   dragPointer,
+  getCircuitOriginY,
   getDragPreviewAboveStatePanelProbe,
   getPaletteGateCenter,
   getPlainChromiumLaunchOptions,
@@ -57,7 +58,7 @@ test('web canvas renders content', async ({ page }, testInfo) => {
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   const LINE_GAP = UI_CONSTANTS.LINE_GAP
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const controlSource = getPaletteGateCenter(cssWidth, 14)

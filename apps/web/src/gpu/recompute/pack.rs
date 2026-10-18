@@ -14,6 +14,7 @@ use super::super::resources::StateVectorResources;
 /// the tiny uniform buffer immediately before its dispatch.
 pub(super) struct PackedRecomputeParams {
     gate: Vec<GateParams>,
+    arithmetic: Vec<super::super::params::ArithmeticParams>,
     postselection: Vec<super::super::params::PostselectionParams>,
     bloch: Vec<BlochParams>,
     measure_reduce: Vec<MeasureReduceParams>,
@@ -27,6 +28,7 @@ impl PackedRecomputeParams {
     pub(super) fn from_ops(sim_ops: &[SimulationOp], state_count: usize, pair_count: u32) -> Self {
         let mut packed = Self {
             gate: Vec::with_capacity(sim_ops.len()),
+            arithmetic: Vec::new(),
             postselection: Vec::new(),
             bloch: Vec::with_capacity(sim_ops.len()),
             measure_reduce: Vec::with_capacity(sim_ops.len()),
@@ -49,6 +51,7 @@ impl PackedRecomputeParams {
                 }
                 SimulationOp::SnapshotState { .. } => {}
                 SimulationOp::ApplyGate(params) => packed.gate.push(*params),
+                SimulationOp::Arithmetic(params) => packed.arithmetic.push(*params),
                 SimulationOp::CaptureBloch {
                     qubit_bit,
                     output_slot,
@@ -164,6 +167,13 @@ impl PackedRecomputeParams {
                 &resources.postselection.params_staging_buffer,
                 0,
                 bytemuck::cast_slice(&self.postselection),
+            );
+        }
+        if !self.arithmetic.is_empty() {
+            queue.write_buffer(
+                &resources.arithmetic.params_staging_buffer,
+                0,
+                bytemuck::cast_slice(&self.arithmetic),
             );
         }
         if !self.gate.is_empty() {

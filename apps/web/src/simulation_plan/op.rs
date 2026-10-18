@@ -27,6 +27,8 @@ pub(crate) enum SimulationOp {
         output_slot: SlotIndex<Snapshot>,
     },
     ApplyGate(GateParams),
+    /// One out-of-place modular basis permutation, no CPU state math.
+    Arithmetic(crate::gpu::ArithmeticParams),
     Postselect {
         gate_id: GateId,
         output_slot: SlotIndex<crate::gpu::Postselection>,

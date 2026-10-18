@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import {
   DRAG_PREVIEW_FILL,
   dragPointer,
+  getCircuitOriginY,
   getPaletteGateCenter,
   pixelRgbDistance,
   readAmplitudeCell,
@@ -14,7 +15,6 @@ import {
 
 const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
 const LINE_LEFT_OFFSET = UI_CONSTANTS.LINE_LEFT_OFFSET
-const LINE_Y = UI_CONSTANTS.LINE_Y
 const AMPLITUDE_PALETTE_INDEX = 24
 const AMPLITUDE_SURFACE: [number, number, number, number] = [255, 252, 240, 255]
 const AMPLITUDE_DISK: [number, number, number, number] = [146, 191, 219, 255]
@@ -137,6 +137,7 @@ test.describe('Amplitude Display', () => {
   test('palette Amps symbol drops as Amps1', async ({ page }) => {
     await page.goto('/')
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
 
     const canvas = page.locator('#egui-canvas')
     const box = await canvas.boundingBox()
@@ -211,6 +212,7 @@ test.describe('Amplitude Display', () => {
   test('placed Amps1 keeps the matrix frame edge clear', async ({ page }) => {
     await page.goto(`/#${circuitHash([['H'], ['Amps1']])}`)
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
     await waitForAmplitudeCell(page, 2, 0)
 
     const canvas = page.locator('#egui-canvas')
@@ -225,6 +227,7 @@ test.describe('Amplitude Display', () => {
   test('placed Amps1 keeps the circle near the matrix frame', async ({ page }) => {
     await page.goto(`/#${circuitHash([['H'], ['Amps1']])}`)
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
     await waitForAmplitudeCell(page, 2, 0)
 
     const canvas = page.locator('#egui-canvas')
@@ -269,6 +272,7 @@ test.describe('Amplitude Display', () => {
   test('unsnapped palette Amps1 drag keeps an existing Amps1 display rendered', async ({ page }) => {
     await page.goto(`/#${circuitHash([['H'], ['Amps1']])}`)
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
     await waitForAmplitudeCell(page, 2, 0)
 
     const canvas = page.locator('#egui-canvas')
@@ -287,6 +291,7 @@ test.describe('Amplitude Display', () => {
   test('snapped dragged Amps1 renders live GPU circles before drop', async ({ page }) => {
     await page.goto('/')
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
 
     const canvas = page.locator('#egui-canvas')
     const box = await canvas.boundingBox()
@@ -295,7 +300,7 @@ test.describe('Amplitude Display', () => {
     await dragPointer(page, source, { x: LINE_LEFT_OFFSET + GATE_SIZE, y: LINE_Y }, 6, false)
     await waitForAmplitudeCell(page, 1, 0)
     const samples = await sampleCanvasPixels(page, canvas, [
-      { name: 'liveDisk', x: 170, y: 256 },
+      { name: 'liveDisk', x: 170, y: LINE_Y },
     ])
     await page.mouse.up()
 
@@ -305,6 +310,7 @@ test.describe('Amplitude Display', () => {
   test('snapped dragged Amps1 paints the gap around circles purple', async ({ page }) => {
     await page.goto('/')
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
 
     const canvas = page.locator('#egui-canvas')
     const box = await canvas.boundingBox()
@@ -328,6 +334,7 @@ test.describe('Amplitude Display', () => {
   test('snapped dragged Amps1 keeps the empty circle interior white', async ({ page }) => {
     await page.goto('/')
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
 
     const canvas = page.locator('#egui-canvas')
     const box = await canvas.boundingBox()
@@ -346,6 +353,7 @@ test.describe('Amplitude Display', () => {
   test('snapped drag keeps a stationary Amps1 display rendered', async ({ page }) => {
     await page.goto(`/#${circuitHash([['H'], ['Amps1'], [], ['Amps1']])}`)
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
 
     const canvas = page.locator('#egui-canvas')
     await waitForAmplitudeCell(page, 3, 0)
@@ -368,6 +376,7 @@ test.describe('Amplitude Display', () => {
   test('resizing Amps3 to Amps4 shifts the right display past the grown footprint', async ({ page }) => {
     await page.goto(`/#${circuitHash([['H'], ['Amps3'], [1], ['Amps2']])}`)
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
 
     const canvas = page.locator('#egui-canvas')
     const box = await canvas.boundingBox()
@@ -390,6 +399,7 @@ test.describe('Amplitude Display', () => {
   test('Amps4 bottom handle renders at 60 percent of the body width', async ({ page }) => {
     await page.goto(`/#${circuitHash([['Amps4']])}`)
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
     await waitForAmplitudeCell(page, 1, 0)
 
     const canvas = page.locator('#egui-canvas')
@@ -486,7 +496,7 @@ test.describe('Amplitude Display', () => {
     await waitForAmplitudeCell(page, 1, 1)
 
     const samples = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-      { name: 'zeroOutline', x: 210, y: 237 },
+      { name: 'zeroOutline', x: 210, y: await getCircuitOriginY(page) - 19 },
     ])
 
     expect(pixelRgbDistance(samples.zeroOutline, AMPLITUDE_ZERO_OUTLINE)).toBeLessThanOrEqual(90)
@@ -495,6 +505,7 @@ test.describe('Amplitude Display', () => {
   test('Amps1 draws the probability disk inset border in dark blue', async ({ page }) => {
     await page.goto(`/#${circuitHash([['Amps1']])}`)
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
     await waitForAmplitudeCell(page, 1, 0)
 
     const samples = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
@@ -507,6 +518,7 @@ test.describe('Amplitude Display', () => {
   test('Amps1 leaves the non-zero outline outside the disk border', async ({ page }) => {
     await page.goto(`/#${circuitHash([['Amps1']])}`)
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
     await waitForAmplitudeCell(page, 1, 0)
 
     const samples = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
@@ -522,7 +534,7 @@ test.describe('Amplitude Display', () => {
     await waitForAmplitudeCell(page, 1, 0)
 
     const samples = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-      { name: 'topFrame', x: 170, y: 236 },
+      { name: 'topFrame', x: 170, y: await getCircuitOriginY(page) - GATE_SIZE / 2 },
     ])
 
     expect(pixelRgbDistance(samples.topFrame, AMPLITUDE_ZERO_OUTLINE)).toBeLessThanOrEqual(90)
@@ -534,7 +546,7 @@ test.describe('Amplitude Display', () => {
     await waitForAmplitudeCell(page, 1, 1)
 
     const samples = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-      { name: 'cellGap', x: 198, y: 256 },
+      { name: 'cellGap', x: 198, y: await getCircuitOriginY(page) },
     ])
 
     expect(pixelRgbDistance(samples.cellGap, AMPLITUDE_SURFACE)).toBeLessThanOrEqual(60)
@@ -544,10 +556,11 @@ test.describe('Amplitude Display', () => {
     await page.goto(`/#${circuitHash([['Amps1']])}`)
     await waitForStartupReady(page, { waitForStateVector: true })
     await waitForAmplitudeCell(page, 1, 0)
-    await page.mouse.move(170, 256)
+    const LINE_Y = await getCircuitOriginY(page)
+    await page.mouse.move(170, LINE_Y)
 
     const samples = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-      { name: 'circleLeft', x: 160, y: 264 },
+      { name: 'circleLeft', x: 160, y: EGUI_PANEL_MARGIN + LINE_Y },
     ])
 
     expect(pixelRgbDistance(samples.circleLeft, AMPLITUDE_HOVER_RING)).toBeLessThanOrEqual(90)
@@ -556,14 +569,16 @@ test.describe('Amplitude Display', () => {
   test('hovering Amps1 shows the host hover frame', async ({ page }) => {
     await page.goto(`/#${circuitHash([['Amps1']])}`)
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
     await waitForAmplitudeCell(page, 1, 0)
-    await page.mouse.move(170, 256)
+    await page.mouse.move(170, LINE_Y)
 
     const samples = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
       {
         name: 'hostFrame',
-        x: amplitudeFirstCellCenterX(0) + GATE_SIZE * 0.7,
-        y: LINE_Y - GATE_SIZE / 2 + 4,
+        // 上辺はポップアップの影が重なるため、同じホバー枠の左辺を調べる。
+        x: EGUI_PANEL_MARGIN + amplitudeFirstCellCenterX(0) - GATE_SIZE / 2 - 4,
+        y: EGUI_PANEL_MARGIN + LINE_Y,
       },
     ])
 
@@ -573,6 +588,7 @@ test.describe('Amplitude Display', () => {
   test('Amps1 popup uses the shared top popover tail outline', async ({ page }) => {
     await page.goto(`/#${circuitHash([['H'], ['Amps1']])}`)
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
     await waitForAmplitudeCell(page, 2, 0)
 
     const canvas = page.locator('#egui-canvas')
@@ -597,6 +613,7 @@ test.describe('Amplitude Display', () => {
   test('Amps1 popup paints canonical header and metric rows', async ({ page }) => {
     await page.goto(`/#${circuitHash([['H'], ['Amps1']])}`)
     await waitForStartupReady(page, { waitForStateVector: true })
+    const LINE_Y = await getCircuitOriginY(page)
     await waitForAmplitudeCell(page, 2, 0)
 
     const canvas = page.locator('#egui-canvas')
@@ -626,7 +643,7 @@ test.describe('Amplitude Display', () => {
     await waitForAmplitudeCell(page, 11, 0)
 
     const samples = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-      { name: 'tinyNonzeroOutline', x: 218, y: 247 },
+      { name: 'tinyNonzeroOutline', x: 218, y: await getCircuitOriginY(page) - 9 },
     ])
 
     expect(pixelRgbDistance(samples.tinyNonzeroOutline, AMPLITUDE_NONZERO_OUTLINE)).toBeLessThanOrEqual(130)
@@ -639,7 +656,7 @@ test.describe('Amplitude Display', () => {
     await waitForAmplitudeCell(page, 16, 0)
 
     const samples = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-      { name: 'tinyCircle', x: 217, y: 245 },
+      { name: 'tinyCircle', x: 217, y: await getCircuitOriginY(page) - 11 },
     ])
 
     expect(pixelRgbDistance(samples.tinyCircle, AMPLITUDE_SURFACE)).toBeGreaterThan(90)

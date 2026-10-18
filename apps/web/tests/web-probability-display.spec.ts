@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import {
   dragPointer,
+  getCircuitOriginY,
   getPaletteGateCenter,
   pixelRgbDistance,
   readProbabilityDistributions,
@@ -16,7 +17,6 @@ import {
 const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
 const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
 const LINE_LEFT_OFFSET = UI_CONSTANTS.LINE_LEFT_OFFSET
-const LINE_Y = UI_CONSTANTS.LINE_Y
 const LINE_GAP = UI_CONSTANTS.LINE_GAP
 const EGUI_PANEL_MARGIN = 8
 const PROBABILITY_PALETTE_INDEX = 20
@@ -89,6 +89,7 @@ const waitForProbabilityPercentLabelEvidence = async (
   canvas: Parameters<typeof sampleCanvasPixels>[1],
   span: number,
 ): Promise<{ textPixels: number; bboxHeight: number }> => {
+  const LINE_Y = await getCircuitOriginY(page)
   const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
   const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   const gateHeight = (span - 1) * LINE_GAP + GATE_SIZE
@@ -142,6 +143,7 @@ const waitForProbabilityDecimalPointEvidence = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
 ): Promise<{ decimalPixels: number }> => {
+  const LINE_Y = await getCircuitOriginY(page)
   const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
   const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   return await pollForValue(
@@ -185,6 +187,7 @@ const waitForProbabilityBarPixels = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
 ): Promise<{ barIsBlue: boolean; edgeIsBlue400: boolean; emptyIsPaper: boolean }> => {
+  const LINE_Y = await getCircuitOriginY(page)
   const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
   const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   return await pollForValue(
@@ -236,6 +239,7 @@ const readoutVisualStabilityEvidence = async (
   canvas: Parameters<typeof sampleCanvasPixels>[1],
   box: { x: number; y: number },
 ): Promise<{ probabilityDefaultFrames: number; missingMeasurementDigitFrames: number }> => {
+  const LINE_Y = await getCircuitOriginY(page)
   const probabilityGateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
   const probabilityGateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   const probabilityRowH = ((5 - 1) * LINE_GAP + GATE_SIZE) / 32
@@ -302,15 +306,17 @@ const waitForProbabilityHoverEvidence = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
 ): Promise<{ rowBorder: boolean; popupText: boolean; popupDivider: boolean }> => {
+  const LINE_Y = await getCircuitOriginY(page)
   const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
   const selectedRowTop = EGUI_PANEL_MARGIN + LINE_Y
+  const circuitOffsetY = LINE_Y - UI_CONSTANTS.LINE_Y
   return await pollForValue(
     async () => {
       const screenshot = await canvas.screenshot({ type: 'png' })
       const box = await canvas.boundingBox()
       if (!box) throw new Error('expected egui canvas to be measurable')
       return await page.evaluate(
-        async ({ base64, cssWidth, cssHeight, gateLeft, selectedRowTop }) => {
+        async ({ base64, cssWidth, cssHeight, gateLeft, selectedRowTop, circuitOffsetY }) => {
           const img = new Image()
           img.src = `data:image/png;base64,${base64}`
           await new Promise((resolve, reject) => {
@@ -346,7 +352,7 @@ const waitForProbabilityHoverEvidence = async (
             return count
           }
           let dividerRowMax = 0
-          for (let y = Math.floor(250 * scaleY); y <= Math.floor(305 * scaleY); y += 1) {
+          for (let y = Math.floor((250 + circuitOffsetY) * scaleY); y <= Math.floor((305 + circuitOffsetY) * scaleY); y += 1) {
             let row = 0
             for (let x = Math.floor(270 * scaleX); x <= Math.floor(430 * scaleX); x += 1) {
               const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
@@ -362,11 +368,11 @@ const waitForProbabilityHoverEvidence = async (
               selectedRowTop + 20,
               ([r, g, b]) => Math.abs(r - 139) + Math.abs(g - 126) + Math.abs(b - 200) < 48,
             ) > 40,
-            popupText: countMatching(226, 450, 208, 336, ([r, g, b]) => r < 80 && g < 80 && b < 80) > 40,
+            popupText: countMatching(226, 450, 208 + circuitOffsetY, 336 + circuitOffsetY, ([r, g, b]) => r < 80 && g < 80 && b < 80) > 40,
             popupDivider: dividerRowMax > 64,
           }
         },
-        { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, selectedRowTop },
+        { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, selectedRowTop, circuitOffsetY },
       )
     },
     (last) => last.rowBorder && last.popupText && last.popupDivider
@@ -378,6 +384,7 @@ const waitForDenseProbabilityHoverLinePixels = async (
   canvas: Parameters<typeof sampleCanvasPixels>[1],
   localY: number,
 ): Promise<number> => {
+  const LINE_Y = await getCircuitOriginY(page)
   const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE - GATE_SIZE / 2
   const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   const hoverY = gateTop + localY
@@ -428,13 +435,14 @@ const waitForScrolledProbabilityPopupEvidence = async (
   valuesRightAligned: boolean
   rowsAligned: boolean
 }> => {
+  const circuitOffsetY = await getCircuitOriginY(page) - UI_CONSTANTS.LINE_Y
   return await pollForValue(
     async () => {
       const screenshot = await canvas.screenshot({ type: 'png' })
       const box = await canvas.boundingBox()
       if (!box) throw new Error('expected egui canvas to be measurable')
       return await page.evaluate(
-        async ({ base64, cssWidth, cssHeight }) => {
+        async ({ base64, cssWidth, cssHeight, circuitOffsetY }) => {
           const img = new Image()
           img.src = `data:image/png;base64,${base64}`
           await new Promise((resolve, reject) => {
@@ -505,13 +513,13 @@ const waitForScrolledProbabilityPopupEvidence = async (
           }
           const hasBounds = (b: ReturnType<typeof textBounds>) => b.count > 4
           const centerY = (b: ReturnType<typeof textBounds>) => (b.minY + b.maxY) / 2
-          const paletteTealThroughPopup = countMatching(270, 430, 150, 196, teal)
-          const centeredKet = countMatching(320, 380, 155, 180, dark)
-          const leftKet = countMatching(270, 315, 155, 180, dark)
-          const rawLabel = textBounds(270, 306, 220, 242)
-          const rawValue = textBounds(318, 430, 220, 242)
-          const logLabel = textBounds(270, 306, 240, 264)
-          const logValue = textBounds(318, 430, 240, 264)
+          const paletteTealThroughPopup = countMatching(270, 430, 150 + circuitOffsetY, 196 + circuitOffsetY, teal)
+          const centeredKet = countMatching(320, 380, 155 + circuitOffsetY, 180 + circuitOffsetY, dark)
+          const leftKet = countMatching(270, 315, 155 + circuitOffsetY, 180 + circuitOffsetY, dark)
+          const rawLabel = textBounds(270, 306, 220 + circuitOffsetY, 242 + circuitOffsetY)
+          const rawValue = textBounds(318, 430, 220 + circuitOffsetY, 242 + circuitOffsetY)
+          const logLabel = textBounds(270, 306, 240 + circuitOffsetY, 264 + circuitOffsetY)
+          const logValue = textBounds(318, 430, 240 + circuitOffsetY, 264 + circuitOffsetY)
           return {
             popupAbovePalette: paletteTealThroughPopup < 8,
             popupValueText: rawValue.count + logValue.count > 24,
@@ -522,7 +530,7 @@ const waitForScrolledProbabilityPopupEvidence = async (
               && Math.abs(centerY(logLabel) - centerY(logValue)) <= 4,
           }
         },
-        { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height },
+        { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, circuitOffsetY },
       )
     },
     (last) => last.popupAbovePalette && last.popupValueText && last.ketCentered && last.valuesRightAligned && last.rowsAligned
@@ -631,6 +639,7 @@ const waitForRowsBelowProbabilitySpike = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
 ): Promise<{ belowSpikeBarPixels: number }> => {
+  const LINE_Y = await getCircuitOriginY(page)
   const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
   const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   const gateHeight = (5 - 1) * LINE_GAP + GATE_SIZE
@@ -703,6 +712,7 @@ test('Probability5 draws logarithm hints for bar-only rows', async ({ page }) =>
   // is drawn at x = gateLeft + width·(1 + ln(0.5)·s), s = 1/12 for span 5.
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H', 1, 1, 1, 1], ['Probability5']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
+  const LINE_Y = await getCircuitOriginY(page)
   await waitForProbabilityDistributions(page)
 
   const canvas = page.locator('#egui-canvas')
@@ -723,6 +733,7 @@ const waitForLogHintBelowFullBar = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
 ): Promise<{ logHintPixelsBelowBar: number }> => {
+  const LINE_Y = await getCircuitOriginY(page)
   const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
   const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   const rowH = ((5 - 1) * LINE_GAP + GATE_SIZE) / 32
@@ -806,6 +817,7 @@ const waitForSeveredZeroRowLogHint = async (
   page: Parameters<typeof sampleCanvasPixels>[0],
   canvas: Parameters<typeof sampleCanvasPixels>[1],
 ): Promise<{ zeroRowLogHintPixels: number }> => {
+  const LINE_Y = await getCircuitOriginY(page)
   const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
   const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   const rowH = ((5 - 1) * LINE_GAP + GATE_SIZE) / 32
@@ -873,6 +885,7 @@ test('Probability5 severs the log-hint curve at a zero-probability row between n
 test('Probability hover highlights an outcome row and opens the popup', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['Probability']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
+  const LINE_Y = await getCircuitOriginY(page)
 
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
@@ -887,6 +900,7 @@ test('Probability5 hover outline keeps the right edge inside the pixel-aligned r
   await page.setViewportSize({ width: 1600, height: 800 })
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: GROVER_COLS })))
   await waitForStartupReady(page, { waitForStateVector: true })
+  const LINE_Y = await getCircuitOriginY(page)
   await waitForProbabilityDistributions(page)
 
   const canvas = page.locator('#egui-canvas')
@@ -957,6 +971,7 @@ test('Probability5 logarithm hints do not thicken row separators', async ({ page
   await page.setViewportSize({ width: 1600, height: 800 })
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: GROVER_COLS })))
   await waitForStartupReady(page, { waitForStateVector: true })
+  const LINE_Y = await getCircuitOriginY(page)
   await waitForProbabilityDistributions(page)
 
   const canvas = page.locator('#egui-canvas')
@@ -1017,6 +1032,7 @@ test('Probability5 logarithm hints do not thicken row separators', async ({ page
 test('Probability16 hover keeps the Quirk-style row line visible', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['Probability16']] })))
   await waitForStartupReady(page)
+  const LINE_Y = await getCircuitOriginY(page)
 
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
@@ -1033,6 +1049,7 @@ test('Probability16 hover keeps the Quirk-style row line visible', async ({ page
 test('Probability popup uses the shared popover tail outline', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['Probability']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
+  const LINE_Y = await getCircuitOriginY(page)
   await waitForProbabilityDistributions(page)
 
   const canvas = page.locator('#egui-canvas')
@@ -1064,6 +1081,7 @@ test('Probability popup stays above the palette and keeps GPU values while scrol
     cols: [['H', 'H', ...lowerQubitPaddingAfterPair], ['Probability4', ...lowerQubitPadding], [...lowerQubitPadding, 'H']],
   })))
   await waitForStartupReady(page, { waitForStateVector: true })
+  const LINE_Y = await getCircuitOriginY(page)
 
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
@@ -1091,6 +1109,7 @@ test('Probability popup flips left near the browser right edge', async ({ page }
   const filler = Array.from({ length: 11 }, () => ['H', 1, 1, 1, 1])
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [...filler, ['Probability5']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
+  const LINE_Y = await getCircuitOriginY(page)
   await waitForProbabilityDistributions(page)
 
   const canvas = page.locator('#egui-canvas')
@@ -1161,6 +1180,7 @@ test('hovering columns does not flash readouts back to default bodies', async ({
 test('selected earlier column keeps later readouts populated', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['Probability'], ['Measure']] })))
   await waitForStartupReady(page, { waitForStateVector: true, timeout: 60_000 })
+  const LINE_Y = await getCircuitOriginY(page)
 
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
@@ -1177,6 +1197,7 @@ test('Probability9 keeps tiny-row bars visible', async ({ page }) => {
   // deep row 128 carries 0.5 — a tiny (sub-pixel) row whose bar must stay visible.
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[1, 1, 1, 1, 1, 1, 1, 'H'], ['Probability9']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
+  const LINE_Y = await getCircuitOriginY(page)
 
   const canvas = page.locator('#egui-canvas')
   const probs = await waitForProbabilityDistributions(page)
@@ -1196,6 +1217,7 @@ test('Probability9 keeps tiny-row bars visible', async ({ page }) => {
 const setupProbability4ResizeHandleProbe = async (page: Parameters<typeof sampleCanvasPixels>[0]) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['Probability4']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
+  const LINE_Y = await getCircuitOriginY(page)
 
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
@@ -1212,6 +1234,7 @@ const setupProbability4ResizeHandleProbe = async (page: Parameters<typeof sample
 const setupQft4ResizeHandleProbe = async (page: Parameters<typeof sampleCanvasPixels>[0], token: 'QFT4' | 'QFT†4') => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[token]] })))
   await waitForStartupReady(page, { waitForStateVector: true })
+  const LINE_Y = await getCircuitOriginY(page)
 
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
@@ -1314,6 +1337,7 @@ test('Probability resize handle hover leaves the opposite pill visible', async (
 test('Probability top resize handle expands the span upward', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[1, 'Probability3']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
+  const LINE_Y = await getCircuitOriginY(page)
 
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
@@ -1333,6 +1357,7 @@ test('Probability top resize handle expands the span upward', async ({ page }) =
 test('QFT top resize handle expands the span upward', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[1, 'QFT3']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
+  const LINE_Y = await getCircuitOriginY(page)
 
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
@@ -1352,6 +1377,7 @@ test('QFT top resize handle expands the span upward', async ({ page }) => {
 test('Probability palette drop can resize to Probability3', async ({ page }) => {
   await page.goto('/')
   await waitForStartupReady(page, { waitForStateVector: true })
+  const LINE_Y = await getCircuitOriginY(page)
 
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
