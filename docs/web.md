@@ -148,6 +148,7 @@ OS 全体のスクリーンショットが取れない環境では、Playwright 
 Pages 版では切り替えがないため、通常の回路名と高さ 800 px では幅 320〜1440 px の全域で Tutorial をツールバーに表示できる。
 
 到達性の回帰テストは、既定版と `playwright.pages.config.ts` の両方で実行する。幅 320 / 360 / 390 / 480 / 600 / 768 / 900 / 1024 / 1280 / 1440 px への新規読み込みと、1440 px からの縮小を検査する。
+`tests/web-palette-layout.spec.ts` では、1440 px から 1000 / 1024 px へ縮めた後も、パレットの全 39 項目にポインタが届き、ツールバーがパレットに重ならず、回路が 3 行目の分だけ下へ移動することを検査する。このテストは既定版の CI に含まれる。Pages 版で確認する場合は、`__qniLayoutJson` / `__qniHoverSnapshotJson` を出力する開発ビルドを使い、`playwright.pages.config.ts` の `testDir` を `./tests` に変えた一時設定で実行する。画像比較には ABCI 版とは別の Pages 版の基準画像を用意する。
 
 ## GitHub Pages のローカル実行専用版
 
