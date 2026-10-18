@@ -68,7 +68,7 @@
     </div>
 
     <div class="dce-legend" aria-hidden="true">
-      <span class="item">青い上下罫線の帯 = 回路ブロック（上下に同じラベル）</span>
+      <span class="item">青い上下罫線の帯 = コメントブロック（上下に同じラベル）</span>
       <span class="item"><span class="glyph"><h-gate></h-gate></span>アダマール</span>
       <span class="item"><span class="glyph"><control-gate></control-gate></span>制御</span>
       <span class="item"><span class="glyph"><anti-control-gate></anti-control-gate></span>反制御</span>
@@ -88,7 +88,7 @@
   <h2>§ 02 回路の読み方</h2>
   <div class="card">
     <table class="spec">
-      <thead><tr><th>回路ブロック</th><th>操作</th><th>意味</th></tr></thead>
+      <thead><tr><th>コメントブロック</th><th>操作</th><th>意味</th></tr></thead>
       <tbody>
         <tr><td><code>two slits</code></td><td>H(q1) → CNOT(q1→q4)</td><td>光子を二経路の重ね合わせにし、スクリーンに経路情報を刻む。</td></tr>
         <tr><td><code>screen</code></td><td>QFT7 → Probability7</td><td>q2–q8 の着弾位置の分布を作り、平らな分布を表示する。</td></tr>
@@ -135,7 +135,7 @@
       <li>確率表示ブロックの ID を <code>Chance</code> → <code>Probability</code> に書き換える。</li>
       <li><strong>測定（Measure）は置かない。</strong> qni の測定は状態を 1 サンプルに潰すため、アンサンブルの干渉縞が 1 画面で出ない。スクリーンと q0/q1 をコヒーレントに保ち、条件付き確率表示で 4 通りを同時に見せる（測定して仕分けた分布と同じ）。</li>
       <li><strong>which-path のマーク（CNOT のターゲット）は Quirk と同じ q4 のまま。</strong> qni は上のワイヤ q0 を最下位ビット（LSB）として数えるリトルエンディアンで、これは Quirk と同じビット順なので、Quirk 本来の q4（QFT レジスタの上から 3 番目のワイヤ）にマークを置けば干渉縞の本数（4 本）も Quirk と一致する。qni の QFT は先頭にビット反転 SWAP を含む真の離散フーリエ変換（<a href="quirk-sample-circuits.html">QFT の項</a>）。</li>
-      <li>注釈用のカスタムゲート（<code>slits</code> / <code>choice</code> / <code>result</code> / <code>flat</code> / <code>waves</code> といった恒等行列のラベル）を回路ブロックのラベルに置き換え、ブロックの間に区切りの空列を 1 つずつ入れる。</li>
+      <li>注釈用のカスタムゲート（<code>slits</code> / <code>choice</code> / <code>result</code> / <code>flat</code> / <code>waves</code> といった恒等行列のラベル）をコメントブロックのラベルに置き換え、ブロックの間に区切りの空列を 1 つずつ入れる。</li>
     </ul>
     <table class="spec">
       <tbody>
