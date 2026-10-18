@@ -1,0 +1,220 @@
+name: Release embed bundle
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: embed-release-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  GH_REPO: ${{ github.repository }}
+  TAG: embed-${{ github.sha }}
+  RELEASE_ASSETS: 'qni-web.js qni-web_bg.wasm qni-embed.mjs qni-embed-error.mjs h.svg design-system.css h-gate.js LICENSE manifest.json manifest.json.sha256'
+
+jobs:
+  check:
+    if: github.ref == 'refs/heads/master'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Check tag and release absence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Only an authenticated HTTP 404 proves absence; transport/auth errors fail closed.
+          require_absent() {
+            local response
+            if response=$(gh api --include "$1" 2>"$RUNNER_TEMP/embed-release-api-error"); then
+              echo "Already exists: $1" >&2
+              exit 1
+            fi
+            if ! printf '%s\n' "$response" | grep -Eq '^HTTP/[^ ]+ 404( |\r?$)'; then
+              printf '%s\n' "$response" >&2
+              cat "$RUNNER_TEMP/embed-release-api-error" >&2
+              exit 1
+            fi
+          }
+          require_absent "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG"
+          if gh release view "$TAG" > /dev/null; then
+            echo "Release already exists: $TAG" >&2
+            exit 1
+          fi
+          require_absent "repos/$GITHUB_REPOSITORY/releases/tags/$TAG"
+          # The tag lookup can omit drafts, so inspect every authenticated release page too.
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/embed-releases.json"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const pages = JSON.parse(fs.readFileSync(`${process.env.RUNNER_TEMP}/embed-releases.json`, 'utf8'));
+          if (!Array.isArray(pages) || !pages.length || !pages.every(Array.isArray)) throw new Error('Invalid releases response');
+          for (const release of pages.flat()) {
+            if (!release || typeof release.tag_name !== 'string') throw new Error('Invalid release');
+            if (release.tag_name === process.env.TAG) throw new Error('Release (including draft) already exists');
+          }
+          NODE
+
+  build:
+    needs: check
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set staging directory
+        run: echo "STAGING=$RUNNER_TEMP/embed-release" >> "$GITHUB_ENV"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: '9'
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install wasm32 target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: "true"
+          cache-all-crates: "true"
+          workspaces: |
+            apps/web
+
+      - name: Install trunk
+        uses: taiki-e/install-action@v2
+        with:
+          tool: trunk@0.21.14
+
+      - name: Install Web deps
+        run: pnpm install --frozen-lockfile
+        working-directory: apps/web
+
+      - name: Build release
+        run: |
+          node apps/web/scripts/embed-release.mjs build --output "$STAGING" --source-commit "$GITHUB_SHA"
+          node apps/web/scripts/embed-release.mjs verify --output "$STAGING" --source-commit "$GITHUB_SHA"
+
+      - name: Upload staged release files
+        uses: actions/upload-artifact@v7
+        with:
+          name: embed-release-${{ github.sha }}
+          path: ${{ env.STAGING }}
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Set staging directory
+        run: echo "STAGING=$RUNNER_TEMP/embed-release" >> "$GITHUB_ENV"
+
+      - name: Download staged release files
+        uses: actions/download-artifact@v8
+        with:
+          name: embed-release-${{ github.sha }}
+          path: ${{ env.STAGING }}
+
+      - name: Verify staged release files
+        run: node apps/web/scripts/embed-release.mjs verify --output "$STAGING" --source-commit "$GITHUB_SHA"
+
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const { STAGING, GITHUB_REPOSITORY, GITHUB_SHA, RUNNER_TEMP } = process.env;
+          const manifest = JSON.parse(fs.readFileSync(`${STAGING}/manifest.json`, 'utf8'));
+          if (!Number.isSafeInteger(manifest.embed_api_version) || manifest.embed_api_version < 1) throw new Error('Invalid API version');
+          const digest = fs.readFileSync(`${STAGING}/manifest.json.sha256`, 'utf8').trim().split(/\s+/)[0];
+          if (!/^[a-f0-9]{64}$/.test(digest)) throw new Error('Invalid manifest digest');
+          fs.writeFileSync(`${RUNNER_TEMP}/embed-release-notes.md`, `ソースコミット: https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\n\nembed_api_version: ${manifest.embed_api_version}\n\nmanifest.json SHA-256: ${digest}\n`);
+          NODE
+
+      - name: Attest release files
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: ${{ env.STAGING }}/*
+
+      - name: Create draft and upload all assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "$TAG" --notes-file "$RUNNER_TEMP/embed-release-notes.md"
+          # A pending draft must not have created the Git tag yet.
+          if response=$(gh api --include "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>"$RUNNER_TEMP/embed-draft-tag-error"); then
+            echo "Git tag exists before publication; inspect the draft manually" >&2
+            exit 1
+          fi
+          if ! printf '%s\n' "$response" | grep -Eq '^HTTP/[^ ]+ 404( |\r?$)'; then
+            cat "$RUNNER_TEMP/embed-draft-tag-error" >&2
+            exit 1
+          fi
+          read -r -a names <<< "$RELEASE_ASSETS"
+          files=()
+          for name in "${names[@]}"; do files+=("$STAGING/$name"); done
+          gh release upload "$TAG" "${files[@]}"
+
+      - name: Verify uploaded assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Verify payload names/sizes/hashes against the local manifest before comparing remote metadata.
+          node apps/web/scripts/embed-release.mjs verify --output "$STAGING" --source-commit "$GITHUB_SHA"
+          gh release view "$TAG" --json isDraft,assets > "$RUNNER_TEMP/embed-release-assets.json"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const { STAGING, RELEASE_ASSETS, RUNNER_TEMP } = process.env;
+          const release = JSON.parse(fs.readFileSync(`${RUNNER_TEMP}/embed-release-assets.json`, 'utf8'));
+          if (release.isDraft !== true || !Array.isArray(release.assets)) throw new Error('Expected draft release assets');
+          const expected = RELEASE_ASSETS.split(' ').map(name => [name, fs.statSync(`${STAGING}/${name}`).size]).sort();
+          const actual = release.assets.map(asset => [asset.name, asset.size]).sort();
+          if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error('Uploaded asset names/sizes differ from verified local files');
+          NODE
+
+      - name: Publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$TAG" --draft=false --prerelease

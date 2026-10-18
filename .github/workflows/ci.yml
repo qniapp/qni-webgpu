@@ -80,8 +80,15 @@ jobs:
         working-directory: apps/web
 
       - name: Web embed build
+        env:
+          QNI_SOURCE_COMMIT: ${{ github.sha }}
         run: pnpm run build:embed
         working-directory: apps/web
+
+      - name: Validate embed release dry-run
+        run: |
+          node apps/web/scripts/embed-release.mjs dry-run --input apps/web/embed-dist --output "$RUNNER_TEMP/embed-release" --source-commit "$GITHUB_SHA"
+          node apps/web/scripts/embed-release.mjs verify --output "$RUNNER_TEMP/embed-release" --source-commit "$GITHUB_SHA"
 
       - name: Upload Web Playwright bundle
         uses: actions/upload-artifact@v7
