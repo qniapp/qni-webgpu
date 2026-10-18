@@ -12,6 +12,7 @@
     "check:ui-constants": "node -r ts-node/register/transpile-only scripts/generate-ui-constants.ts --check",
     "typecheck": "tsc --noEmit",
     "test:preflight": "node --test test-node/embed-loader.test.mjs && pnpm run check:ui-constants && pnpm run typecheck && node -r ts-node/register/transpile-only --test test-node/*.test.ts",
+    "verify:kani": "bash scripts/verify-kani-controls.sh",
     "test:gpu": "node -r ts-node/register/transpile-only --test --test-concurrency=1 test-gpu/*.test.ts"
   },
   "devDependencies": {

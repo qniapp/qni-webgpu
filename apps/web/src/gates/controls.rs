@@ -55,6 +55,7 @@ impl ColumnControls {
 
     /// 指定マスク内のビットを mask と value の両方から外した新しい制御条件を返す。
     /// QFT スパン内の制御を除外するのに使う。
+    /// 変更時は `bash apps/web/scripts/verify-kani-controls.sh` で形式検証する。
     pub(crate) fn restricted_outside(self, span_mask: u32) -> Self {
         let keep = !span_mask;
         Self {
