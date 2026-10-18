@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { fullPaletteCircuitOffsetY } from '../test-support/palette-layout'
 import {
   chromium,
   dragPointer,
@@ -142,6 +143,23 @@ test('Display section Density slot preserves its palette hover index', async ({ 
   await expect.poll(async () => (await hoverSnapshot(page)).hoveredPaletteIndex).toBe(25)
 })
 
+test('Display section bottom-right slot reports the comment block palette hover index', async ({ page }) => {
+  await page.goto('/')
+
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const canvas = page.locator('#egui-canvas')
+  await canvas.waitFor({ state: 'visible' })
+
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
+  const commentBlockCenter = getPaletteGateCenter(box.width, 38)
+  await page.mouse.move(box.x + commentBlockCenter.x, box.y + commentBlockCenter.y)
+
+  await expect.poll(async () => (await hoverSnapshot(page)).hoveredPaletteIndex).toBe(38)
+})
+
 test('Density palette icon maximizes circle outlines without touching the hover frame', async ({ page }) => {
   await page.goto('/')
 
@@ -193,9 +211,13 @@ const readCenteredConnectorStroke = async (page: Page): Promise<{ line: boolean[
   await waitForStartupReady(page, { waitForStateVector: true })
   const canvas = page.locator('#egui-canvas')
   await canvas.waitFor({ state: 'visible' })
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
   const panelMargin = 8
   const connectorX = panelMargin + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE
-  const connectorY = panelMargin + UI_CONSTANTS.LINE_Y + UI_CONSTANTS.LINE_GAP / 2
+  const connectorY = panelMargin + UI_CONSTANTS.LINE_Y + fullPaletteCircuitOffsetY(box.width) + UI_CONSTANTS.LINE_GAP / 2
   const pixels = await sampleCanvasPixels(page, canvas, [
     { name: 'leftOutside', x: connectorX - 3, y: connectorY },
     { name: 'leftInside', x: connectorX - 2, y: connectorY },
@@ -351,14 +373,14 @@ test('palette Phase drop shows its π/2 default angle label', async ({ page }) =
   const expectedHashCols = [['P(π_2)']]
   await dragPointer(page, phaseSource, {
     x: UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
-    y: UI_CONSTANTS.LINE_Y,
+    y: UI_CONSTANTS.LINE_Y + fullPaletteCircuitOffsetY(box.width),
   })
   await waitForHashCols(page, expectedHashCols)
 
   const screenshot = await canvas.screenshot({ type: 'png' })
   const gateCenter = {
     x: panelMargin + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
-    y: panelMargin + UI_CONSTANTS.LINE_Y,
+    y: panelMargin + UI_CONSTANTS.LINE_Y + fullPaletteCircuitOffsetY(box.width),
   }
   const darkPixels = await page.evaluate<
     number,
@@ -415,7 +437,7 @@ test('dragged insert preview does not pull a connector off the gate center', asy
   const controlStart = getPaletteGateCenter(box.width, controlPaletteIndex)
   const slot0CenterX = panelMargin + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE
   const insertPreviewX = slot0CenterX + UI_CONSTANTS.SLOT_SPACING / 2
-  const wire0CenterY = panelMargin + UI_CONSTANTS.LINE_Y
+  const wire0CenterY = panelMargin + UI_CONSTANTS.LINE_Y + fullPaletteCircuitOffsetY(box.width)
   await dragPointer(page, { x: controlStart.x, y: panelMargin + controlStart.y }, { x: insertPreviewX, y: wire0CenterY }, 10, false)
   await page.waitForTimeout(50)
 
@@ -436,7 +458,7 @@ const readConnectorBelowHoveredTopGate = async (page: Page): Promise<CanvasPixel
   }
   const panelMargin = 8
   const connectorX = panelMargin + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE
-  const topGateY = panelMargin + UI_CONSTANTS.LINE_Y
+  const topGateY = panelMargin + UI_CONSTANTS.LINE_Y + fullPaletteCircuitOffsetY(box.width)
   await page.mouse.move(box.x + connectorX, box.y + topGateY)
   await page.waitForTimeout(50)
   const pixels = await sampleCanvasPixels(page, canvas, [
@@ -562,7 +584,7 @@ test('SVG SDF gate labels keep palette and circuit glyph weight aligned', async 
       [`palette${name}`, { x: paletteCenter.x, y: EGUI_PANEL_MARGIN + paletteCenter.y }],
       [`circuit${name}`, {
         x: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING * circuitIndex,
-        y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y + circuitYOffset,
+        y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y + fullPaletteCircuitOffsetY(box.width) + circuitYOffset,
       }],
     ]
   }))
@@ -870,11 +892,15 @@ const openPlacedAntiControlCircuit = async (page: Page) => {
 
   const canvas = page.locator('#egui-canvas')
   await canvas.waitFor({ state: 'visible' })
+  const box = await canvas.boundingBox()
+  if (!box) {
+    throw new Error('expected egui canvas to be measurable')
+  }
 
   const EGUI_PANEL_MARGIN = 8
   const antiControlCenter: Point = {
     x: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
-    y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y,
+    y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y + fullPaletteCircuitOffsetY(box.width),
   }
   return { canvas, antiControlCenter }
 }

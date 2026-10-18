@@ -353,6 +353,17 @@ fn token_to_gate(token: &str) -> Option<DecodedToken> {
     })
 }
 
+/// Quirk defines only `Chance` and the canonical decimal suffixes 2 through 16.
+fn chance_span(suffix: &str) -> Option<usize> {
+    if suffix.is_empty() {
+        return Some(1);
+    }
+    if suffix.starts_with('0') || !suffix.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    suffix.parse().ok().filter(|span| (2..=16).contains(span))
+}
+
 /// Decode a token without its measurement variable suffix.
 fn base_token_to_gate(token: &str) -> Option<(GateKind, usize, Option<ParametricAngle>)> {
     for (prefix, kind) in [("inc", GateKind::Increment), ("dec", GateKind::Decrement)] {
@@ -371,6 +382,9 @@ fn base_token_to_gate(token: &str) -> Option<(GateKind, usize, Option<Parametric
     if let Some(rest) = token.strip_prefix("QFT") {
         let span: usize = rest.parse().ok()?;
         return Some((GateKind::QftGate, span, None));
+    }
+    if let Some(rest) = token.strip_prefix("Chance") {
+        return Some((GateKind::ProbabilityDisplay, chance_span(rest)?, None));
     }
     if let Some(rest) = token.strip_prefix("Probability") {
         let span = if rest.is_empty() {
@@ -452,6 +466,97 @@ mod tests {
 
     fn qubit_count(value: usize) -> QubitCount {
         QubitCount::try_new(value).expect("test qubit count must be non-zero")
+    }
+
+    #[test]
+    fn chance_decodes_as_single_qubit_probability() {
+        assert_eq!(
+            base_token_to_gate("Chance"),
+            Some((GateKind::ProbabilityDisplay, 1, None))
+        );
+    }
+
+    #[test]
+    fn chance_five_decodes() {
+        assert_eq!(
+            base_token_to_gate("Chance5"),
+            Some((GateKind::ProbabilityDisplay, 5, None))
+        );
+    }
+
+    #[test]
+    fn chance_sixteen_decodes() {
+        assert_eq!(
+            base_token_to_gate("Chance16"),
+            Some((GateKind::ProbabilityDisplay, 16, None))
+        );
+    }
+
+    #[test]
+    fn chance_one_is_ignored() {
+        assert_eq!(base_token_to_gate("Chance1"), None);
+    }
+
+    #[test]
+    fn chance_seventeen_is_ignored() {
+        assert_eq!(base_token_to_gate("Chance17"), None);
+    }
+
+    #[test]
+    fn chance_zero_is_ignored() {
+        assert_eq!(base_token_to_gate("Chance0"), None);
+    }
+
+    #[test]
+    fn chance_leading_zero_is_ignored() {
+        assert_eq!(base_token_to_gate("Chance02"), None);
+    }
+
+    #[test]
+    fn chance_plus_sign_is_ignored() {
+        assert_eq!(base_token_to_gate("Chance+2"), None);
+    }
+
+    #[test]
+    fn chance_zero_one_is_ignored() {
+        assert_eq!(base_token_to_gate("Chance01"), None);
+    }
+
+    #[test]
+    fn chance_non_numeric_suffix_is_ignored() {
+        assert_eq!(base_token_to_gate("Chancex"), None);
+    }
+
+    #[test]
+    fn chance_two_round_trips_as_probability_two() {
+        let circuit = parse_circuit_json(r#"{"cols":[["H"],["Chance2"]]}"#);
+        assert_eq!(
+            crate::url_circuit::circuit_to_json(
+                &circuit.gates,
+                &circuit.blocks,
+                "",
+                qubit_count(2)
+            ),
+            r#"{"cols":[["H"],["Probability2"]]}"#
+        );
+    }
+
+    #[test]
+    fn chance_is_accepted_in_palette() {
+        assert_eq!(
+            palette_token_to_gate("Chance"),
+            Some((GateKind::ProbabilityDisplay, None))
+        );
+    }
+
+    #[test]
+    fn chance_two_is_rejected_in_palette() {
+        assert_eq!(palette_token_to_gate("Chance2"), None);
+    }
+
+    #[test]
+    fn chance_measurement_condition_matches_probability() {
+        assert_eq!(token_to_gate("Chance2<a"), token_to_gate("Probability2<a"));
     }
 
     #[test]
@@ -680,6 +785,60 @@ mod tests {
         assert_eq!(round_trip(json), json);
     }
 
+    #[test]
+    fn bell_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::BELL_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn ghz_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::GHZ_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn teleportation_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::TELEPORTATION_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn superdense_coding_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::SUPERDENSE_CODING_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn qft4_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::QFT4_DECOMPOSED_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn symmetry_breaking_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::SYMMETRY_BREAKING_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn grover_search_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::GROVER_SEARCH_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn reversible_addition_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::REVERSIBLE_ADDITION_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
+    #[test]
+    fn delayed_choice_eraser_sample_json_is_canonical() {
+        let json = qni_web_circuit_library_model::DELAYED_CHOICE_ERASER_JSON;
+        assert_eq!(round_trip(json), json);
+    }
+
     fn round_trip(json: &str) -> String {
         let circuit = parse_circuit_json(json);
         let qubits = qubit_count_from_gates(&circuit.gates).max(1);
@@ -895,6 +1054,52 @@ mod tests {
     #[test]
     fn block_circuit_round_trips_through_json() {
         assert_eq!(round_trip(BELL_BLOCK_JSON), BELL_BLOCK_JSON);
+    }
+
+    #[test]
+    fn web_embed_doc_block_example_round_trips_byte_for_byte() {
+        let json = r#"{"cols":[["{量子もつれ"],["H"],["•","X"],["}"]]}"#;
+
+        assert_eq!(round_trip(json), json);
+    }
+
+    fn label_round_trip(label: &str) -> Option<String> {
+        let mut blocks = crate::app::CircuitBlocks::default();
+        blocks
+            .push(
+                label.to_owned(),
+                crate::app::CircuitColumnIndex::new(0),
+                crate::app::CircuitColumnIndex::new(1),
+            )
+            .expect("one block is valid");
+        let circuit = parse_circuit_json(r#"{"cols":[["H"]]}"#);
+        let json = crate::url_circuit::circuit_to_json(&circuit.gates, &blocks, "", qubit_count(1));
+        parse_circuit_json(&json)
+            .blocks
+            .iter()
+            .next()
+            .map(|block| block.label().to_owned())
+    }
+
+    #[test]
+    fn block_label_with_quote_and_backslash_round_trips() {
+        assert_eq!(
+            label_round_trip(r#"say "a" \ b"#).as_deref(),
+            Some(r#"say "a" \ b"#)
+        );
+    }
+
+    #[test]
+    fn block_label_with_japanese_and_emoji_round_trips() {
+        assert_eq!(
+            label_round_trip("量子もつれ 🎉").as_deref(),
+            Some("量子もつれ 🎉")
+        );
+    }
+
+    #[test]
+    fn block_label_with_braces_round_trips() {
+        assert_eq!(label_round_trip("{a}b").as_deref(), Some("{a}b"));
     }
 
     #[test]

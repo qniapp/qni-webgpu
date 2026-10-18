@@ -44,12 +44,12 @@ test('agent visual command builds drag coordinates from semantic gate placement'
     gateIndex: 1,
     wire: 1,
     slot: 2,
-    from: { x: 63, y: 100 },
-    to: { x: 274, y: 312 },
+    from: { x: 135, y: 100 },
+    to: { x: 274, y: 360 },
   })
 })
 
-test('agent visual command builds row-two coordinates after display gates move out', () => {
+test('agent visual command builds QFT coordinates on the wrapped third row', () => {
   const operation = buildDragOperation({
     cssWidth: 1000,
     gate: 'qft',
@@ -57,12 +57,12 @@ test('agent visual command builds row-two coordinates after display gates move o
     slot: 0,
   })
 
-  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 22, from: { x: 543, y: 148 } })
+  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 22, from: { x: 183, y: 196 } })
 })
 
 test('agent visual command builds detector row-two coordinates', () => {
   const operation = buildDragOperation({ gate: 'ZDetectControlReset', wire: 'q0', slot: 0, cssWidth: 1000 })
-  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 26, from: { x: 399, y: 148 } })
+  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 26, from: { x: 471, y: 148 } })
 })
 
 test('agent visual command builds Display section coordinates', () => {
@@ -73,23 +73,23 @@ test('agent visual command builds Display section coordinates', () => {
     slot: 0,
   })
 
-  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 20, from: { x: 937, y: 100 } })
+  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 20, from: { x: 865, y: 100 } })
 })
 
 
 test('agent visual command builds sample Display section coordinates', () => {
   const operation = buildDragOperation({ gate: 'sample', wire: 'q0', slot: 0, cssWidth: 1000 })
-  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 33, from: { x: 985, y: 100 } })
+  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 33, from: { x: 913, y: 100 } })
 })
 
 test('agent visual command builds zpar row-two coordinates', () => {
   const operation = buildDragOperation({ gate: 'zpar', wire: 'q0', slot: 0, cssWidth: 1000 })
-  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 31, from: { x: 159, y: 148 } })
+  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 31, from: { x: 231, y: 148 } })
 })
 
 test('agent visual command builds xpar row-two coordinates', () => {
   const operation = buildDragOperation({ gate: 'xpar', wire: 'q0', slot: 0, cssWidth: 1000 })
-  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 32, from: { x: 207, y: 148 } })
+  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 32, from: { x: 279, y: 148 } })
 })
 
 test('agent visual command builds Density Display section coordinates', () => {
@@ -100,7 +100,7 @@ test('agent visual command builds Density Display section coordinates', () => {
     slot: 0,
   })
 
-  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 25, from: { x: 937, y: 148 } })
+  assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex: 25, from: { x: 865, y: 148 } })
 })
 
 test('agent visual command supports egui content vertical offset', () => {
@@ -112,7 +112,7 @@ test('agent visual command supports egui content vertical offset', () => {
     verticalOffset: 8,
   })
 
-  assert.deepEqual({ fromY: operation.from.y, toY: operation.to.y }, { fromY: 108, toY: 264 })
+  assert.deepEqual({ fromY: operation.from.y, toY: operation.to.y }, { fromY: 108, toY: 312 })
 })
 
 test('agent visual command parses comma separated operations', () => {
@@ -158,10 +158,10 @@ test('agent visual CLI uses a generic name without a compatibility wrapper', asy
 
 export {}
 
-for (const [gate, gateIndex, x] of [['ZDetectControlReset', 26, 399], ['XDetector', 34, 447], ['YDetector', 35, 495]] as const) {
-  test(`agent visual command builds ${gate} coordinates near measurement`, () => {
+for (const [gate, gateIndex, x, y, row] of [['ZDetectControlReset', 26, 471, 148, 2], ['XDetector', 34, 87, 196, 3], ['YDetector', 35, 135, 196, 3]] as const) {
+  test(`agent visual command builds ${gate} coordinates on row ${row}`, () => {
     const operation = buildDragOperation({ cssWidth: 1000, gate, wire: 'q0', slot: 0 })
-    assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex, from: { x, y: 148 } })
+    assert.deepEqual({ gateIndex: operation.gateIndex, from: operation.from }, { gateIndex, from: { x, y } })
   })
 }
 

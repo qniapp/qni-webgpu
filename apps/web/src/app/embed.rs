@@ -115,8 +115,12 @@ impl super::QniApp {
             eframe::egui::vec2((width - 2.0 * crate::tailwind::SPACING_2).max(1.0), 1.0),
         );
         let wires = self.qubit_count + usize::from(self.qubit_count < self.wire_capacity().get());
-        let last_line =
-            self.circuit_origin(rect, 0.0).y + LINE_Y + LINE_GAP * wires.saturating_sub(1) as f32;
+        let last_line = self
+            .circuit_projection(rect, 0.0)
+            .to_screen(eframe::egui::Pos2::ZERO)
+            .y
+            + LINE_Y
+            + LINE_GAP * wires.saturating_sub(1) as f32;
         let bottom = last_line + STEP_OUTSET_Y.max(LINE_GAP * 0.5 + self.circuit_block_outset_y());
         // Mirror the scroll content padding as well as the visible geometry.
         let content = last_line + GATE_SIZE + 16.0 + self.circuit_block_outset_y();

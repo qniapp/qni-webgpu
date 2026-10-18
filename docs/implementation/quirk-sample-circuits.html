@@ -30,15 +30,15 @@
   <div class="card">
     <p>
       Quirk と qni-webgpu はどちらも回路を <code>{"cols":[[...]]}</code> という同じ形の JSON で表す。
-      一見すると Quirk のサンプルをそのまま貼り付けて移植できそうだが、実際には次の 3 つの落とし穴があり、「読み込めた」ことと「意味が正しい」ことは別である。
+      一見すると Quirk のサンプルをそのまま貼り付けて移植できそうだが、実際には次の 3 つの注意点があり、「読み込めた」ことと「意味が正しい」ことは別である。
     </p>
     <ol>
-      <li><strong>確率表示ブロックの ID が違う。</strong> Quirk は確率表示を <code>Chance</code> / <code>Chance5</code> と書くが、qni は <code>Probability</code> / <code>Probability5</code> を使う。Quirk の <code>Chance</code> をそのまま貼ると、qni 側では確率表示ブロックとして認識されない。</li>
+      <li><strong>確率表示ブロックの ID は読み込み時に変換される。</strong> Quirk の <code>Chance</code>（1 量子ビット）と <code>Chance2</code>〜<code>Chance16</code> は、qni の <code>Probability</code> / <code>Probability2</code>〜<code>Probability16</code> の読み込み専用の別名として受理する。書き出しには常に <code>Probability</code> 系を使う。<code>Chance1</code>、範囲外の番号、先頭にゼロや符号を付けた番号は認識しない。</li>
       <li><strong>デコーダは未知のトークンを読み飛ばす。</strong> qni のデコーダ（<code>token_to_gate</code>）は知らないトークンに出会うと、エラーにせずそのゲートを捨てて残りを読み込む。未対応のゲートが混じっていても回路自体は開けてしまうが、捨てられたゲートのぶん意味が壊れる。忠実に移植するには、登場する全ゲートが対応済みであることが前提になる。</li>
       <li><strong>Quirk の <code>~xxxx</code> カスタムゲート。</strong> Quirk のサンプルは <code>~xxxx</code> という独自 ID のゲートを多用する。多くは恒等行列にラベルを付けただけの注釈なので削除して差し支えないが、一部（Grover の Oracle など）は実体のあるサブ回路を持つ。qni にネストした回路を 1 ゲートに畳む機能はないため、恒等ラベルは削除し、実体のあるものは中身を列として展開する必要がある。</li>
     </ol>
     <p class="note">
-      落とし穴 2 は特に注意が要る。未対応ゲートを含む Quirk 回路を貼り付けても画面にはそれらしく描画されるため、欠落に気づきにくい。
+      注意点 2 は特に注意が要る。未対応ゲートを含む Quirk 回路を貼り付けても画面にはそれらしく描画されるため、欠落に気づきにくい。
       移植時は登場トークンを 1 つずつ qni のゲート語彙（§ 02）と突き合わせる。
     </p>
   </div>
@@ -84,7 +84,7 @@
     <table class="spec">
       <thead><tr><th>Quirk のトークン</th><th>qni での書き換え</th><th>新ゲート</th></tr></thead>
       <tbody>
-        <tr><td><code>Chance</code> / <code>Chance5</code> …</td><td><code>Probability</code> / <code>Probability5</code> …</td><td>不要（ID の名称違いのみ）</td></tr>
+        <tr><td><code>Chance</code> / <code>Chance2</code>〜<code>Chance16</code></td><td>読み込み時に <code>Probability</code> / <code>Probability2</code>〜<code>Probability16</code> として受理し、<code>Probability</code> 系の名前で書き出す。手動の書き換えは不要</td><td>不要（読み込み専用の別名に対応済み）</td></tr>
         <tr><td><code>Z^½</code> / <code>Z^-½</code></td><td><code>S</code> / <code>S†</code></td><td>不要</td></tr>
         <tr><td><code>Z^¼</code> / <code>Z^-¼</code></td><td><code>T</code> / <code>T†</code></td><td>不要</td></tr>
         <tr><td><code>Z^⅛</code> <code>Z^⅟₁₆</code> <code>Z^⅟₃₂</code> <code>Z^⅟₆₄</code> <code>Z^⅟₁₂₈</code></td><td><code>P(π_8)</code> <code>P(π_16)</code> <code>P(π_32)</code> <code>P(π_64)</code> <code>P(π_128)</code></td><td>不要</td></tr>
@@ -112,8 +112,8 @@
     <table class="spec">
       <thead><tr><th>回路</th><th>主に使うゲート</th><th>追加に必要な対応</th></tr></thead>
       <tbody>
-        <tr><td>対称性の破れ（Symmetry Breaking）</td><td><code>H</code> <code>•</code> <code>◦</code> <code>X</code> <code>Swap</code> <code>X^½</code> <code>Measure</code> <code>Chance</code></td><td><code>Chance</code>→<code>Probability</code> と恒等ラベルの削除だけ。実ゲートはすべて対応済み</td></tr>
-        <tr><td>遅延選択量子消しゴム（Delayed Choice Eraser）</td><td><code>H</code> <code>•</code> <code>X</code> <code>QFT7</code> <code>Measure</code> <code>X^½</code> <code>Chance7</code></td><td><code>Chance7</code>→<code>Probability7</code> と恒等ラベルの削除。<code>QFT</code> も対応済み</td></tr>
+        <tr><td>対称性の破れ（Symmetry Breaking）</td><td><code>H</code> <code>•</code> <code>◦</code> <code>X</code> <code>Swap</code> <code>X^½</code> <code>Measure</code> <code>Chance</code></td><td><code>Chance</code> は読み込み時に変換されるため、恒等ラベルの削除だけ。実ゲートはすべて対応済み</td></tr>
+        <tr><td>遅延選択量子消しゴム（Delayed Choice Eraser）</td><td><code>H</code> <code>•</code> <code>X</code> <code>QFT7</code> <code>Measure</code> <code>X^½</code> <code>Chance7</code></td><td><code>Chance7</code> は読み込み時に変換されるため、恒等ラベルを削除する。<code>QFT</code> も対応済み</td></tr>
         <tr><td>量子テレポーテーション（Teleportation）</td><td><code>H</code> <code>•</code> <code>X</code> <code>Measure</code> <code>Z</code> <code>Bloch</code> ＋ 時間依存の状態準備</td><td>送る状態を作る <code>e^-iYt</code> / <code>X^t</code> を固定の状態準備（<code>Ry</code> など）に置き換える。中核は対応済み</td></tr>
         <tr><td>超高密度符号化（Superdense Coding）</td><td><code>H</code> <code>•</code> <code>X</code> <code>Z</code> <code>Swap</code> <code>Measure</code> ＋ <code>Counting2</code></td><td>送るビットを与える <code>Counting2</code> を固定の <code>X</code> 入力に置き換える。中核は対応済み</td></tr>
         <tr><td>量子加算（Addition）</td><td><code>X</code> <code>•</code> <code>Swap</code> ＋ <code>Counting5</code></td><td>入力の <code>Counting5</code> を固定入力に置き換える。加算本体（制御 Swap の網）は対応済み</td></tr>
@@ -146,7 +146,7 @@
     <table class="spec">
       <tbody>
         <tr><th>Grover</th><td>qni に <code>grover-search</code> サンプル（5 量子ビット）が実装済み。Quirk 版は拡散変換に <code>⊖</code>（X 軸制御）を使うが、qni 版は <code>H</code> → 多重制御 <code>X</code> → <code>H</code>（多重制御 <code>Z</code> と等価）の形で同じ拡散を組んでいるため、<code>⊖</code> なしで成立している</td></tr>
-        <tr><th>QFT</th><td>qni はネイティブの <code>QFT&lt;n&gt;</code> ゲートを持ち、<code>qft-4</code> サンプルもある。Quirk の手動 QFT は <code>Counting</code> と <code>Z</code> の高次ルートを使うが、qni のサンプルは先頭のビット反転 <code>Swap</code> と <code>H</code>・制御位相回転（<code>P(π_2)</code> / <code>P(π_4)</code> / <code>P(π_8)</code>）へ分解した形で持っている。ネイティブの <code>QFT&lt;n&gt;</code> ゲートも同じ分解で展開し、先頭のビット反転 <code>Swap</code> で入力をビット反転してから H・制御位相のラダーを通すことで真の離散フーリエ変換になる。ビット順は qni も Quirk と同じ（上のワイヤ q0 が最下位ビット＝リトルエンディアン）なので、同じ位置にマークを置けば干渉縞の本数も Quirk と一致する（<a href="delayed-choice-eraser.html">遅延選択量子消しゴム</a>のマークは Quirk と同じ q4 に置いている）</td></tr>
+        <tr><th>QFT</th><td>qni はネイティブの <code>QFT&lt;n&gt;</code> ゲートを持ち、<code>qft-4</code> サンプルもある。Quirk の手動 QFT は <code>Counting</code> と <code>Z</code> の高次ルートを使うが、qni のサンプルは先頭で q1–q3 に H を掛けて周期 2 の入力（偶数の値に各 1/8）を作る。入力と出力の Probability4 を比べると、出力は |0⟩ と |8⟩ に各 1/2 へ集まる。その後の QFT 本体はビット反転 <code>Swap</code> と <code>H</code>・制御位相回転（<code>P(π_2)</code> / <code>P(π_4)</code> / <code>P(π_8)</code>）へ分解した形で持っている。ネイティブの <code>QFT&lt;n&gt;</code> ゲートも同じ分解で展開し、先頭のビット反転 <code>Swap</code> で入力をビット反転してから H・制御位相のラダーを通すことで真の離散フーリエ変換になる。ビット順は qni も Quirk と同じ（上のワイヤ q0 が最下位ビット＝リトルエンディアン）なので、同じ位置にマークを置けば干渉縞の本数も Quirk と一致する（<a href="delayed-choice-eraser.html">遅延選択量子消しゴム</a>のマークは Quirk と同じ q4 に置いている）</td></tr>
       </tbody>
     </table>
   </div>
@@ -157,14 +157,14 @@
   <div class="card">
     <h3>すぐ追加できる（新ゲート不要）</h3>
     <p>
-      区分 A のうち、対称性の破れと遅延選択量子消しゴムの 2 つは、トークンの書き換えだけで忠実に追加できる。
+      区分 A のうち、対称性の破れと遅延選択量子消しゴムの 2 つは、恒等ラベルの削除だけで忠実に追加できる。確率表示のトークンは読み込み時に変換される。
       テレポーテーション・超高密度符号化・量子加算は、入力や状態準備を固定値へ簡略化すれば追加できる。
     </p>
 
     <h3>費用対効果の高い基盤改善</h3>
     <p>
-      デコーダ（<code>token_to_gate</code>）に <code>Chance</code>→<code>Probability</code>、<code>Z^½</code>→<code>S</code>、<code>Z^¼</code>→<code>T</code>、<code>Z^⅛</code>→<code>P(π_8)</code> … という<strong>デコード時のエイリアス</strong>を足すと、Quirk の URL をそのまま貼り付けて読み込めるようになる。
-      新しい <code>GateKind</code> は増やさず、トークンの対応表に行を足すだけで済む。
+      <code>Chance</code> と <code>Chance2</code>〜<code>Chance16</code> は、すでに読み込み時に <code>Probability</code> 系として受理し、書き出しにも <code>Probability</code> 系を使う。新しい <code>GateKind</code> は追加していない。
+      今後、デコーダに <code>Z^½</code>→<code>S</code>、<code>Z^¼</code>→<code>T</code>、<code>Z^⅛</code>→<code>P(π_8)</code> などの<strong>読み込み専用の別名</strong>を足すと、位相ゲートの手動の書き換えも減らせる。ただし、未知のゲートやカスタムゲートへの対応は引き続き必要になる。
     </p>
 
     <h3>新ゲートの追加候補（優先順）</h3>

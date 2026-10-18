@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>コメントブロック — 仕様</title>
+  <link rel="stylesheet" href="design-system.css" />
+  <script>
+    // design-system.html のサムネ iframe (?preview) から読まれたときは
+    // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
+    if (new URLSearchParams(location.search).has('preview')) {
+      document.documentElement.classList.add('preview-mode');
+    }
+  </script>
+  <style>
+    /* ページ固有スタイル。共通スタイルは design-system.css にある。
+       回路の見本は実寸で描く。ワイヤー間隔 56 px、ブロックの縦の余白は
+       ワイヤーから 28 + 32 + 2 px、ラベルの帯は罫線の外側 24 px。 */
+    .cb-stage {
+      background: var(--bg-2);
+      border: 1px solid var(--ui-2);
+      border-radius: 12px;
+      padding: 24px; /* spacing-6 */
+      display: flex;
+      gap: 40px; /* spacing-10 */
+      align-items: flex-end;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .cb-example {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px; /* spacing-3 */
+    }
+    .cb-caption {
+      font-size: 12px; /* text-xs */
+      line-height: 16px;
+      color: var(--tx-2);
+      text-align: center;
+    }
+    .cb-circuit {
+      position: relative;
+      width: 168px;
+      height: 256px;
+    }
+    .cb-wire {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--ui-2);
+    }
+    .cb-wire--0 { top: 103px; }
+    .cb-wire--1 { top: 159px; }
+    .cb-body {
+      position: absolute;
+      left: 56px;
+      width: 56px;
+      top: 42px;
+      height: 180px;
+      background: rgba(230, 228, 217, 0.5); /* ui の α128 */
+      border-top: 2px solid var(--blue-400);
+      border-bottom: 2px solid var(--blue-400);
+      box-sizing: border-box;
+    }
+    .cb-label {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 28px;
+      font-family: var(--font-mono);
+      font-size: 16px; /* text-base */
+      line-height: 28px; /* leading-7 */
+      color: var(--blue-400);
+      text-align: center;
+      white-space: nowrap;
+    }
+    .cb-label--top { top: 18px; }
+    .cb-label--bottom { top: 218px; }
+    .cb-label--underline span {
+      text-decoration: underline;
+      text-decoration-color: var(--tx-2);
+      text-underline-offset: 2px;
+    }
+    .cb-label--placeholder { color: var(--tx-3); }
+    .cb-caret {
+      display: inline-block;
+      width: 2px;
+      height: 18px;
+      margin-left: 1px;
+      vertical-align: -3px;
+      background: var(--tx);
+    }
+    .cb-gate {
+      position: absolute;
+      left: 64px;
+      top: 84px;
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
+      background: var(--cyan-400);
+      color: var(--bg);
+      font-size: 20px; /* text-xl */
+      line-height: 40px;
+      text-align: center;
+    }
+    .cb-handle {
+      position: absolute;
+      top: 120px;
+      width: 6px;
+      height: 24px;
+      border-radius: 3px;
+      background: var(--cyan-400);
+    }
+    .cb-handle--left { left: 53px; }
+    .cb-handle--right { left: 109px; background: var(--cyan-600); transform: scale(1.15); }
+
+    /* パレットのアイコン (40 × 40 px の枠内の座標をそのまま使う)。 */
+    .cb-icon-pad {
+      padding: 20px 16px; /* spacing-5 / spacing-4 */
+      border-radius: 12px;
+      background: var(--bg);
+      box-shadow: 0 6px 16px rgba(16, 15, 15, 0.1);
+    }
+    .cb-preview-pad {
+      padding: 8px; /* spacing-2 */
+      border-radius: 8px;
+      background: var(--bg);
+    }
+    .cb-icon {
+      position: relative;
+      width: 40px;
+      height: 40px;
+    }
+    .cb-icon--large { transform: scale(3); transform-origin: top left; }
+    .cb-icon-host--large { width: 120px; height: 120px; }
+    .cb-icon .rule { position: absolute; left: 0; top: 18px; width: 40px; height: 4px; background: var(--blue-400); }
+    .cb-icon .comment { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); color: var(--blue-400); font-size: 12px; line-height: 16px; letter-spacing: -0.6px; }
+  </style>
+</head>
+<body>
+<!-- design-system.html のサムネ用プレビュー。高さ 56 px に収まるパレットのアイコン (実寸)。 -->
+<div id="preview">
+  <div class="cb-preview-pad" aria-hidden="true">
+    <div class="cb-icon">
+      <i class="rule"></i>
+      <span class="comment">comment</span>
+    </div>
+  </div>
+</div>
+
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="../design-system.html">デザインシステム</a>
+  <span class="sep">/</span>
+  <span class="parent">回路エディタ</span>
+  <span class="sep">/</span>
+  <span class="current" aria-current="page">コメントブロック</span>
+</nav>
+
+<div class="page">
+  <p class="eyebrow">qni-webgpu · design system · component spec</p>
+  <h1 class="page-title">コメントブロック</h1>
+  <p class="page-lede">
+    回路の連続した列を囲み、コメントを付ける要素。シミュレーションには影響しない。
+    qni の <code>circuit-block</code> と同じ見た目と URL 形式 (<code>["{コメント"]</code> … <code>["}"]</code>) を使い、
+    エディタではパレットから置いて、ラベルをその場で編集し、左右のハンドルで囲む列を変える。
+    コード上の型は <code>CircuitBlock</code> / <code>CircuitBlocks</code>、パレットの項目は <code>PaletteItem::CircuitBlock</code>。
+  </p>
+</div>
+
+<section class="block">
+  <h2>§ 01 見た目</h2>
+  <div class="card">
+    <div class="cb-stage">
+      <div class="cb-example">
+        <div class="cb-circuit">
+          <div class="cb-wire cb-wire--0"></div>
+          <div class="cb-wire cb-wire--1"></div>
+          <div class="cb-body"></div>
+          <div class="cb-gate">H</div>
+          <div class="cb-label cb-label--top">量子もつれ</div>
+          <div class="cb-label cb-label--bottom">量子もつれ</div>
+        </div>
+        <div class="cb-caption">通常<br>上下に同じコメント</div>
+      </div>
+      <div class="cb-example">
+        <div class="cb-circuit">
+          <div class="cb-wire cb-wire--0"></div>
+          <div class="cb-wire cb-wire--1"></div>
+          <div class="cb-body"></div>
+          <div class="cb-gate">H</div>
+          <div class="cb-handle cb-handle--left"></div>
+          <div class="cb-handle cb-handle--right"></div>
+          <div class="cb-label cb-label--top">量子もつれ</div>
+          <div class="cb-label cb-label--bottom">量子もつれ</div>
+        </div>
+        <div class="cb-caption">ホバー<br>左右の辺にリサイズハンドル<br>(右はハンドルにホバー中)</div>
+      </div>
+      <div class="cb-example">
+        <div class="cb-circuit">
+          <div class="cb-wire cb-wire--0"></div>
+          <div class="cb-wire cb-wire--1"></div>
+          <div class="cb-body"></div>
+          <div class="cb-gate">H</div>
+          <div class="cb-label cb-label--top cb-label--underline"><span>量子もつれ</span></div>
+          <div class="cb-label cb-label--bottom">量子もつれ</div>
+        </div>
+        <div class="cb-caption">ラベルにホバー<br>下線と I ビーム</div>
+      </div>
+      <div class="cb-example">
+        <div class="cb-circuit">
+          <div class="cb-wire cb-wire--0"></div>
+          <div class="cb-wire cb-wire--1"></div>
+          <div class="cb-body"></div>
+          <div class="cb-gate">H</div>
+          <div class="cb-label cb-label--top cb-label--placeholder cb-label--underline"><span>コメントを入力</span><i class="cb-caret"></i></div>
+          <div class="cb-label cb-label--bottom cb-label--placeholder">コメントを入力</div>
+        </div>
+        <div class="cb-caption">編集中 (空)<br>プレースホルダー</div>
+      </div>
+      <div class="cb-example">
+        <div class="cb-icon-pad">
+          <div class="cb-icon-host--large">
+            <div class="cb-icon cb-icon--large" role="img" aria-label="パレットのアイコン (3 倍)">
+              <i class="rule"></i>
+              <span class="comment">comment</span>
+            </div>
+          </div>
+        </div>
+        <div class="cb-caption">パレットのアイコン<br>(3 倍に拡大)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 02 寸法</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>部位</th><th>値</th><th>定数</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>本体の横幅</td><td>囲む列数 × <code>56 px</code>。先頭列の中心の <code>28 px</code> 左から最終列の中心の <code>28 px</code> 右まで</td><td><code>SLOT_SPACING</code></td></tr>
+        <tr><td>本体の縦幅</td><td>全ワイヤー。最初と最後のワイヤーから <code>28 + 32 + 2 px</code> 外側まで</td><td><code>LINE_GAP</code> の半分 / <code>CIRCUIT_BLOCK_PADDING_Y</code> / <code>CIRCUIT_BLOCK_BORDER_WIDTH</code></td></tr>
+        <tr><td>罫線</td><td>上下だけ <code>2 px</code>。左右の線は無い</td><td><code>CIRCUIT_BLOCK_BORDER_WIDTH</code></td></tr>
+        <tr><td>ラベル</td><td>等幅 <code>16 px</code> (<code>text-base</code>)、行の高さ <code>28 px</code> (<code>leading-7</code>)。行の箱を罫線の外側 <code>24 px</code> の帯の外端にそろえ (罫線と <code>4 px</code> 重なる)、文字をその中央に描く。ラベルの中心は罫線から <code>10 px</code></td><td><code>CIRCUIT_BLOCK_LABEL_FONT_SIZE</code> / <code>CIRCUIT_BLOCK_LABEL_LINE_HEIGHT</code> / <code>CIRCUIT_BLOCK_MARGIN_Y</code></td></tr>
+        <tr><td>ラベルの当たり判定</td><td>本体の横幅とラベルの文字幅の大きいほう × <code>28 px</code></td><td><code>circuit_block_label_rect</code></td></tr>
+        <tr><td>ホバーの下線</td><td><code>1 px</code>。ラベルの中心から <code>8 px</code> 下 (上のラベルは罫線との間が <code>2 px</code> しかないため、行の箱ではなく字面のすぐ下に引く)</td><td><code>paint_circuit_block_underline</code></td></tr>
+        <tr><td>リサイズハンドル</td><td><code>6 × 24 px</code>、角丸 <code>3 px</code>。ゲートの上下に出る範囲変更ハンドル (<a href="resize-handle.html">リサイズハンドル</a>) を 90° 回した形で、本体の左右の辺の縦中央に置く。当たり判定は左右に <code>5 px</code>、上下に <code>4 px</code> 広げた <code>16 × 32 px</code>。2 つのブロックが接する辺では、ポインタの下にあるブロックのハンドルを優先する</td><td><code>SPAN_RESIZE_HANDLE_HEIGHT</code> / <code>SPAN_RESIZE_HANDLE_MIN_WIDTH</code></td></tr>
+        <tr><td>ハンドルの拡大</td><td>出現時 <code>0.7</code> → <code>1.0</code> 倍 (250 ms、ゲートのリサイズハンドルと同じイージング)、ホバー <code>1.15</code> 倍、ドラッグ中 <code>1.25</code> 倍</td><td><code>span_resize_ease_out_back</code></td></tr>
+        <tr><td>回路の押し下げ</td><td>ブロックが 1 つでもあれば回路を <code>58 px</code> 下げる。最初のブロックを置いた瞬間に回路が下がる</td><td><code>CIRCUIT_BLOCK_OUTSET_Y</code></td></tr>
+        <tr><td>パレットのアイコン</td><td><code>40 × 40 px</code> の枠の中央を横切る太さ <code>4 px</code> の横罫線。その上に <code>comment</code> の文字を <code>12 px</code>、字間 <code>-0.6 px</code> で中央揃えし、罫線との間を <code>2 px</code> 空ける</td><td><code>draw_circuit_block_palette_icon</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 03 配色</h2>
+  <div class="card">
+    <table class="spec">
+      <thead>
+        <tr><th>ロール</th><th>Flexoki トーン</th><th>用途</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>circuit_block_fill</code></td><td><code>ui</code> (α128)</td><td>本体の背景、ドラッグ中のプレビュー</td></tr>
+        <tr><td><code>circuit_block_border</code></td><td><code>blue-400</code></td><td>上下の罫線、アイコンの横罫線</td></tr>
+        <tr><td><code>circuit_block_label</code></td><td><code>blue-400</code></td><td>ラベルの文字、アイコンの文字</td></tr>
+        <tr><td><code>circuit_block_placeholder</code></td><td><code>tx-3</code></td><td>編集中に下書きが空のときのプレースホルダー「コメントを入力」</td></tr>
+        <tr><td><code>text</code></td><td><code>tx-2</code></td><td>ホバーと編集中の下線</td></tr>
+        <tr><td><code>span_resize_handle_bg</code> / <code>span_resize_handle_bg_hover</code></td><td><code>cyan-400</code> / <code>cyan-600</code></td><td>リサイズハンドル (ホバー中・ドラッグ中は濃い色)</td></tr>
+        <tr><td><code>gate_hover_border</code></td><td><code>purple-400</code></td><td>パレットのホバー枠。角ばり表示ブロックと同じく角丸 <code>0 px</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 04 挙動</h2>
+  <div class="card">
+    <h3>置く</h3>
+    <ul class="note">
+      <li>パレットの表示ブロック欄の末尾 (通し番号 36、3 列 × 2 行では右下) からドラッグし、ゲートのある列に落とす。ツールチップの名前は <strong>Comment Block</strong>。</li>
+      <li>スナップ先はポインタに最も近い列。その列が複数の列を占めるゲートの一部なら、ゲート全体の列にする。縦方向は本体の上端から下端までならどこでもよい。スナップ先があれば、その列に本体の背景だけをプレビューし、ポインタのアイコンは消す。</li>
+      <li>ゲートの無い列 (右端の操作領域を含む) と、すでにブロックに含まれる列にはスナップしない。離しても何も起きない。</li>
+      <li>確定すると既定のコメント「comment」でブロックを作り (元に戻す操作 1 回分)、すぐに上のラベルの編集を全選択の状態で開く。</li>
+    </ul>
+    <h3>列の境界</h3>
+    <ul class="note">
+      <li>ブロックの端は、どのゲートにも横切られない列の境界にだけ置ける。振幅表示ブロックなど複数の列を占めるゲートの途中には端を置かない。</li>
+      <li>ブロックは少なくとも 1 つのゲートの列を囲む。ゲートの無い列だけのブロックは次の編集で消えるため作らない。</li>
+      <li>入れ子と重なりは作らない。隣接は許す。</li>
+    </ul>
+    <h3>リサイズ</h3>
+    <ul class="note">
+      <li>ブロック (本体・ラベル) にホバーすると左右のハンドルを出す。ハンドルのドラッグで、ポインタに最も近い境界へスナップしながら端を動かす。</li>
+      <li>最小 1 列。隣のブロックの端を越えない。最後のゲートより右の空の操作領域には広げない。</li>
+      <li>ゲートは動かさず、囲む列だけを変える。離したときに 1 回だけ、元に戻す履歴の区切りを作る。</li>
+    </ul>
+    <h3>移動と削除</h3>
+    <ul class="note">
+      <li>ラベルをドラッグ (クリックのしきい値を超えたもの) すると、幅を保ったまま境界にスナップして移動する。重なる位置やゲートの無い列には動かない。</li>
+      <li>ラベルを上下方向にラベルの帯より外へ運ぶと、ブロックを消してラベルだけがポインタに付く。そのまま離すとブロックを削除する。囲んでいたゲートは残る。左右へ運んでも削除しない。</li>
+      <li>ブロックのドラッグ中 (置く・リサイズ・移動・削除) に Esc を押すと、ドラッグを始める前の状態に戻す。</li>
+    </ul>
+    <h3>コメントの編集</h3>
+    <ul class="note">
+      <li>ラベル (上下どちら) をクリックすると、その位置に 1 行の入力欄を重ねる。下書きはもう一方のラベルにもその場で反映する。</li>
+      <li>Enter またはフォーカスを失うと確定、Esc で取り消し。編集中にほかの場所を押すと確定するだけで、ほかの操作は始めない。</li>
+      <li>下書きが元のコメントと同じなら何もしない (URL に前後の空白があるコメントも書き換えない)。違う場合は前後の空白を除き、空になったら変更しない。値が変わったときだけ、元に戻す履歴の区切りを 1 つ作る。</li>
+      <li>入力は 32 文字まで。改行は入らない (貼り付けた改行は空白になる)。URL の読み込みでは長さを制限しない。</li>
+      <li>日本語入力の変換を確定する Enter は eframe の Web 入力処理が捨てるため、コメントの確定にならない。</li>
+      <li>日本語は Noto Sans CJK JP の CP932/JIS 部分集合で描くため、範囲外の字 (一部の人名漢字や絵文字) は □ で表示される。入力は拒否しない。</li>
+    </ul>
+    <h3>編集できる条件</h3>
+    <ul class="note">
+      <li>回路がロックされていないこと。</li>
+      <li>パレットにコメントブロックがあること。つまり全ゲートのパレット、または埋め込みの制限パレットに <code>"{}"</code> があること。既存のチュートリアルの埋め込みでは、ブロックは今までどおり読むだけの要素として残り、ホバー表示もしない。</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 05 URL 形式</h2>
+  <div class="card">
+    <p class="note">
+      URL と回路 JSON の形式は変えない。エディタで作ったブロックも <code>["{コメント"]</code> の列と <code>["}"]</code> の列で前後を囲んで書く。
+      空のコメントは不正な印 <code>"{"</code> になるため、エディタは空のコメントを確定せず、書き出し側でも <code>debug_assert!</code> で止める。
+    </p>
+  </div>
+</section>
+
+<section class="block">
+  <h2>§ 06 実装参照</h2>
+  <div class="card">
+    <table class="spec">
+      <tbody>
+        <tr><th>データ</th><td><code>apps/web/src/app/circuit_model/circuit_blocks.rs</code> (<code>insert</code> / <code>set_label</code> / <code>resize</code> / <code>move_to</code> / <code>remove</code>)、<code>apps/web/src/app/circuit_model/block_edges.rs</code> (列の境界)</td></tr>
+        <tr><th>パレット</th><td><code>apps/web/src/layout/palette.rs</code> (<code>PaletteItem</code>)、<code>apps/web/src/icons/circuit_block.rs</code></td></tr>
+        <tr><th>ドラッグ</th><td><code>apps/web/src/app/drag_controller/circuit_block.rs</code></td></tr>
+        <tr><th>描画</th><td><code>apps/web/src/render/circuit_blocks.rs</code>、<code>apps/web/src/render/circuit_block_editor.rs</code></td></tr>
+        <tr><th>テスト用の座標公開</th><td><code>window.__qniCircuitBlockGeometryJson</code> (wasm のデバッグビルドだけ)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="doc-foot">
+  <p class="meta">qni-webgpu · design system · comment block · 2026-10</p>
+</footer>
+</body>
+</html>

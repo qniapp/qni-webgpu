@@ -65,20 +65,16 @@ async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
 }
 
 // Every circuit used here starts in |0...0> at step 0.
-async function waitForStepZero(page: Page) {
-  await page.waitForFunction(async () => {
-    try { return (await (window as any).readState())[0] === 1 } catch { return false }
-  })
+async function waitForStepZero(page: Page, qubits = 1) {
+  await expect.poll(() => page.evaluate(async () => {
+    try { return Array.from(await (window as any).readState()) } catch { return null }
+  })).toEqual([1, ...Array(2 ** (qubits + 1) - 1).fill(0)])
 }
 
 async function waitForHState(page: Page) {
-  await page.waitForFunction(async () => {
-    try {
-      const values = Array.from(await (window as any).readState()) as number[]
-      return values.length === 4 && Math.abs(values[0] - Math.SQRT1_2) < 0.0001
-        && Math.abs(values[2] - Math.SQRT1_2) < 0.0001
-    } catch { return false }
-  })
+  await expect.poll(() => page.evaluate(async () => {
+    try { return Array.from(await (window as any).readState()) } catch { return null }
+  })).toEqual([expect.closeTo(Math.SQRT1_2, 4), 0, expect.closeTo(Math.SQRT1_2, 4), 0])
 }
 
 for (const failFirst of [false, true]) {
@@ -175,7 +171,7 @@ test('embed renders without library or external execution controls', async ({ pa
 
 test('opt-in restart icon appears at the right of the states label', async ({ page }) => {
   await hostEmbed(page, CNOT, { settings: { showRestartButton: true, palette: [] } })
-  await waitForStepZero(page)
+  await waitForStepZero(page, 2)
   await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-restart.png')
 })
 
@@ -183,7 +179,7 @@ for (const width of [354, 240]) {
   test(`narrow ${width}px eight-qubit embed keeps restart inside the frame`, async ({ page }) => {
     const circuit = JSON.stringify({ cols: [Array(8).fill('|0>')] })
     await hostEmbed(page, circuit, { width, height: 640, settings: { showRestartButton: true, palette: [], maxWireCount: 1 } })
-    await waitForStepZero(page)
+    await waitForStepZero(page, 8)
     await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot(`embed-restart-narrow-${width}.png`)
   })
 }
@@ -191,7 +187,7 @@ for (const width of [354, 240]) {
 for (const action of ['pointer', 'Enter', 'Space'] as const) {
   test(`restart ${action} action lets host export, destroy and restart the real runner`, async ({ page }) => {
     await hostEmbed(page, CNOT, { settings: { showRestartButton: true, palette: [] } })
-    await waitForStepZero(page)
+    await waitForStepZero(page, 2)
     const canvas = page.locator('qni-webgpu-test canvas')
     const box = (await canvas.boundingBox())!
     // Default panel: centered 560px width, 160px viewport, 32px strip,
@@ -221,11 +217,10 @@ test('destroy is idempotent and the same canvas can restart', async ({ page }) =
     w.runner.destroy()
     w.runner = await w.startEmbed(w.canvas, '{"cols":[["X"]]}', {showStatePanel: true})
   })
-  await page.waitForFunction(async () => {
-    try { return (await (window as any).readState())[2] === 1 } catch { return false }
-  })
-  expect(await page.evaluate(async () => Array.from(await (window as any).readState())))
-    .toEqual([0, 0, 1, 0])
+  // Poll the resolved readback, not an async waitForFunction predicate's Promise.
+  await expect.poll(() => page.evaluate(async () => {
+    try { return Array.from(await (window as any).readState()) } catch { return null }
+  })).toEqual([0, 0, 1, 0])
 })
 
 test('invalid embed circuit rejects before runner startup', async ({ page }) => {
@@ -444,13 +439,13 @@ test('restricted palette gate drops into the lifted circuit', async ({ page }) =
 
 test('small embed with full palette keeps CNOT clear of the state panel', async ({ page }) => {
   await hostEmbed(page, CNOT, { width: 960, height: 560 })
-  await waitForStepZero(page)
+  await waitForStepZero(page, 2)
   await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-cnot-960x560-full-palette.png')
 })
 
 test('small embed with restricted palette keeps CNOT clear of the state panel', async ({ page }) => {
   await hostEmbed(page, CNOT, { settings: { palette: ['H', '•', 'X'] }, width: 960, height: 560 })
-  await waitForStepZero(page)
+  await waitForStepZero(page, 2)
   await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-cnot-960x560-restricted-palette.png')
 })
 
@@ -467,7 +462,7 @@ test('narrow embed wraps a nine-gate palette into two rows', async ({ page }) =>
 
 test('narrow embed keeps trailing measurements inside the canvas', async ({ page }) => {
   await hostEmbed(page, ENTANGLEMENT, { settings: { palette: ['H', '•', 'X'] }, width: 354, height: 592 })
-  await waitForStepZero(page)
+  await waitForStepZero(page, 2)
   await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-narrow-entanglement.png')
 })
 
@@ -503,7 +498,7 @@ const H_GATE_TUTORIAL = { settings: { palette: ['H', 'X'], maxWireCount: 1 } }
 
 test('narrow single-wire embed selects the initial gap', async ({ page }) => {
   await hostEmbed(page, '{"cols":[["H"]]}', { ...H_GATE_TUTORIAL, width: 390, height: 560 })
-  await waitForStepZero(page)
+  await waitForHState(page)
   const box = (await page.locator('qni-webgpu-test canvas').boundingBox())!
   // Compact slot 0 is x=88, and its left edge is x=60.
   await page.mouse.click(box.x + 54, box.y + 216)
@@ -705,6 +700,40 @@ test('embed angle editor accepts typed text through the text agent', async ({ pa
   await page.keyboard.type('1/4')
   await page.keyboard.press('Enter')
   await expect.poll(() => circuitJSON(page)).toBe('{"cols":[["P(π_4)"]]}')
+})
+
+// A one-row palette lifts q0 by 48px and the block pushes it down by 58px, so
+// q0 sits at 8 + 256 - 48 + 58 = 274. The block wraps slot 1 (x = 8 + 218) and
+// its upper label is centred 10px above the body top (274 - 62).
+const COMMENT_BLOCK = '{"cols":[["|0>","|0>"],["{量子もつれ"],["H"],["}"],["•","X"]]}'
+const COMMENT_LABEL = { x: 226, y: 202 }
+
+const textAgentFocused = (page: Page) => page.evaluate(() => {
+  const root = document.querySelector('qni-webgpu-test')!.shadowRoot!
+  return root.activeElement === root.querySelector('input')
+})
+
+test('restricted embed palette without the comment block keeps block labels read-only', async ({ page }) => {
+  await hostEmbed(page, COMMENT_BLOCK, { settings: { palette: ['H', 'X'] } })
+  await waitForStepZero(page, 2)
+  await page.locator('qni-webgpu-test canvas').click({ position: COMMENT_LABEL })
+  await page.evaluate(async () => {
+    for (let i = 0; i < 10; i++) await new Promise(requestAnimationFrame)
+  })
+  expect(await textAgentFocused(page)).toBe(false)
+})
+
+test('restricted embed palette with the comment block token edits block labels', async ({ page }) => {
+  await hostEmbed(page, COMMENT_BLOCK, { settings: { palette: ['H', '{}'] } })
+  await waitForStepZero(page, 2)
+  await page.locator('qni-webgpu-test canvas').click({ position: COMMENT_LABEL })
+  await page.waitForFunction(() => {
+    const root = document.querySelector('qni-webgpu-test')!.shadowRoot!
+    return root.activeElement === root.querySelector('input')
+  }, null, { timeout: 5000 })
+  await page.keyboard.type('abc')
+  await page.keyboard.press('Enter')
+  await expect.poll(() => circuitJSON(page)).toBe('{"cols":[["|0>","|0>"],["{abc"],["H"],["}"],["•","X"]]}')
 })
 
 for (const showStatePanel of [true, false]) {

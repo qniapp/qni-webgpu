@@ -2,7 +2,7 @@ use eframe::egui;
 
 use super::DragController;
 use crate::app::QniApp;
-use crate::layout::{CircuitGutters, LayoutMetrics};
+use crate::layout::LayoutMetrics;
 
 impl DragController {
     pub(in crate::app) fn update_circuit_scroll(
@@ -28,27 +28,39 @@ impl DragController {
                     i.modifiers.shift,
                 )
             });
-            let dx = if raw_dx.abs() > raw_dy.abs() || !shift {
+            // The vertical layout's time axis runs down the screen, so a
+            // plain wheel scrolls it.
+            let dx = if app.orientation.is_vertical() {
+                raw_dy
+            } else if raw_dx.abs() > raw_dy.abs() || !shift {
                 raw_dx
             } else {
                 raw_dy
             };
             if dx != 0.0 {
-                let max_scroll = max_circuit_scroll(metrics, content_rect.width());
-                app.circuit_scroll_x = (app.circuit_scroll_x - dx).clamp(0.0, max_scroll);
+                let max_scroll = app.max_circuit_scroll(content_rect, metrics);
+                app.circuit_scroll_time = (app.circuit_scroll_time - dx).clamp(0.0, max_scroll);
                 ctx.request_repaint();
             }
         }
         // After the scroll update, force a clamp so newly-loaded
         // circuits or window resizes never leave us scrolled past the
         // current content extent.
-        let max_scroll = max_circuit_scroll(metrics, content_rect.width());
-        if app.circuit_scroll_x > max_scroll {
-            app.circuit_scroll_x = max_scroll;
+        let max_scroll = app.max_circuit_scroll(content_rect, metrics);
+        if app.circuit_scroll_time > max_scroll {
+            app.circuit_scroll_time = max_scroll;
         }
     }
 }
 
-fn max_circuit_scroll(metrics: &LayoutMetrics, content_width: f32) -> f32 {
-    CircuitGutters::for_canvas_width(content_width).max_scroll(metrics, content_width)
+impl QniApp {
+    /// Largest time scroll for `content_rect`; `0` when the circuit fits.
+    pub(in crate::app) fn max_circuit_scroll(
+        &self,
+        content_rect: egui::Rect,
+        metrics: &LayoutMetrics,
+    ) -> f32 {
+        self.circuit_gutters(content_rect)
+            .max_scroll(metrics, self.circuit_time_length(content_rect))
+    }
 }

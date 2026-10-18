@@ -1,5 +1,34 @@
 import { expect, test } from '@playwright/test'
-import { waitForStartupReady, waitForStateVectorApprox } from './support/web-spec-helpers'
+import {
+  dragPointer,
+  getPaletteGateCenter,
+  waitForStartupReady,
+  waitForStateVectorApprox,
+  waitForValue,
+  type Point,
+} from './support/web-spec-helpers'
+
+for (const width of [1000, 800]) {
+  test.describe(`arithmetic palette at ${width}px`, () => {
+    test.use({ viewport: { width, height: 800 } })
+
+    for (const { index, token } of [{ index: 36, token: 'inc1' }, { index: 37, token: 'dec1' }]) {
+      test(`${token} drags from the responsive palette`, async ({ page }) => {
+        await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [] })))
+        await waitForStartupReady(page, { waitForStateVector: true })
+        const layout = await waitForValue(
+          async () => JSON.parse(await page.evaluate(() => String(Reflect.get(window, '__qniLayoutJson') ?? 'null'))) as { cells: Point[][] } | null,
+          (value) => (value?.cells.length ?? 0) > 0,
+          'circuit geometry was not published',
+        )
+        if (!layout) throw new Error('missing circuit geometry')
+        const center = getPaletteGateCenter(width, index)
+        await dragPointer(page, { x: center.x, y: center.y + 8 }, layout.cells[0][0])
+        await expect.poll(() => JSON.parse(decodeURIComponent(new URL(page.url()).hash.slice(1))).cols).toEqual([[token]])
+      })
+    }
+  })
+}
 
 type Cols = (string | number)[][]
 const basis = (qubits: number, index: number) => Array.from({ length: 2 ** qubits * 2 }, (_, i) => i === index * 2 ? 1 : 0)

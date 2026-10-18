@@ -1606,21 +1606,28 @@ mod tests {
         );
     }
 
-    /// 各 `ApplyGate` を (対象ビット, 制御マスク, 制御値, 量子化した行列) に
-    /// 要約する。行列は 1e-6 精度で整数化し、順序づき比較が浮動小数の微小誤差に
-    /// 振り回されないようにする。`SnapshotState` 等の非ユニタリ演算は除外する。
-    fn applied_gate_summary(json: &str) -> Vec<(u32, u32, u32, [i64; 8])> {
+    // 列や表示に依存する ID・スロットを除き、測定も含めた操作順を残す。
+    #[derive(Debug, PartialEq, Eq)]
+    enum PhysicsOp {
+        Apply(u32, u32, u32, u32, [i64; 8]),
+        Arithmetic(u32, u32, u32, u32, u32),
+        MeasureReduceSample(crate::qubit_bit::QubitBit, ColumnControls),
+        MeasureCollapse(crate::qubit_bit::QubitBit, ColumnControls),
+    }
+
+    fn physics_summary(json: &str, qubits: usize) -> Vec<PhysicsOp> {
         let gates = crate::url_circuit::parse_circuit_json(json).gates;
-        linearize_ops(&gates, qubit_count(4), 0)
+        linearize_ops(&gates, qubit_count(qubits), 0)
             .iter()
             .filter_map(|op| match op {
                 SimulationOp::ApplyGate(params) => {
                     let m = params.matrix();
                     let q = |value: f32| (value * 1_000_000.0).round() as i64;
-                    Some((
+                    Some(PhysicsOp::Apply(
                         params.bit(),
                         params.control_mask(),
                         params.control_value(),
+                        params.mode(),
                         [
                             q(m[0][0]),
                             q(m[0][1]),
@@ -1633,17 +1640,138 @@ mod tests {
                         ],
                     ))
                 }
-                _ => None,
+                SimulationOp::MeasureReduceSample {
+                    qubit_bit,
+                    controls,
+                    ..
+                } => Some(PhysicsOp::MeasureReduceSample(*qubit_bit, *controls)),
+                SimulationOp::MeasureCollapse {
+                    qubit_bit,
+                    controls,
+                    ..
+                } => Some(PhysicsOp::MeasureCollapse(*qubit_bit, *controls)),
+                SimulationOp::Arithmetic(params) => Some(PhysicsOp::Arithmetic(
+                    params.target_shift,
+                    params.target_mask,
+                    params.amount,
+                    params.control_mask,
+                    params.control_value,
+                )),
+                SimulationOp::SnapshotState { .. }
+                | SimulationOp::CaptureBloch { .. }
+                | SimulationOp::CaptureProbability { .. }
+                | SimulationOp::CaptureAmplitude { .. }
+                | SimulationOp::CaptureDensity { .. } => None,
+                SimulationOp::Postselect { .. } => {
+                    panic!("sample unexpectedly contains postselection")
+                }
             })
             .collect()
     }
 
     #[test]
+    fn physics_summary_distinguishes_arithmetic_directions() {
+        assert_ne!(
+            physics_summary(r#"{"cols":[["inc2"]]}"#, 2),
+            physics_summary(r#"{"cols":[["dec2"]]}"#, 2),
+        );
+    }
+
+    #[test]
+    fn physics_summary_distinguishes_written_values() {
+        assert_ne!(
+            physics_summary(r#"{"cols":[["|0>"]]}"#, 1),
+            physics_summary(r#"{"cols":[["|1>"]]}"#, 1),
+        );
+    }
+
+    #[test]
+    fn bell_sample_preserves_physics() {
+        let baseline = r#"{"cols":[["H"],["•","X"]]}"#;
+        assert_eq!(
+            physics_summary(qni_web_circuit_library_model::BELL_JSON, 2),
+            physics_summary(baseline, 2),
+        );
+    }
+
+    #[test]
+    fn ghz_sample_preserves_physics() {
+        let baseline = r#"{"cols":[["H"],["•","X"],["•",1,"X"]]}"#;
+        assert_eq!(
+            physics_summary(qni_web_circuit_library_model::GHZ_JSON, 3),
+            physics_summary(baseline, 3),
+        );
+    }
+
+    #[test]
+    fn teleportation_sample_preserves_physics() {
+        let baseline = r#"{"cols":[[1,"H"],[1,"•","X"],["H"],["T"],["•","X"],["H"],["Measure","Measure"],[1,"•","X"],["•",1,"Z"]]}"#;
+        assert_eq!(
+            physics_summary(qni_web_circuit_library_model::TELEPORTATION_JSON, 3),
+            physics_summary(baseline, 3),
+        );
+    }
+
+    #[test]
+    fn superdense_coding_sample_preserves_physics() {
+        let baseline = r#"{"cols":[[1,1,1,"H"],[1,1,1,"•","X"],[1,1,"Swap","Swap"],[1,1,1,1,"Swap","Swap"],["|1>","|1>"],["•",1,"Z"],[1,"•","X"],[1,1,"Swap",1,"Swap"],[1,1,1,1,"•","X"],[1,1,1,1,"H"],[1,1,1,1,"Measure","Measure"]]}"#;
+        assert_eq!(
+            physics_summary(qni_web_circuit_library_model::SUPERDENSE_CODING_JSON, 6),
+            physics_summary(baseline, 6),
+        );
+    }
+
+    #[test]
+    fn qft4_sample_matches_input_plus_native_qft4() {
+        let baseline = r#"{"cols":[[1,"H","H","H"],["QFT4"]]}"#;
+        assert_eq!(
+            physics_summary(qni_web_circuit_library_model::QFT4_DECOMPOSED_JSON, 4),
+            physics_summary(baseline, 4),
+        );
+    }
+
+    #[test]
+    fn symmetry_breaking_sample_preserves_physics() {
+        let baseline = r#"{"cols":[["H",1,"H"],["•","X"],[1,1,"•","X"],[1,"Swap",1,"Swap"],["•","X"],[1,1,"•","X"],["X^½","◦"],[1,1,"X^½","◦"],[1,"X^½",1,"X^½"],["Measure","Measure","Measure","Measure"]]}"#;
+        assert_eq!(
+            physics_summary(qni_web_circuit_library_model::SYMMETRY_BREAKING_JSON, 4),
+            physics_summary(baseline, 4),
+        );
+    }
+
+    #[test]
+    fn grover_search_sample_preserves_physics() {
+        let baseline = r#"{"cols":[["X","X","X","X","X"],["H","H","H","H","H"],["Z","•","◦","•","•"],["H","H","H","H"],["•","•","•","•","X"],["H","H","H","H"],["Z","•","◦","•","•"],["H","H","H","H"],["•","•","•","•","X"],["H","H","H","H"],["Z","•","◦","•","•"],["H","H","H","H"],["•","•","•","•","X"],["H","H","H","H"],["Z","•","◦","•","•"],["H","H","H","H"],["•","•","•","•","X"],["H","H","H","H"]]}"#;
+        assert_eq!(
+            physics_summary(qni_web_circuit_library_model::GROVER_SEARCH_JSON, 5),
+            physics_summary(baseline, 5),
+        );
+    }
+
+    #[test]
+    fn reversible_addition_sample_preserves_physics() {
+        let baseline = r#"{"cols":[["X",1,"X",1,1,"X","X"],["X","X","X","X","•","X","X","X","X","X"],[1,1,1,1,"•","X"],["Swap",1,1,1,"Swap","•"],[1,1,1,1,"•",1,"X"],[1,"Swap",1,1,"Swap",1,"•"],[1,1,1,1,"•",1,1,"X"],[1,1,"Swap",1,"Swap",1,1,"•"],[1,1,1,1,"•",1,1,1,"X"],[1,1,1,"Swap","Swap",1,1,1,"•"],[1,1,1,1,"•",1,1,1,1,"X"],[1,1,1,"Swap","Swap",1,1,1,"•"],[1,1,1,"•",1,1,1,1,"X"],[1,1,"Swap",1,"Swap",1,1,"•"],[1,1,"•",1,1,1,1,"X"],[1,"Swap",1,1,"Swap",1,"•"],[1,"•",1,1,1,1,"X"],["Swap",1,1,1,"Swap","•"],["•",1,1,1,1,"X"],["X","X","X","X","•","X","X","X","X","X"]]}"#;
+        assert_eq!(
+            physics_summary(qni_web_circuit_library_model::REVERSIBLE_ADDITION_JSON, 10),
+            physics_summary(baseline, 10),
+        );
+    }
+
+    #[test]
+    fn delayed_choice_eraser_sample_preserves_physics() {
+        let baseline = r#"{"cols":[[1,"H"],[1,"•",1,1,"X"],[1,1,"QFT7"],["H"],["•","X^½"]]}"#;
+        assert_eq!(
+            physics_summary(qni_web_circuit_library_model::DELAYED_CHOICE_ERASER_JSON, 9),
+            physics_summary(baseline, 9),
+        );
+    }
+
+    #[test]
     fn decomposed_qft4_matches_native_qft4_ops() {
-        // 分解版 QFT4 サンプルは、ネイティブ `QFT4` ゲートと同一の ApplyGate 列
+        // 分解版 QFT4 サンプルは、同じ周期 2 の入力 + ネイティブ `QFT4` と同一の ApplyGate 列
         // （同じ行列・対象ビット・制御）へ展開される = 数学的に等価。
-        let native = applied_gate_summary(r#"{"cols":[["QFT4"]]}"#);
-        let decomposed = applied_gate_summary(qni_web_circuit_library_model::QFT4_DECOMPOSED_JSON);
+        let native = physics_summary(r#"{"cols":[[1,"H","H","H"],["QFT4"]]}"#, 4);
+        let decomposed = physics_summary(qni_web_circuit_library_model::QFT4_DECOMPOSED_JSON, 4);
 
         assert_eq!(decomposed, native);
     }

@@ -47,7 +47,7 @@ impl DragController {
         let mut live_snap = None;
         let center_y = next_pos.y + GATE_SIZE / 2.0;
         let (line_y, distance, line_index) = nearest_line(center_y, &metrics.line_ys);
-        if distance <= SNAP_DISTANCE {
+        if pointer.snap_allowed && distance <= SNAP_DISTANCE {
             next_pos.y = line_y - GATE_SIZE / 2.0;
             next_wire = WireIndex::new(line_index);
             let center_x = next_pos.x + GATE_SIZE / 2.0;

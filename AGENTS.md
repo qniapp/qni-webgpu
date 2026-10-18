@@ -76,12 +76,24 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
   - 個別名: `X 軸検出器` / `Y 軸検出器`
   - コード識別子と Quirk 互換のシリアライズ ID: `XDetector` / `YDetector`。
 
+- **ベルペア** — 2 量子ビットのベル状態。英語の回路ブロックラベルは `Bell pair`。
+- **回路ブロック** — `{ラベル` … `}` で囲んだ、ラベル付きの列の範囲。全ワイヤにまたがる帯として描き、計算には影響しない。コード識別子は `CircuitBlock`。
+
 - **表示ブロック** — 量子状態を可視化するが状態を変えない回路要素の総称 (Quirk が `Display` と呼ぶカテゴリに対応)。ユニタリ変換を行わないため厳密にはゲートではない。
   - 個別名: `ブロッホ球表示ブロック` / `確率表示ブロック` / `振幅表示ブロック`
   - コード識別子: `GateKind::BlochDisplay` / `GateKind::ProbabilityDisplay` / `GateKind::AmplitudeDisplay` (`Display` サフィックス) はそのまま維持。Quirk 互換のシリアライズ ID (`"Bloch"` / `"Probability"` / `"Amps"` ほか) もそのまま。
+  - Quirk の `"Chance"` / `"Chance2"`〜`"Chance16"` は `"Probability"` 系の読み込み専用の別名として受理し、書き出しには `"Probability"` / `"ProbabilityN"` を使う。
 - **サンプル表示ブロック** — 状態を収縮させずに 1 つのビット列をサンプリングして表示する表示ブロック。
   - コード識別子: `GateKind::SampleDisplay`。シリアライズ ID は `"Sample1"` / `"Sample2"` / `"Sample3"`。
 - **パリティ制御** — 同じ列で条件を満たすものが奇数個のときに列の操作を適用する制御。個別名は `Z パリティ制御` / `X パリティ制御`。
   - コード識別子: `GateKind::ZParityControl` / `GateKind::XParityControl`。シリアライズ ID は `"zpar"` / `"xpar"`。
 - **算術ゲート** — 範囲内のワイヤを、一番上を最下位ビットとする整数レジスタとみなし、2^n を法として 1 を加算・減算するゲート。個別名は `インクリメントゲート` / `デクリメントゲート`。
   - コード識別子: `GateKind::Increment` / `GateKind::Decrement`。シリアライズ ID は `"inc1"`〜`"inc16"` / `"dec1"`〜`"dec16"`。
+- **縦レイアウト** — 単体アプリで、幅 640 論理 px 未満かつ高さが幅以上のキャンバスに使う画面構成。上に状態ベクトル、中央に縦向きの回路 (時間は上から下、量子ビット 0 が右端)、下にパレットのカルーセルを置く。
+  - コード識別子: `CircuitOrientation::Vertical`。対になる従来の構成は **横レイアウト** (`CircuitOrientation::Horizontal`)。
+- **パレットのカルーセル** — 縦レイアウトの画面下端に固定する、1 ページ 4 項目のパレット。複数ページあるときは `‹` `›` とページドットでページを切り替える。
+  - コード識別子: `PaletteCarousel`。
+- **コメントブロック** — 回路の連続した列を囲み、コメントを付ける要素。「回路ブロック」と同じ要素を指す。シミュレーションには影響しない。qni の `circuit-block` に対応する。
+  - コメントを枠の上下に表示する文字を **ラベル** と呼ぶ (押すと編集、ドラッグで移動)。縦レイアウトでは左に 1 つ表示する。コード上は `label`。
+  - コード識別子: `CircuitBlock` / `CircuitBlocks`。パレットの項目は `PaletteItem::CircuitBlock`。
+  - シリアライズ: `"{<コメント>"` / `"}"`。埋め込みの制限パレットでは `"{}"`。
