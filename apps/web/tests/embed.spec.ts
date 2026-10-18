@@ -8,11 +8,11 @@ const CNOT = '{"cols":[["|0>","|0>"],["H"],["•","X"]]}'
 const BB84 = '{"cols":[["{送信内容を決める2つの乱数を生成"],["|0>"],["H"],["Measure>aliceX"],["|0>"],["H"],["Measure>aliceH"],["}"],["|0>"],["{|1⟩をセット"],["X<aliceX"],["}"],["Bloch"],["{Hを適用"],["H<aliceH"],["}"],["Bloch"],["Swap","Swap"],["{🕶イブ"],[1,"Measure>eveX"],[1,"|0>"],[1,"X<eveX"],[1,"Bloch"],["}"],[1],["{Hのための乱数を生成"],[1,1,"|0>"],[1,1,"H"],[1,1,"Measure>bobH"],["}"],[1,"Swap","Swap"],["{Hを適用"],[1,1,"H<bobH"],["}"],[1,1,"Bloch"],["{測定"],[1,1,"Measure"],["}"],[1]]}'
 type EmbedHost = {
   settings?: { showStatePanel?: boolean, palette?: string[], maxWireCount?: number, showRestartButton?: boolean },
-  width?: number, height?: number, articleHeight?: number, fragment?: string,
+  width?: number, height?: number, articleHeight?: number, fragment?: string, resizeBackingStore?: boolean,
 }
 
 async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
-  settings = { showStatePanel: true }, width = 960, height = 640, articleHeight = 0, fragment = '#host-fragment',
+  settings = { showStatePanel: true }, width = 960, height = 640, articleHeight = 0, fragment = '#host-fragment', resizeBackingStore = false,
 }: EmbedHost = {}) {
   await page.route(`${assetOrigin}*`, async route => {
     const file = new URL(route.request().url()).pathname.split('/').pop()!
@@ -38,6 +38,16 @@ async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
           super();
           const shadow = this.attachShadow({mode: 'open'});
           shadow.innerHTML = '<style>:host{display:block;width:${width}px;height:${height}px}canvas{width:100%;height:100%;display:block}</style><canvas></canvas>';
+          this.canvas = shadow.querySelector('canvas');
+          if (${resizeBackingStore}) new ResizeObserver(() => this.resizeCanvas()).observe(this.canvas);
+        }
+        resizeCanvas() {
+          const {width, height} = this.canvas.getBoundingClientRect();
+          const dpr = window.devicePixelRatio || 1;
+          const w = Math.max(1, Math.round(width * dpr));
+          const h = Math.max(1, Math.round(height * dpr));
+          if (this.canvas.width !== w) this.canvas.width = w;
+          if (this.canvas.height !== h) this.canvas.height = h;
         }
       });
       try {
@@ -54,6 +64,7 @@ async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
           });
         };
         window.runner = await startEmbed(window.canvas, ${JSON.stringify(circuit)}, settings);
+        if (${resizeBackingStore}) document.querySelector('qni-webgpu-test').resizeCanvas();
         window.embedWasm = await import('${assetOrigin}qni-web.js');
         window.readState = window.embedWasm.read_state_vector;
         window.started = true;
@@ -64,21 +75,74 @@ async function hostEmbed(page: Page, circuit = '{"cols":[["H"]]}', {
   await page.waitForFunction(() => (window as any).started || (window as any).startError)
 }
 
-// Every circuit used here starts in |0...0> at step 0.
-async function waitForStepZero(page: Page) {
-  await page.waitForFunction(async () => {
-    try { return (await (window as any).readState())[0] === 1 } catch { return false }
+for (const dpr of [1, 2]) {
+  test.describe(`embed DPR ${dpr}`, () => {
+    test.use({ deviceScaleFactor: dpr })
+
+    for (const resizeBackingStore of [false, true]) {
+      const host = resizeBackingStore ? 'tutorial host' : 'plain host'
+      const options = { resizeBackingStore, settings: { palette: ['H', 'X'] } }
+
+      test(`${host} keeps a DPR-sized backing store`, async ({ page }) => {
+        await hostEmbed(page, CNOT, options)
+        await waitForStepZero(page, 2)
+        await expect.poll(() => page.locator('qni-webgpu-test canvas').evaluate(canvas => {
+          const { width, height } = canvas.getBoundingClientRect()
+          const backing = canvas as HTMLCanvasElement
+          return { css: [width, height], backing: [backing.width, backing.height] }
+        })).toEqual({ css: [960, 640], backing: [960 * dpr, 640 * dpr] })
+      })
+
+      test(`${host} resizes fractional CSS dimensions within one device pixel`, async ({ page }) => {
+        await hostEmbed(page, CNOT, options)
+        await waitForStepZero(page, 2)
+        const expectedBacking = await page.locator('qni-webgpu-test canvas').evaluate(canvas =>
+          new Promise<number[]>(resolve => {
+            const observer = new ResizeObserver(([entry]) => {
+              observer.disconnect()
+              const expected = [entry.contentRect.width, entry.contentRect.height]
+                .map(size => Math.round(size * devicePixelRatio))
+              const device = entry.devicePixelContentBoxSize?.[0]
+              const snapped = device && [device.inlineSize, device.blockSize]
+              resolve(snapped && snapped.every((size, axis) => Math.abs(size - expected[axis]) <= 1)
+                ? snapped : expected)
+            })
+            const host = (canvas.getRootNode() as ShadowRoot).host as HTMLElement
+            host.style.width = '721.25px'
+            host.style.height = '512.25px'
+            observer.observe(canvas)
+          }))
+        await expect.poll(() => page.locator('qni-webgpu-test canvas').evaluate(canvas => {
+          const { width, height } = canvas.getBoundingClientRect()
+          const backing = canvas as HTMLCanvasElement
+          return { css: [width, height], backing: [backing.width, backing.height] }
+        })).toEqual({ css: [721.25, 512.25], backing: expectedBacking })
+      })
+
+      test(`${host} selects the same circuit column in CSS pixels`, async ({ page }) => {
+        await hostEmbed(page, CNOT, options)
+        await waitForStepZero(page, 2)
+        await page.evaluate(() => (window as any).runner.selectStep(2))
+        // Identical CSS coordinates at either DPR: column 1, below q1.
+        await page.locator('qni-webgpu-test canvas').click({ position: { x: 218, y: 295 } })
+        await page.mouse.move(990, 750)
+        await expect.poll(() => page.evaluate(() => (window as any).runner.selectedStep())).toBe(1)
+      })
+    }
   })
 }
 
+// Every circuit used here starts in |0...0> at step 0.
+async function waitForStepZero(page: Page, qubits = 1) {
+  await expect.poll(() => page.evaluate(async () => {
+    try { return Array.from(await (window as any).readState()) } catch { return null }
+  })).toEqual([1, ...Array(2 ** (qubits + 1) - 1).fill(0)])
+}
+
 async function waitForHState(page: Page) {
-  await page.waitForFunction(async () => {
-    try {
-      const values = Array.from(await (window as any).readState()) as number[]
-      return values.length === 4 && Math.abs(values[0] - Math.SQRT1_2) < 0.0001
-        && Math.abs(values[2] - Math.SQRT1_2) < 0.0001
-    } catch { return false }
-  })
+  await expect.poll(() => page.evaluate(async () => {
+    try { return Array.from(await (window as any).readState()) } catch { return null }
+  })).toEqual([expect.closeTo(Math.SQRT1_2, 4), 0, expect.closeTo(Math.SQRT1_2, 4), 0])
 }
 
 for (const failFirst of [false, true]) {
@@ -175,7 +239,7 @@ test('embed renders without library or external execution controls', async ({ pa
 
 test('opt-in restart icon appears at the right of the states label', async ({ page }) => {
   await hostEmbed(page, CNOT, { settings: { showRestartButton: true, palette: [] } })
-  await waitForStepZero(page)
+  await waitForStepZero(page, 2)
   await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-restart.png')
 })
 
@@ -183,7 +247,7 @@ for (const width of [354, 240]) {
   test(`narrow ${width}px eight-qubit embed keeps restart inside the frame`, async ({ page }) => {
     const circuit = JSON.stringify({ cols: [Array(8).fill('|0>')] })
     await hostEmbed(page, circuit, { width, height: 640, settings: { showRestartButton: true, palette: [], maxWireCount: 1 } })
-    await waitForStepZero(page)
+    await waitForStepZero(page, 8)
     await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot(`embed-restart-narrow-${width}.png`)
   })
 }
@@ -191,7 +255,7 @@ for (const width of [354, 240]) {
 for (const action of ['pointer', 'Enter', 'Space'] as const) {
   test(`restart ${action} action lets host export, destroy and restart the real runner`, async ({ page }) => {
     await hostEmbed(page, CNOT, { settings: { showRestartButton: true, palette: [] } })
-    await waitForStepZero(page)
+    await waitForStepZero(page, 2)
     const canvas = page.locator('qni-webgpu-test canvas')
     const box = (await canvas.boundingBox())!
     // Default panel: centered 560px width, 160px viewport, 32px strip,
@@ -221,11 +285,10 @@ test('destroy is idempotent and the same canvas can restart', async ({ page }) =
     w.runner.destroy()
     w.runner = await w.startEmbed(w.canvas, '{"cols":[["X"]]}', {showStatePanel: true})
   })
-  await page.waitForFunction(async () => {
-    try { return (await (window as any).readState())[2] === 1 } catch { return false }
-  })
-  expect(await page.evaluate(async () => Array.from(await (window as any).readState())))
-    .toEqual([0, 0, 1, 0])
+  // Poll the resolved readback, not an async waitForFunction predicate's Promise.
+  await expect.poll(() => page.evaluate(async () => {
+    try { return Array.from(await (window as any).readState()) } catch { return null }
+  })).toEqual([0, 0, 1, 0])
 })
 
 test('invalid embed circuit rejects before runner startup', async ({ page }) => {
@@ -444,13 +507,13 @@ test('restricted palette gate drops into the lifted circuit', async ({ page }) =
 
 test('small embed with full palette keeps CNOT clear of the state panel', async ({ page }) => {
   await hostEmbed(page, CNOT, { width: 960, height: 560 })
-  await waitForStepZero(page)
+  await waitForStepZero(page, 2)
   await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-cnot-960x560-full-palette.png')
 })
 
 test('small embed with restricted palette keeps CNOT clear of the state panel', async ({ page }) => {
   await hostEmbed(page, CNOT, { settings: { palette: ['H', '•', 'X'] }, width: 960, height: 560 })
-  await waitForStepZero(page)
+  await waitForStepZero(page, 2)
   await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-cnot-960x560-restricted-palette.png')
 })
 
@@ -467,7 +530,7 @@ test('narrow embed wraps a nine-gate palette into two rows', async ({ page }) =>
 
 test('narrow embed keeps trailing measurements inside the canvas', async ({ page }) => {
   await hostEmbed(page, ENTANGLEMENT, { settings: { palette: ['H', '•', 'X'] }, width: 354, height: 592 })
-  await waitForStepZero(page)
+  await waitForStepZero(page, 2)
   await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-narrow-entanglement.png')
 })
 
@@ -503,7 +566,7 @@ const H_GATE_TUTORIAL = { settings: { palette: ['H', 'X'], maxWireCount: 1 } }
 
 test('narrow single-wire embed selects the initial gap', async ({ page }) => {
   await hostEmbed(page, '{"cols":[["H"]]}', { ...H_GATE_TUTORIAL, width: 390, height: 560 })
-  await waitForStepZero(page)
+  await waitForHState(page)
   const box = (await page.locator('qni-webgpu-test canvas').boundingBox())!
   // Compact slot 0 is x=88, and its left edge is x=60.
   await page.mouse.click(box.x + 54, box.y + 216)
@@ -524,12 +587,21 @@ const FORMER_CLEAR = { x: 108, y: 22 }
 const ZERO = '{"cols":[["|0>"]]}'
 const ZERO_X = '{"cols":[["|0>"],["X"]]}'
 
-async function dropXOnSlot1(page: Page) {
+async function dropXOnSlot1(page: Page, beforeRelease?: () => Promise<void>) {
   const box = (await page.locator('qni-webgpu-test canvas').boundingBox())!
   await page.mouse.move(box.x + PALETTE_H_X + 48, box.y + 100)
   await page.mouse.down()
   await page.mouse.move(box.x + 300, box.y + 180, { steps: 8 })
   await page.mouse.move(box.x + SLOT_1_X, box.y + 216, { steps: 8 })
+  await beforeRelease?.()
+  await page.mouse.up()
+}
+
+async function removeGateAtSlot(page: Page, slot: number) {
+  const box = (await page.locator('qni-webgpu-test canvas').boundingBox())!
+  await page.mouse.move(box.x + 162 + slot * 56, box.y + 216)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 400, box.y + 360, { steps: 8 })
   await page.mouse.up()
 }
 
@@ -542,6 +614,64 @@ async function waitForCircuit(page: Page, json: string) {
 }
 
 const circuitJSON = (page: Page) => page.evaluate(() => (window as any).runner.circuitJSON())
+
+test('embed state panel follows a gate added after the initial selected step', async ({ page }) => {
+  await hostEmbed(page, ZERO, H_GATE_TUTORIAL)
+  await waitForStepZero(page)
+  await dropXOnSlot1(page)
+  await waitForCircuit(page, ZERO_X)
+  // Leave the circuit so a hover preview cannot mask the locked panel state.
+  await page.mouse.move(900, 100)
+  await expect.poll(async () => page.evaluate(async () =>
+    Array.from(await (window as any).readState())))
+    .toEqual([0, 0, 1, 0])
+})
+
+test('embed edit supersedes a step selected during the drag', async ({ page }) => {
+  await hostEmbed(page, ZERO, H_GATE_TUTORIAL)
+  await waitForStepZero(page)
+  await dropXOnSlot1(page, () => page.evaluate(() => (window as any).runner.selectStep(-1)))
+  await waitForCircuit(page, ZERO_X)
+  await page.mouse.move(900, 100)
+  await expect.poll(async () => page.evaluate(async () =>
+    Array.from(await (window as any).readState())))
+    .toEqual([0, 0, 1, 0])
+})
+
+test('embed state panel follows removal of a gate after the selected step', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["|0>"],["X"],["X"]]}', H_GATE_TUTORIAL)
+  await waitForStepZero(page)
+  await removeGateAtSlot(page, 2)
+  await waitForCircuit(page, ZERO_X)
+  await page.mouse.move(900, 100)
+  await expect.poll(async () => page.evaluate(async () => ({
+    selected: (window as any).runner.selectedStep(),
+    values: Array.from(await (window as any).readState()),
+  }))).toEqual({ selected: 1, values: [0, 0, 1, 0] })
+})
+
+for (const action of ['undo', 'redo'] as const) {
+  test(`embed state panel follows ${action} after a gate edit`, async ({ page }) => {
+    await hostEmbed(page, action === 'undo' ? ZERO_X : ZERO, H_GATE_TUTORIAL)
+    await waitForStepZero(page)
+    if (action === 'undo') {
+      await removeGateAtSlot(page, 1)
+      await waitForCircuit(page, ZERO)
+      await clickToolbar(page, UNDO)
+    } else {
+      await dropXOnSlot1(page)
+      await waitForCircuit(page, ZERO_X)
+      await clickToolbar(page, UNDO)
+      await waitForCircuit(page, ZERO)
+      await clickToolbar(page, REDO)
+    }
+    await waitForCircuit(page, ZERO_X)
+    await page.mouse.move(900, 100)
+    await expect.poll(async () => page.evaluate(async () =>
+      Array.from(await (window as any).readState())))
+      .toEqual([0, 0, 1, 0])
+  })
+}
 
 test('embed toolbar undo restores the circuit before an edit', async ({ page }) => {
   await hostEmbed(page, ZERO, H_GATE_TUTORIAL)
@@ -707,6 +837,40 @@ test('embed angle editor accepts typed text through the text agent', async ({ pa
   await expect.poll(() => circuitJSON(page)).toBe('{"cols":[["P(π_4)"]]}')
 })
 
+// A one-row palette lifts q0 by 48px and the block pushes it down by 58px, so
+// q0 sits at 8 + 256 - 48 + 58 = 274. The block wraps slot 1 (x = 8 + 218) and
+// its upper label is centred 10px above the body top (274 - 62).
+const COMMENT_BLOCK = '{"cols":[["|0>","|0>"],["{量子もつれ"],["H"],["}"],["•","X"]]}'
+const COMMENT_LABEL = { x: 226, y: 202 }
+
+const textAgentFocused = (page: Page) => page.evaluate(() => {
+  const root = document.querySelector('qni-webgpu-test')!.shadowRoot!
+  return root.activeElement === root.querySelector('input')
+})
+
+test('restricted embed palette without the comment block keeps block labels read-only', async ({ page }) => {
+  await hostEmbed(page, COMMENT_BLOCK, { settings: { palette: ['H', 'X'] } })
+  await waitForStepZero(page, 2)
+  await page.locator('qni-webgpu-test canvas').click({ position: COMMENT_LABEL })
+  await page.evaluate(async () => {
+    for (let i = 0; i < 10; i++) await new Promise(requestAnimationFrame)
+  })
+  expect(await textAgentFocused(page)).toBe(false)
+})
+
+test('restricted embed palette with the comment block token edits block labels', async ({ page }) => {
+  await hostEmbed(page, COMMENT_BLOCK, { settings: { palette: ['H', '{}'] } })
+  await waitForStepZero(page, 2)
+  await page.locator('qni-webgpu-test canvas').click({ position: COMMENT_LABEL })
+  await page.waitForFunction(() => {
+    const root = document.querySelector('qni-webgpu-test')!.shadowRoot!
+    return root.activeElement === root.querySelector('input')
+  }, null, { timeout: 5000 })
+  await page.keyboard.type('abc')
+  await page.keyboard.press('Enter')
+  await expect.poll(() => circuitJSON(page)).toBe('{"cols":[["|0>","|0>"],["{abc"],["H"],["}"],["•","X"]]}')
+})
+
 for (const showStatePanel of [true, false]) {
   test(`selectStep -1 immediately reads initial state (panel=${showStatePanel})`, async ({ page }) => {
     await hostEmbed(page, SELECT_BELL, { settings: { showStatePanel } })
@@ -732,3 +896,37 @@ test('selectedStep reports initial state as a numeric minus one', async ({ page 
   })
   expect(selected).toBe(-1)
 })
+
+test('embed wide display shifts step count with the decoded columns', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["Amps1"],["Probability"]]}')
+  expect(await page.evaluate(() => (window as any).runner.stepCount())).toBe(3)
+})
+
+test('embed wide display allows selecting the shifted final column', async ({ page }) => {
+  await hostEmbed(page, '{"cols":[["Amps1"],["Probability"]]}')
+  const step = await page.evaluate(() => {
+    const runner = (window as any).runner
+    runner.selectStep(2)
+    return runner.selectedStep()
+  })
+  expect(step).toBe(2)
+})
+
+for (const width of [960, 354]) {
+  test(`embed Amps1 then Probability remains readable at ${width}`, async ({ page }) => {
+    await hostEmbed(page, '{"cols":[["H"],["P(π/2)"],["H"],["Amps1"],["Probability"]]}', {
+      width, height: 592,
+      settings: {
+        showStatePanel: true, maxWireCount: 1,
+        palette: ['H', 'Z', 'P(π/4)', 'P(π/2)', 'P(π)', 'Amps1', 'Probability', 'Density'],
+      },
+    })
+    await waitForHState(page)
+    if (width === 354) {
+      // The six-column circuit needs horizontal scrolling on tutorial phones.
+      await page.locator('qni-webgpu-test canvas').hover({ position: { x: 300, y: 264 } })
+      await page.mouse.wheel(400, 0)
+    }
+    await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot(`embed-amps1-then-probability-${width}x592.png`)
+  })
+}

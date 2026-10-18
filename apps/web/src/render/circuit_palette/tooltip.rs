@@ -8,7 +8,17 @@ mod text;
 use crate::app::QniApp;
 use crate::colors::Colors;
 use crate::constants::{PALETTE_ROW_Y, PALETTE_SIZE};
-use crate::layout::palette_start_x;
+use crate::gates::GateInfo;
+use crate::layout::{palette_start_x, PaletteItem};
+
+const CIRCUIT_BLOCK_INFO: GateInfo = GateInfo {
+    name: "Comment Block",
+    paragraphs: &[
+        "Wraps circuit steps and labels them with a comment.",
+        "Does not change the state.",
+    ],
+    transitions: &[],
+};
 
 impl QniApp {
     /// Hover tooltip painted over the palette: a card with the
@@ -23,7 +33,7 @@ impl QniApp {
         rect: egui::Rect,
         colors: &Colors,
     ) {
-        if self.library.active_locked() {
+        if self.library.active_locked() || self.orientation.is_vertical() {
             return;
         }
         let Some(index) = self.hovered_palette_index else {
@@ -32,7 +42,7 @@ impl QniApp {
         if self.dragging.is_some() {
             return;
         }
-        let Some(gate) = self.palette.entry(index).map(|entry| entry.kind) else {
+        let Some(item) = self.palette.item(index) else {
             return;
         };
         let palette_layout = self.palette.layout(rect.width());
@@ -47,7 +57,10 @@ impl QniApp {
             egui::vec2(PALETTE_SIZE, PALETTE_SIZE),
         );
 
-        let info = gate.info();
+        let (info, gate) = match item {
+            PaletteItem::Gate(entry) => (entry.kind.info(), Some(entry.kind)),
+            PaletteItem::CircuitBlock => (CIRCUIT_BLOCK_INFO, None),
+        };
         let text = text::layout_tooltip_text(painter, &info, colors);
         let diagram_metrics = diagram::DiagramMetrics::for_transition_count(info.transitions.len());
         let card =
@@ -56,14 +69,16 @@ impl QniApp {
         layout::paint_tooltip_card(painter, card, colors);
         let rect = card.placement.rect;
         let text_end_y = text::paint_tooltip_text(painter, rect, &text, colors);
-        diagram::paint_tooltip_diagram(
-            painter,
-            rect,
-            text_end_y,
-            &info,
-            gate,
-            colors,
-            diagram_metrics,
-        );
+        if let Some(gate) = gate {
+            diagram::paint_tooltip_diagram(
+                painter,
+                rect,
+                text_end_y,
+                &info,
+                gate,
+                colors,
+                diagram_metrics,
+            );
+        }
     }
 }

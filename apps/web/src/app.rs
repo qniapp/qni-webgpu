@@ -21,8 +21,14 @@ mod step_selection;
 mod update_flow;
 
 use crate::colors::{Colors, Theme, ThemeKind};
-use crate::constants::{LOCAL_MAX_QUBITS, MIN_QUBITS, STEP_OUTSET_Y};
+use crate::constants::{
+    LINE_Y, LOCAL_MAX_QUBITS, MIN_QUBITS, STEP_OUTSET_Y, VERTICAL_WIRE0_RIGHT_INSET,
+};
 use crate::gates::GateKind;
+use crate::layout::{
+    layout_metrics_with_gutters, CircuitGutters, CircuitOrientation, CircuitProjection,
+    LayoutMetrics,
+};
 use crate::qubit_count::{QubitCapacity, QubitCount};
 use crate::shared::now_seconds;
 use circuit_history::CircuitRevision;
@@ -33,9 +39,11 @@ use std::collections::VecDeque;
 
 #[allow(unused_imports)]
 pub(crate) use circuit_model::{
-    AngleAffordance, AngleEditor, CircuitBlock, CircuitBlocks, CircuitColumnIndex,
-    CircuitColumnIndexError, ClickCopy, DragState, GateId, GateIdAllocator, LiveDragSnap,
-    PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle, WireIndex, WireIndexError,
+    AngleAffordance, AngleEditor, BlockEdges, CircuitBlock, CircuitBlockDrag, CircuitBlockEdge,
+    CircuitBlockEditor, CircuitBlockHover, CircuitBlockLabelSlot, CircuitBlocks,
+    CircuitColumnIndex, CircuitColumnIndexError, ClickCopy, DragState, GateId, GateIdAllocator,
+    LiveDragSnap, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle, WireIndex,
+    WireIndexError,
 };
 pub(crate) use embed::{AppMode, EmbedStartup};
 pub(crate) use exec_mode::ExecMode;
@@ -64,12 +72,19 @@ pub(crate) struct QniApp {
     /// qni's optional circuit title (trimmed; empty when absent). Kept so
     /// the serialised circuit round-trips it.
     pub(crate) circuit_title: String,
-    /// Horizontal scroll offset for the circuit area, in egui pixels.
-    /// When circuit content exceeds the canvas width, this pushes the
-    /// rendered circuit left by that many pixels so the user can see
-    /// the trailing gates. Always clamped to
-    /// `[0, max(0, line_right - canvas_width)]` post-update.
-    pub(crate) circuit_scroll_x: f32,
+    /// Scroll offset along the circuit's time axis, in egui pixels. When
+    /// the circuit is longer than its area, this pushes the rendered
+    /// circuit back by that many pixels (left in the horizontal layout, up
+    /// in the vertical one) so the user can see the trailing gates. Always
+    /// clamped to `CircuitGutters::max_scroll` post-update.
+    pub(crate) circuit_scroll_time: f32,
+    /// Screen layout of the circuit, decided once per frame from the canvas
+    /// size and kept while a gesture is in progress.
+    pub(crate) orientation: CircuitOrientation,
+    /// Page shown by the vertical layout's palette carousel. UI-only.
+    pub(crate) palette_page: usize,
+    /// In-flight press on empty circuit space in the vertical layout.
+    pub(crate) circuit_pan: Option<drag_controller::pan::CircuitPan>,
     pub(crate) dragging: Option<DragState>,
     pub(crate) dragging_live_snap: Option<LiveDragSnap>,
     pub(crate) dragging_live_display_snap: bool,
@@ -90,6 +105,9 @@ pub(crate) struct QniApp {
     pub(crate) angle_affordance: Option<AngleAffordance>,
     /// Inline angle editor for Phase / Rx / Ry / Rz gates. UI-only.
     pub(crate) angle_editor: Option<AngleEditor>,
+    pub(crate) hovered_circuit_block: Option<CircuitBlockHover>,
+    pub(crate) circuit_block_drag: Option<CircuitBlockDrag>,
+    pub(crate) circuit_block_editor: Option<CircuitBlockEditor>,
     /// Column index the user clicked to "lock in" as the step shown.
     /// `None` means: show the final state (all columns applied). Loading a
     /// circuit selects the final committed column in standalone mode and step 0
@@ -328,7 +346,10 @@ impl QniApp {
             placed_gates: initial_gates,
             circuit_blocks,
             circuit_title,
-            circuit_scroll_x: 0.0,
+            circuit_scroll_time: 0.0,
+            orientation: CircuitOrientation::Horizontal,
+            palette_page: 0,
+            circuit_pan: None,
             dragging: None,
             dragging_live_snap: None,
             dragging_live_display_snap: false,
@@ -340,6 +361,9 @@ impl QniApp {
             hovered_step: None,
             angle_affordance: None,
             angle_editor: None,
+            hovered_circuit_block: None,
+            circuit_block_drag: None,
+            circuit_block_editor: None,
             breakpoint_step: Some(CircuitColumnIndex::ZERO),
             hovered_gate_id: None,
             hovered_probability_outcome: None,
@@ -366,17 +390,65 @@ impl QniApp {
         app
     }
 
-    /// Screen position of the circuit-space origin for a circuit content
-    /// rect: shifted left by the narrow-canvas gutter and the horizontal
-    /// scroll, up by the space a restricted palette saves, and down by the
-    /// room circuit blocks take above the wires.
-    pub(crate) fn circuit_origin(&self, content_rect: egui::Rect, scroll_x: f32) -> egui::Pos2 {
+    /// Projection from circuit space to the screen for a circuit content
+    /// rect. Horizontal: shifted left by the narrow-canvas gutter and the
+    /// time scroll, up by the space a restricted palette saves, and down by
+    /// the room circuit blocks take above the wires. Vertical: wire 0 sits
+    /// one inset (plus the blocks' room) from the right edge and time
+    /// scrolls upward.
+    pub(crate) fn circuit_projection(
+        &self,
+        content_rect: egui::Rect,
+        scroll_time: f32,
+    ) -> CircuitProjection {
+        match self.orientation {
+            CircuitOrientation::Horizontal => CircuitProjection::horizontal(
+                self.horizontal_circuit_origin(content_rect, scroll_time),
+            ),
+            CircuitOrientation::Vertical => {
+                let gutters = self.circuit_gutters(content_rect);
+                CircuitProjection::new(
+                    CircuitOrientation::Vertical,
+                    egui::pos2(
+                        content_rect.max.x
+                            - VERTICAL_WIRE0_RIGHT_INSET
+                            - self.circuit_block_outset_y()
+                            + LINE_Y,
+                        content_rect.min.y - gutters.shift_x - scroll_time,
+                    ),
+                )
+            }
+        }
+    }
+
+    fn horizontal_circuit_origin(&self, content_rect: egui::Rect, scroll_time: f32) -> egui::Pos2 {
         let width = content_rect.width();
         content_rect.min
             - egui::vec2(
-                crate::layout::CircuitGutters::for_canvas_width(width).shift_x + scroll_x,
+                crate::layout::CircuitGutters::for_canvas_width(width).shift_x + scroll_time,
                 self.palette.circuit_shift_y(width) - self.circuit_block_outset_y(),
             )
+    }
+
+    /// Length of the circuit content rect along the time axis.
+    pub(crate) fn circuit_time_length(&self, content_rect: egui::Rect) -> f32 {
+        match self.orientation {
+            CircuitOrientation::Horizontal => content_rect.width(),
+            CircuitOrientation::Vertical => content_rect.height(),
+        }
+    }
+
+    pub(crate) fn circuit_gutters(&self, content_rect: egui::Rect) -> CircuitGutters {
+        CircuitGutters::for_orientation(self.orientation, self.circuit_time_length(content_rect))
+    }
+
+    pub(crate) fn circuit_layout_metrics(&self, content_rect: egui::Rect) -> LayoutMetrics {
+        layout_metrics_with_gutters(
+            self.circuit_time_length(content_rect),
+            self.circuit_gutters(content_rect),
+            self.layout_qubits(),
+            self.min_circuit_slots(),
+        )
     }
 
     /// Room circuit blocks take beyond the step-preview bars, above the
@@ -392,12 +464,23 @@ impl QniApp {
     /// Screen y of the lowest pixel the circuit draws: the last wire's step
     /// bar, or a block's lower label when the circuit has blocks.
     pub(crate) fn circuit_bottom_y(&self, screen_rect: egui::Rect) -> f32 {
-        use crate::constants::{LINE_GAP, LINE_Y};
         let content_rect = self.last_content_rect.unwrap_or(screen_rect);
-        let last_line_y = self.circuit_origin(content_rect, 0.0).y
-            + LINE_Y
-            + LINE_GAP * (self.layout_qubits() - 1) as f32;
-        last_line_y + STEP_OUTSET_Y.max(LINE_GAP * 0.5 + self.circuit_block_outset_y())
+        self.horizontal_circuit_origin(content_rect, 0.0).y + self.circuit_bottom_local_y()
+    }
+
+    /// `circuit_bottom_y` in circuit space.
+    pub(crate) fn circuit_bottom_local_y(&self) -> f32 {
+        use crate::constants::LINE_GAP;
+        LINE_Y
+            + LINE_GAP * (self.layout_qubits() - 1) as f32
+            + STEP_OUTSET_Y.max(LINE_GAP * 0.5 + self.circuit_block_outset_y())
+    }
+
+    /// Circuit blocks can be added, edited, resized, moved and removed only
+    /// in an unlocked circuit whose palette offers the comment block, so
+    /// tutorial embeds with a restricted palette keep their blocks read-only.
+    pub(crate) fn circuit_block_editing_allowed(&self) -> bool {
+        !self.library.active_locked() && self.palette.offers_circuit_block()
     }
 
     pub(crate) fn colors(&self) -> Colors {
@@ -429,6 +512,12 @@ impl QniApp {
 
     pub(crate) fn state_panel_visible(&self) -> bool {
         self.mode.shows_state_panel() && self.local_state_vector_active()
+    }
+
+    /// The vertical layout's palette carousel is shown, like the palette
+    /// panel, unless the circuit is locked or the palette is empty.
+    pub(crate) fn palette_carousel_visible(&self) -> bool {
+        !self.library.active_locked() && !self.palette.is_hidden()
     }
 
     pub(crate) fn external_gpu_display_placeholders_active(&self) -> bool {

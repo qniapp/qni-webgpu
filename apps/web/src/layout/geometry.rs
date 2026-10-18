@@ -4,10 +4,12 @@ use crate::app::{CircuitColumnIndex, PlacedGate, WireIndex};
 use crate::constants::{
     CIRCUIT_PADDING, COMPACT_CIRCUIT_MAX_WIDTH, COMPACT_CIRCUIT_PADDING, COMPACT_LINE_LEFT_OFFSET,
     COMPACT_QUBIT_LABEL_GAP, GATE_SIZE, LINE_GAP, LINE_LEFT_OFFSET, LINE_RIGHT_OFFSET, LINE_Y,
-    SLOT_SPACING,
+    SLOT_SPACING, VERTICAL_LINE_TOP_OFFSET,
 };
 use crate::gates::GateKind;
 use crate::grid_cell::GridCell;
+
+use super::CircuitOrientation;
 
 pub(crate) fn amplitude_display_width_cols(span: usize) -> usize {
     let span = span.clamp(1, 16);
@@ -143,6 +145,19 @@ pub(crate) struct CircuitGutters {
 }
 
 impl CircuitGutters {
+    /// Gutters along the time axis of a circuit area `length` px long.
+    pub(crate) fn for_orientation(orientation: CircuitOrientation, length: f32) -> Self {
+        match orientation {
+            CircuitOrientation::Horizontal => Self::for_canvas_width(length),
+            CircuitOrientation::Vertical => Self {
+                shift_x: LINE_LEFT_OFFSET - VERTICAL_LINE_TOP_OFFSET,
+                right_padding: COMPACT_CIRCUIT_PADDING,
+                label_x: LINE_LEFT_OFFSET - COMPACT_QUBIT_LABEL_GAP,
+                label_align: egui::Align2::CENTER_BOTTOM,
+            },
+        }
+    }
+
     pub(crate) fn for_canvas_width(canvas_width: f32) -> Self {
         if canvas_width < COMPACT_CIRCUIT_MAX_WIDTH {
             Self {
@@ -187,9 +202,24 @@ pub(crate) struct LayoutMetrics {
 /// empty drop-target slot stays visible). Passing `0` keeps the old
 /// canvas-width-only behaviour.
 pub(crate) fn layout_metrics(width: f32, qubit_count: usize, min_slots: usize) -> LayoutMetrics {
+    layout_metrics_with_gutters(
+        width,
+        CircuitGutters::for_canvas_width(width),
+        qubit_count,
+        min_slots,
+    )
+}
+
+/// `layout_metrics` for a circuit area `length` px long along the time axis
+/// with explicit gutters.
+pub(crate) fn layout_metrics_with_gutters(
+    length: f32,
+    gutters: CircuitGutters,
+    qubit_count: usize,
+    min_slots: usize,
+) -> LayoutMetrics {
     let line_left = LINE_LEFT_OFFSET;
-    let gutters = CircuitGutters::for_canvas_width(width);
-    let canvas_line_right = width + gutters.shift_x - gutters.right_padding;
+    let canvas_line_right = length + gutters.shift_x - gutters.right_padding;
     let line_ys = (0..qubit_count)
         .map(|index| LINE_Y + LINE_GAP * index as f32)
         .collect::<Vec<f32>>();
@@ -333,6 +363,62 @@ mod tests {
         let scroll = CircuitGutters::for_canvas_width(WIDE).max_scroll(&metrics, WIDE);
 
         assert_eq!(metrics.line_right - scroll, WIDE - CIRCUIT_PADDING);
+    }
+
+    const PHONE_CIRCUIT_HEIGHT: f32 = 520.0;
+
+    fn vertical_metrics(min_slots: usize) -> (LayoutMetrics, CircuitGutters) {
+        let gutters =
+            CircuitGutters::for_orientation(CircuitOrientation::Vertical, PHONE_CIRCUIT_HEIGHT);
+        (
+            layout_metrics_with_gutters(PHONE_CIRCUIT_HEIGHT, gutters, 2, min_slots),
+            gutters,
+        )
+    }
+
+    #[test]
+    fn horizontal_orientation_gutters_match_canvas_width_gutters() {
+        assert_eq!(
+            CircuitGutters::for_orientation(CircuitOrientation::Horizontal, NARROW),
+            CircuitGutters::for_canvas_width(NARROW)
+        );
+    }
+
+    #[test]
+    fn vertical_wires_start_below_the_qubit_labels() {
+        let (metrics, gutters) = vertical_metrics(0);
+
+        assert_eq!(
+            metrics.line_left - gutters.shift_x,
+            crate::constants::VERTICAL_LINE_TOP_OFFSET
+        );
+    }
+
+    #[test]
+    fn vertical_wires_fill_the_circuit_area_inside_the_end_gutter() {
+        let (metrics, gutters) = vertical_metrics(0);
+        let slack =
+            PHONE_CIRCUIT_HEIGHT - gutters.right_padding - (metrics.line_right - gutters.shift_x);
+
+        assert!((0.0..SLOT_SPACING).contains(&slack));
+    }
+
+    #[test]
+    fn vertical_fitting_circuit_does_not_scroll() {
+        let (metrics, gutters) = vertical_metrics(0);
+
+        assert_eq!(gutters.max_scroll(&metrics, PHONE_CIRCUIT_HEIGHT), 0.0);
+    }
+
+    #[test]
+    fn vertical_long_circuit_scrolls_to_the_end_gutter() {
+        let (metrics, gutters) = vertical_metrics(16);
+        let scroll = gutters.max_scroll(&metrics, PHONE_CIRCUIT_HEIGHT);
+
+        assert_eq!(
+            metrics.line_right - gutters.shift_x - scroll,
+            PHONE_CIRCUIT_HEIGHT - COMPACT_CIRCUIT_PADDING
+        );
     }
 
     #[test]

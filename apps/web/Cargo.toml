@@ -37,7 +37,7 @@ eframe = { version = "0.35.0", default-features = false, features = ["wgpu_no_de
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 eframe = { version = "0.35.0", default-features = false, features = ["wgpu", "default_fonts", "web_screen_reader"] }
 
-# eframe 0.35.0 with a WebOptions opt-out for the TextAgent autofocus; see
+# eframe 0.35.0 with TextAgent autofocus control and DPR-consistent canvas sizing; see
 # vendor/eframe/PATCHES.md.
 [patch.crates-io]
 eframe = { path = "vendor/eframe" }

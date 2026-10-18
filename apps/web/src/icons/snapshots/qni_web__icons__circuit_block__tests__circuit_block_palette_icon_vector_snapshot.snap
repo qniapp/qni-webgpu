@@ -1,0 +1,382 @@
+---
+source: src/icons/circuit_block.rs
+expression: output.shapes
+---
+[
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Rect(
+            RectShape {
+                rect: [[100.0 47.0] - [140.0 51.0]],
+                corner_radius: CornerRadius {
+                    nw: 0,
+                    ne: 0,
+                    sw: 0,
+                    se: 0,
+                },
+                fill: #43_85_BE_FF,
+                stroke: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+                stroke_kind: Outside,
+                round_to_pixels: None,
+                blur_width: 0.0,
+                brush: None,
+                angle: 0.0,
+            },
+        ),
+    },
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Text(
+            TextShape {
+                pos: [103.4 29.0],
+                galley: Galley {
+                    job: LayoutJob {
+                        text: "block",
+                        sections: [
+                            LayoutSection {
+                                leading_space: 0.0,
+                                byte_range: ByteIndex(
+                                    0,
+                                )..ByteIndex(
+                                    5,
+                                ),
+                                format: TextFormat {
+                                    font_id: FontId {
+                                        size: 14.0,
+                                        family: Proportional,
+                                    },
+                                    extra_letter_spacing: 0.0,
+                                    line_height: None,
+                                    color: #43_85_BE_FF,
+                                    background: #00_00_00_00,
+                                    expand_bg: 1.0,
+                                    coords: VariationCoords(
+                                        [],
+                                    ),
+                                    italics: false,
+                                    underline: Stroke {
+                                        width: 0.0,
+                                        color: #00_00_00_00,
+                                    },
+                                    strikethrough: Stroke {
+                                        width: 0.0,
+                                        color: #00_00_00_00,
+                                    },
+                                    valign: Max,
+                                },
+                            },
+                        ],
+                        wrap: TextWrapping {
+                            max_width: inf,
+                            max_rows: 18446744073709551615,
+                            break_anywhere: false,
+                            overflow_character: Some(
+                                '…',
+                            ),
+                        },
+                        first_row_min_height: 0.0,
+                        break_on_newline: true,
+                        halign: Min,
+                        justify: false,
+                        round_output_to_gui: true,
+                        keep_trailing_whitespace: false,
+                    },
+                    rows: [
+                        PlacedRow {
+                            pos: [0.0 0.0],
+                            row: Row {
+                                section_index_at_start: 4294967295,
+                                glyphs: [
+                                    Glyph {
+                                        chr: 'b',
+                                        pos: [0.0 13.0],
+                                        advance_width: 8.162001,
+                                        line_height: 16.125,
+                                        font_ascent: 13.0625,
+                                        font_height: 16.125,
+                                        font_face_ascent: 13.0625,
+                                        font_face_height: 16.125,
+                                        uv_rect: UvRect {
+                                            offset: [1.0 -11.0],
+                                            size: [7.0 11.0],
+                                            min: [
+                                                90,
+                                                0,
+                                            ],
+                                            max: [
+                                                97,
+                                                11,
+                                            ],
+                                        },
+                                        section_index: 4294967295,
+                                        first_vertex: 0,
+                                    },
+                                    Glyph {
+                                        chr: 'l',
+                                        pos: [8.0 13.0],
+                                        advance_width: 3.5700002,
+                                        line_height: 16.125,
+                                        font_ascent: 13.0625,
+                                        font_height: 16.125,
+                                        font_face_ascent: 13.0625,
+                                        font_face_height: 16.125,
+                                        uv_rect: UvRect {
+                                            offset: [1.0 -11.0],
+                                            size: [3.0 11.0],
+                                            min: [
+                                                98,
+                                                0,
+                                            ],
+                                            max: [
+                                                101,
+                                                11,
+                                            ],
+                                        },
+                                        section_index: 4294967295,
+                                        first_vertex: 4,
+                                    },
+                                    Glyph {
+                                        chr: 'o',
+                                        pos: [11.0 13.0],
+                                        advance_width: 8.148001,
+                                        line_height: 16.125,
+                                        font_ascent: 13.0625,
+                                        font_height: 16.125,
+                                        font_face_ascent: 13.0625,
+                                        font_face_height: 16.125,
+                                        uv_rect: UvRect {
+                                            offset: [1.0 -7.0],
+                                            size: [8.0 7.0],
+                                            min: [
+                                                102,
+                                                0,
+                                            ],
+                                            max: [
+                                                110,
+                                                7,
+                                            ],
+                                        },
+                                        section_index: 4294967295,
+                                        first_vertex: 8,
+                                    },
+                                    Glyph {
+                                        chr: 'c',
+                                        pos: [20.0 13.0],
+                                        advance_width: 6.44,
+                                        line_height: 16.125,
+                                        font_ascent: 13.0625,
+                                        font_height: 16.125,
+                                        font_face_ascent: 13.0625,
+                                        font_face_height: 16.125,
+                                        uv_rect: UvRect {
+                                            offset: [0.0 -7.0],
+                                            size: [7.0 7.0],
+                                            min: [
+                                                111,
+                                                0,
+                                            ],
+                                            max: [
+                                                118,
+                                                7,
+                                            ],
+                                        },
+                                        section_index: 4294967295,
+                                        first_vertex: 12,
+                                    },
+                                    Glyph {
+                                        chr: 'k',
+                                        pos: [26.0 13.0],
+                                        advance_width: 6.9300003,
+                                        line_height: 16.125,
+                                        font_ascent: 13.0625,
+                                        font_height: 16.125,
+                                        font_face_ascent: 13.0625,
+                                        font_face_height: 16.125,
+                                        uv_rect: UvRect {
+                                            offset: [1.0 -11.0],
+                                            size: [6.0 11.0],
+                                            min: [
+                                                119,
+                                                0,
+                                            ],
+                                            max: [
+                                                125,
+                                                11,
+                                            ],
+                                        },
+                                        section_index: 4294967295,
+                                        first_vertex: 16,
+                                    },
+                                ],
+                                size: [33.2 16.0],
+                                visuals: RowVisuals {
+                                    mesh: Mesh {
+                                        indices: [
+                                            0,
+                                            1,
+                                            2,
+                                            2,
+                                            1,
+                                            3,
+                                            4,
+                                            5,
+                                            6,
+                                            6,
+                                            5,
+                                            7,
+                                            8,
+                                            9,
+                                            10,
+                                            10,
+                                            9,
+                                            11,
+                                            12,
+                                            13,
+                                            14,
+                                            14,
+                                            13,
+                                            15,
+                                            16,
+                                            17,
+                                            18,
+                                            18,
+                                            17,
+                                            19,
+                                        ],
+                                        vertices: [
+                                            Vertex {
+                                                pos: [1.0 2.0],
+                                                uv: [90.0 0.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [8.0 2.0],
+                                                uv: [97.0 0.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [1.0 13.0],
+                                                uv: [90.0 11.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [8.0 13.0],
+                                                uv: [97.0 11.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [9.0 2.0],
+                                                uv: [98.0 0.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [12.0 2.0],
+                                                uv: [101.0 0.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [9.0 13.0],
+                                                uv: [98.0 11.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [12.0 13.0],
+                                                uv: [101.0 11.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [12.0 6.0],
+                                                uv: [102.0 0.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [20.0 6.0],
+                                                uv: [110.0 0.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [12.0 13.0],
+                                                uv: [102.0 7.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [20.0 13.0],
+                                                uv: [110.0 7.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [20.0 6.0],
+                                                uv: [111.0 0.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [27.0 6.0],
+                                                uv: [118.0 0.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [20.0 13.0],
+                                                uv: [111.0 7.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [27.0 13.0],
+                                                uv: [118.0 7.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [27.0 2.0],
+                                                uv: [119.0 0.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [33.0 2.0],
+                                                uv: [125.0 0.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [27.0 13.0],
+                                                uv: [119.0 11.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                            Vertex {
+                                                pos: [33.0 13.0],
+                                                uv: [125.0 11.0],
+                                                color: #43_85_BE_FF,
+                                            },
+                                        ],
+                                        texture_id: Managed(
+                                            0,
+                                        ),
+                                    },
+                                    mesh_bounds: [[1.0 2.0] - [33.0 13.0]],
+                                    glyph_index_start: 0,
+                                    glyph_vertex_range: 0..20,
+                                },
+                            },
+                            ends_with_newline: false,
+                        },
+                    ],
+                    elided: false,
+                    rect: [[0.0 0.0] - [33.2 16.0]],
+                    mesh_bounds: [[1.0 2.0] - [33.0 13.0]],
+                    num_vertices: 20,
+                    num_indices: 30,
+                    pixels_per_point: 1.0,
+                    intrinsic_size: [33.2 16.0],
+                },
+                underline: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+                fallback_color: #43_85_BE_FF,
+                override_text_color: None,
+                opacity_factor: 1.0,
+                angle: 0.0,
+            },
+        ),
+    },
+]

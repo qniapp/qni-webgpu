@@ -529,6 +529,13 @@ const waitForScrolledProbabilityPopupEvidence = async (
   )
 }
 
+test('Quirk Chance2 URL loads as a two-qubit probability display', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H', 'H'], ['Chance2']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+
+  await expect.poll(() => readCircuitColsFromHash(page.url())).toEqual([['H', 'H'], ['Probability2']])
+})
+
 test('Probability display renders GPU probabilities and serializes the Quirk token', async ({ page }) => {
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H'], ['Probability']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
