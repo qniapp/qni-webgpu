@@ -11,7 +11,7 @@ import {
 type Layout = { cells: Point[][] }
 
 const EGUI_PANEL_MARGIN = 8
-const PALETTE_ENTRY_COUNT = 36
+const PALETTE_ENTRY_COUNT = 39
 const EMPTY = '#%7B%22cols%22%3A%5B%5D%7D'
 const BELL = `#${encodeURIComponent(JSON.stringify({ cols: [['H'], ['•', 'X'], ['Measure', 'Measure']] }))}`
 
@@ -69,7 +69,7 @@ for (const viewport of [
 test.describe('1000x800 screenshot', () => {
   test.use({ viewport: { width: 1000, height: 800 } })
 
-  test('palette fits in two rows with the Display section after the first gate row', async ({ page }) => {
+  test('palette fits in three rows with the Display section beside the top gate rows', async ({ page }) => {
     await open(page, BELL)
     await expect(page).toHaveScreenshot('palette-1000x800.png')
   })

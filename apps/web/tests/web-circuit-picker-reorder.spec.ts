@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  getCircuitOriginY,
+  UI_CONSTANTS,
   pixelRgbDistance,
   sampleCanvasPixels,
   waitForStartupReady,
@@ -309,9 +311,11 @@ test('clicking the open kebab trigger closes its submenu', async ({ page }) => {
   await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
 
   // 次のクリックを送る前に閉じた描画を待ち、同じフレームへの入力集約を避ける。
+  // パレットの増えた高さだけ下げ、項目ではなく背後の背景を調べる。
+  const closedSubmenuProbeY = MOVE_DOWN_Y + await getCircuitOriginY(page) - UI_CONSTANTS.LINE_Y
   await waitForCondition(page, async () => {
     const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-      { name: 'closedSubmenu', x: geometry.submenu_right - 12, y: MOVE_DOWN_Y },
+      { name: 'closedSubmenu', x: geometry.submenu_right - 12, y: closedSubmenuProbeY },
     ])
     return pixelRgbDistance(pixels.closedSubmenu, FLEXOKI_BG_2) < 16
   }, 'closed submenu background')

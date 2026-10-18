@@ -5,7 +5,9 @@ use crate::constants::{
     CAROUSEL_DOT_TOP_GAP, CAROUSEL_GATES_PER_PAGE, CAROUSEL_GATE_GAP, CAROUSEL_GATE_SIZE,
     CAROUSEL_PADDING_BOTTOM, CAROUSEL_PADDING_TOP, VERTICAL_SCREEN_INSET,
 };
-use crate::gates::{PALETTE_DISPLAY_INDICES, PALETTE_GATES_ROW2_INDICES, PALETTE_ROW1_COUNT};
+use crate::gates::{
+    PALETTE_DISPLAY_INDICES, PALETTE_GATES_ROW1_INDICES, PALETTE_GATES_ROW2_INDICES,
+};
 
 use super::palette::PALETTE_CIRCUIT_BLOCK_INDEX;
 use super::Palette;
@@ -186,7 +188,8 @@ impl Palette {
     /// second gate row, then the display blocks and comment block.
     pub(crate) fn carousel_entry(&self, position: usize) -> Option<usize> {
         match self {
-            Self::Full => (0..PALETTE_ROW1_COUNT)
+            Self::Full => PALETTE_GATES_ROW1_INDICES
+                .into_iter()
                 .chain(PALETTE_GATES_ROW2_INDICES)
                 .chain(PALETTE_DISPLAY_INDICES)
                 .chain(std::iter::once(PALETTE_CIRCUIT_BLOCK_INDEX))
@@ -252,28 +255,51 @@ mod tests {
     }
 
     #[test]
-    fn eighth_page_ends_the_gate_rows_with_postselections_before_bloch() {
+    fn fourth_page_is_rz_increment_decrement_swap() {
         assert_eq!(
-            page_kinds(7),
+            page_kinds(3),
             vec![
-                GateKind::PostSelectOn,
-                GateKind::PostSelectAntiX,
-                GateKind::PostSelectX,
-                GateKind::BlochDisplay
+                GateKind::Rz,
+                GateKind::Increment,
+                GateKind::Decrement,
+                GateKind::Swap
             ]
         );
     }
 
     #[test]
-    fn ninth_page_is_the_display_blocks_after_bloch() {
+    fn eighth_page_is_spacer_and_postselections() {
+        assert_eq!(
+            page_kinds(7),
+            vec![
+                GateKind::Spacer,
+                GateKind::PostSelectOff,
+                GateKind::PostSelectOn,
+                GateKind::PostSelectAntiX
+            ]
+        );
+    }
+
+    #[test]
+    fn ninth_page_ends_postselections_and_starts_displays() {
         assert_eq!(
             page_kinds(8),
             vec![
+                GateKind::PostSelectX,
+                GateKind::BlochDisplay,
                 GateKind::ProbabilityDisplay,
-                GateKind::SampleDisplay,
-                GateKind::AmplitudeDisplay,
-                GateKind::DensityMatrixDisplay
+                GateKind::SampleDisplay
             ]
+        );
+    }
+
+    #[test]
+    fn tenth_page_ends_with_amplitude_density_and_comment() {
+        assert_eq!(
+            (0..CAROUSEL_GATES_PER_PAGE)
+                .map(|slot| Palette::Full.carousel_entry(9 * CAROUSEL_GATES_PER_PAGE + slot))
+                .collect::<Vec<_>>(),
+            vec![Some(24), Some(25), Some(PALETTE_CIRCUIT_BLOCK_INDEX), None]
         );
     }
 
@@ -314,6 +340,26 @@ mod tests {
                 _ => None,
             }),
             Some(GateKind::SqrtX)
+        );
+    }
+
+    #[test]
+    fn page3_slot1_hits_increment() {
+        let carousel = carousel();
+
+        assert_eq!(
+            carousel.hit_test(&Palette::Full, 3, carousel.slot_rect(1).center()),
+            Some(CarouselHit::Gate(36))
+        );
+    }
+
+    #[test]
+    fn page3_slot2_hits_decrement() {
+        let carousel = carousel();
+
+        assert_eq!(
+            carousel.hit_test(&Palette::Full, 3, carousel.slot_rect(2).center()),
+            Some(CarouselHit::Gate(37))
         );
     }
 
@@ -391,7 +437,7 @@ mod tests {
         let carousel = carousel();
 
         assert_eq!(
-            carousel.hit_test(&Palette::Full, 9, carousel.slot_rect(0).center()),
+            carousel.hit_test(&Palette::Full, 9, carousel.slot_rect(2).center()),
             Some(CarouselHit::Gate(PALETTE_CIRCUIT_BLOCK_INDEX))
         );
     }

@@ -2,6 +2,9 @@ import { expect, test, type Page } from '@playwright/test'
 import {
   chromium,
   dragPointer,
+  getCircuitCellCenter,
+  getCircuitOriginY,
+  getCircuitWireY,
   getDragPreviewAboveStatePanelProbe,
   getPaletteGateCenter,
   getPlainChromiumLaunchOptions,
@@ -59,20 +62,6 @@ const execModeProbePoints = (cssWidth: number): PixelSamplePoint[] => [
 
 const CIRCUIT_PICKER_TOOLBAR_SHIFT = 98 // default auto-width picker trigger + toolbar gap-2
 const RUN_GPU_BUTTON_POINT: Point = { x: 236 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 22 }
-const TEST_REM = 32
-const TEST_GATE_SIZE = UI_CONSTANTS.GATE_SIZE
-const TEST_PALETTE_ROW_Y = 2.5 * TEST_REM
-const TEST_PALETTE_ROW_GAP = 8
-const TEST_PALETTE_PADDING_Y = 20
-const TEST_PALETTE_CIRCUIT_GAP = 48
-const TEST_CIRCUIT_LINE_Y =
-  TEST_PALETTE_ROW_Y +
-  TEST_GATE_SIZE * 2 +
-  TEST_PALETTE_ROW_GAP +
-  TEST_PALETTE_PADDING_Y +
-  TEST_PALETTE_CIRCUIT_GAP +
-  TEST_GATE_SIZE / 2
-const TEST_CIRCUIT_LINE_GAP = UI_CONSTANTS.LINE_GAP
 
 type StatePopupProbeGeometry = {
   cellCenter: Point
@@ -83,15 +72,10 @@ type StatePopupProbeGeometry = {
   popupValueAnchor: Point
 }
 
-const EGUI_PANEL_MARGIN = 8
+const firstGateCenter = (cssWidth: number): Point => getCircuitCellCenter(cssWidth)
 
-const firstGateCenter = (): Point => ({
-  x: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
-  y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y,
-})
-
-const firstGateOuterChromeProbe = (): PixelSamplePoint => {
-  const gate = firstGateCenter()
+const firstGateOuterChromeProbe = (cssWidth: number): PixelSamplePoint => {
+  const gate = firstGateCenter(cssWidth)
   return {
     name: 'outerChrome',
     x: gate.x,
@@ -99,15 +83,15 @@ const firstGateOuterChromeProbe = (): PixelSamplePoint => {
   }
 }
 
-const sampleFirstGateOuterChrome = async (page: Page) => {
-  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [firstGateOuterChromeProbe()])
+const sampleFirstGateOuterChrome = async (page: Page, cssWidth: number) => {
+  const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [firstGateOuterChromeProbe(cssWidth)])
   return pixels.outerChrome
 }
 
-const waitForFirstGateOuterChromeBlue = async (page: Page): Promise<boolean> => {
+const waitForFirstGateOuterChromeBlue = async (page: Page, cssWidth: number): Promise<boolean> => {
   let observed = false
   for (let attempt = 0; attempt < 8; attempt += 1) {
-    observed = pixelRgbDistance(await sampleFirstGateOuterChrome(page), FLEXOKI_BLUE_600) < 60
+    observed = pixelRgbDistance(await sampleFirstGateOuterChrome(page, cssWidth), FLEXOKI_BLUE_600) < 60
     if (observed) return observed
     await page.waitForTimeout(50)
   }
@@ -190,16 +174,16 @@ test('dropping and clicking a placed gate do not paint persistent outer chrome',
   const source = getPaletteGateCenter(box.width, 0)
   const target = {
     x: UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
-    y: UI_CONSTANTS.LINE_Y,
+    y: getCircuitWireY(box.width),
   }
-  const gate = firstGateCenter()
+  const gate = firstGateCenter(box.width)
 
   await dragPointer(page, source, target)
   await waitForHashCols(page, [['H']])
-  const afterDropIsBlue = await waitForFirstGateOuterChromeBlue(page)
+  const afterDropIsBlue = await waitForFirstGateOuterChromeBlue(page, box.width)
 
   await page.mouse.click(box.x + gate.x, box.y + gate.y)
-  const afterClickIsBlue = await waitForFirstGateOuterChromeBlue(page)
+  const afterClickIsBlue = await waitForFirstGateOuterChromeBlue(page, box.width)
 
   expect({ afterDropIsBlue, afterClickIsBlue }).toEqual({
     afterDropIsBlue: false,
@@ -314,13 +298,8 @@ test('Run GPU submits small GPU-mode circuits without using the local panel', as
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2.5 * REM
-  const PALETTE_ROW_GAP = 8
-  const PALETTE_PADDING_Y = 20
-  const PALETTE_CIRCUIT_GAP = 48
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y =
-    PALETTE_ROW_Y + GATE_SIZE * 2 + PALETTE_ROW_GAP + PALETTE_PADDING_Y + PALETTE_CIRCUIT_GAP + GATE_SIZE / 2
+  const LINE_Y = getCircuitWireY(cssWidth)
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
@@ -364,13 +343,8 @@ test('toolbar undo and redo restore committed circuit history', async ({ page })
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2.5 * REM
-  const PALETTE_ROW_GAP = 8
-  const PALETTE_PADDING_Y = 20
-  const PALETTE_CIRCUIT_GAP = 48
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y =
-    PALETTE_ROW_Y + GATE_SIZE * 2 + PALETTE_ROW_GAP + PALETTE_PADDING_Y + PALETTE_CIRCUIT_GAP + GATE_SIZE / 2
+  const LINE_Y = getCircuitWireY(cssWidth)
 
   const xSource = getPaletteGateCenter(cssWidth, 1)
   const hSource = getPaletteGateCenter(cssWidth, 0)
@@ -424,7 +398,7 @@ test('toolbar undo and redo restore committed circuit history', async ({ page })
 })
 
 test('Local mode refuses a 17th qubit drop', async ({ page }) => {
-  await page.setViewportSize({ width: 1000, height: 1200 })
+  await page.setViewportSize({ width: 1000, height: 1280 })
   const col0: Array<string | number> = Array(16).fill(1)
   col0[15] = 'X'
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [col0] })))
@@ -439,7 +413,7 @@ test('Local mode refuses a 17th qubit drop', async ({ page }) => {
   }
   const cssWidth = box?.width ?? 1000
   const source = getPaletteGateCenter(cssWidth, 0)
-  const targetY17 = TEST_CIRCUIT_LINE_Y + 16 * TEST_CIRCUIT_LINE_GAP
+  const targetY17 = getCircuitWireY(cssWidth, 16)
   await dragPointer(page, source, { x: 180, y: targetY17 }, 8, true)
   await page.waitForTimeout(100)
 
@@ -451,7 +425,7 @@ test('Local mode refuses a 17th qubit drop', async ({ page }) => {
 })
 
 test('GPU mode accepts a 17th qubit drop', async ({ page }) => {
-  await page.setViewportSize({ width: 1000, height: 1200 })
+  await page.setViewportSize({ width: 1000, height: 1280 })
   const col0: Array<string | number> = Array(16).fill(1)
   col0[15] = 'X'
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [col0] })))
@@ -476,7 +450,7 @@ test('GPU mode accepts a 17th qubit drop', async ({ page }) => {
   }
 
   const source = getPaletteGateCenter(cssWidth, 0)
-  const targetY17 = TEST_CIRCUIT_LINE_Y + 16 * TEST_CIRCUIT_LINE_GAP
+  const targetY17 = getCircuitWireY(cssWidth, 16)
   await dragPointer(page, source, { x: 180, y: targetY17 }, 8, true)
   await page.waitForTimeout(100)
 
@@ -799,13 +773,8 @@ test('snapped dragging grows state vector before drop without mutating URL', asy
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2.5 * REM
-  const PALETTE_ROW_GAP = 8
-  const PALETTE_PADDING_Y = 20
-  const PALETTE_CIRCUIT_GAP = 48
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y =
-    PALETTE_ROW_Y + GATE_SIZE * 2 + PALETTE_ROW_GAP + PALETTE_PADDING_Y + PALETTE_CIRCUIT_GAP + GATE_SIZE / 2
+  const LINE_Y = getCircuitWireY(cssWidth)
   const LINE_GAP = UI_CONSTANTS.LINE_GAP
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
@@ -838,12 +807,13 @@ test('dragging a placed gate left of the circuit removes it', async ({ page }) =
 
   await waitForStartupReady(page, { waitForStateVector: true })
 
+  const circuitOriginY = await getCircuitOriginY(page)
   const placedGateCenterX = UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE
   const outsideLeftSnapRadiusX = placedGateCenterX - UI_CONSTANTS.SNAP_DISTANCE - 1
   await dragPointer(
     page,
-    { x: placedGateCenterX, y: TEST_CIRCUIT_LINE_Y },
-    { x: outsideLeftSnapRadiusX, y: TEST_CIRCUIT_LINE_Y }
+    { x: placedGateCenterX, y: circuitOriginY },
+    { x: outsideLeftSnapRadiusX, y: circuitOriginY }
   )
 
   await waitForHashCols(page, [])
@@ -868,7 +838,7 @@ test('dropping within the 40px sticky snap range commits to the nearest slot', a
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const targetX = UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE
   const verticalOffsetInside40pxSnap = 26
-  await dragPointer(page, hSource, { x: targetX, y: TEST_CIRCUIT_LINE_Y + verticalOffsetInside40pxSnap })
+  await dragPointer(page, hSource, { x: targetX, y: getCircuitWireY(cssWidth) + verticalOffsetInside40pxSnap })
 
   await waitForHashCols(page, [['H']])
   expect(readCircuitColsFromHash(page.url())).toEqual([['H']])
@@ -895,13 +865,8 @@ test('dropping between existing columns inserts a new column', async ({ page }) 
   const CIRCUIT_PADDING = 2 * REM
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
-  const PALETTE_ROW_Y = 2.5 * REM
-  const PALETTE_ROW_GAP = 8
-  const PALETTE_PADDING_Y = 20
-  const PALETTE_CIRCUIT_GAP = 48
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y =
-    PALETTE_ROW_Y + GATE_SIZE * 2 + PALETTE_ROW_GAP + PALETTE_PADDING_Y + PALETTE_CIRCUIT_GAP + GATE_SIZE / 2
+  const LINE_Y = getCircuitWireY(cssWidth)
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const xSource = getPaletteGateCenter(cssWidth, 1)

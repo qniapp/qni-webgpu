@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  getCircuitOriginY,
+  UI_CONSTANTS,
   readMeasurementOutcomes,
   readStateVector,
   waitForStartupReady,
@@ -41,7 +43,7 @@ test('detector axis icons and GPU click digits', async ({ page }) => {
     ['XDetector', 'XDetector', 'YDetector', 'YDetector'],
   ])
   await expect(page).toHaveScreenshot('detector-clicks.png', {
-    clip: { x: 310, y: 240, width: 56, height: 224 },
+    clip: { x: 310, y: 240 + await getCircuitOriginY(page) - UI_CONSTANTS.LINE_Y, width: 56, height: 224 },
   })
 })
 
