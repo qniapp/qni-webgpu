@@ -73,6 +73,17 @@ impl QniApp {
         // the pan/anchor math is one frame ahead of radius/cell_pitch and the
         // GPU-rendered circles visibly wobble during wheel zoom.
         state_frame = self.prepare_state_panel_frame(screen_rect);
+        #[cfg(target_arch = "wasm32")]
+        if !self.mode.uses_browser_state() {
+            if let Some(content_rect) = circuit_frame.content_rect {
+                self.publish_embed_touch_targets(
+                    ctx,
+                    content_rect,
+                    screen_rect,
+                    &state_frame.layout,
+                );
+            }
+        }
         self.draw_frame_overlay(
             ctx,
             frame,

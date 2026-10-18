@@ -3,7 +3,7 @@ use eframe::egui;
 use super::{DragController, DragPointer};
 use crate::app::{CircuitColumnIndex, QniApp};
 
-/// A press on empty circuit space in the vertical layout. Moving past the
+/// A press on empty circuit space. Moving past the
 /// click distance pans the circuit along its time axis; releasing without
 /// moving selects the step under the press.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -44,8 +44,14 @@ impl DragController {
                 // Count the movement inside the click distance too, so the
                 // circuit stays under the finger.
                 let from = if was_panning { pan.last } else { pan.press };
+                let delta = pos - from;
+                let time_delta = if app.orientation.is_vertical() {
+                    delta.y
+                } else {
+                    delta.x
+                };
                 app.circuit_scroll_time =
-                    (app.circuit_scroll_time - (pos.y - from.y)).clamp(0.0, max_scroll);
+                    (app.circuit_scroll_time - time_delta).clamp(0.0, max_scroll);
                 ctx.request_repaint();
             }
             pan.last = pos;
