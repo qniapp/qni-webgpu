@@ -116,18 +116,6 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
     }) {
         return Some(gate.kind.label().to_owned());
     }
-    // The Qiskit backend has no classical flags: qni measurement variables
-    // (`Measure>a`) and conditional gates (`X<a`) run only on local WebGPU.
-    if let Some((gate, flag)) = placed_gates
-        .iter()
-        .find_map(|gate| gate.flag.as_ref().map(|flag| (gate, flag)))
-    {
-        return Some(format!(
-            "{}{}",
-            gate.kind.spec().url_token,
-            flag.token_suffix()
-        ));
-    }
     let max_column = placed_gates
         .iter()
         .map(|gate| gate.column.as_usize())
@@ -702,6 +690,28 @@ mod gate_tests {
     }
 
     #[test]
+    fn external_gpu_payload_preserves_classical_flag_tokens() {
+        let gates = flagged_gates(r#"{"cols":[["Measure>a"],["X<a"],["S†<a"]]}"#);
+        let columns = crate::url_circuit::circuit_columns_to_json(
+            &gates,
+            crate::qubit_count::QubitCount::try_new(1).unwrap(),
+        );
+        let payload = super::qiskit_run_payload_with_display_outputs(
+            1,
+            &columns,
+            super::Shots::DEFAULT,
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+        );
+        assert_eq!(
+            payload,
+            r#"{"qubits":1,"columns":[["Measure>a"],["X<a"],["S†<a"]],"shots":1024,"outputs":{"histogram":true}}"#
+        );
+    }
+
+    #[test]
     fn external_gpu_payload_preserves_exact_postselection_tokens() {
         let gates = flagged_gates(r#"{"cols":[["|0⟩⟨0|"],["|1⟩⟨1|"],["|+⟩⟨+|"],["|-⟩⟨-|"]]}"#);
         let columns = crate::url_circuit::circuit_columns_to_json(
@@ -1265,22 +1275,46 @@ mod gate_tests {
     }
 
     #[test]
-    fn external_gpu_rejects_measurement_variables() {
+    fn external_gpu_accepts_measurement_variables() {
         let gates = flagged_gates(r#"{"cols":[["H"],["Measure>aliceX"]]}"#);
 
-        assert_eq!(
-            unsupported_external_gpu_gate_for_gates(&gates),
-            Some("Measure>aliceX".to_owned())
-        );
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
     }
 
     #[test]
-    fn external_gpu_rejects_conditional_gates() {
+    fn external_gpu_accepts_conditional_gates() {
         let gates = flagged_gates(r#"{"cols":[["X<aliceX"]]}"#);
 
-        assert_eq!(
-            unsupported_external_gpu_gate_for_gates(&gates),
-            Some("X<aliceX".to_owned())
-        );
+        assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
+    }
+
+    #[test]
+    fn external_gpu_accepts_every_conditional_gate_kind() {
+        let results: Vec<_> = (0..crate::gates::PALETTE_GATE_COUNT)
+            .filter_map(crate::gates::palette_gate_kind)
+            .filter(|kind| kind.is_ifable())
+            .map(|kind| {
+                let gates =
+                    flagged_gates(&format!(r#"{{"cols":[["{}<a"]]}}"#, kind.spec().url_token));
+                (gates.len(), unsupported_external_gpu_gate_for_gates(&gates))
+            })
+            .collect();
+        assert_eq!(results, vec![(1, None); 9]);
+    }
+
+    #[test]
+    fn external_gpu_accepts_every_conditional_gate_kind_with_quantum_controls() {
+        let results: Vec<_> = (0..crate::gates::PALETTE_GATE_COUNT)
+            .filter_map(crate::gates::palette_gate_kind)
+            .filter(|kind| kind.is_ifable())
+            .map(|kind| {
+                let gates = flagged_gates(&format!(
+                    r#"{{"cols":[["•","◦","{}<a"]]}}"#,
+                    kind.spec().url_token
+                ));
+                (gates.len(), unsupported_external_gpu_gate_for_gates(&gates))
+            })
+            .collect();
+        assert_eq!(results, vec![(3, None); 9]);
     }
 }

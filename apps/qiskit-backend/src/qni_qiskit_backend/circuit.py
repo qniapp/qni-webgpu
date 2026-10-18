@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
 CONTROL_TOKENS = {"•", "●", "control", "Control"}
@@ -76,6 +76,42 @@ def split_parametric(token: str) -> tuple[str, str | None]:
 
 
 BasisTracker = list[int | None]
+IFABLE_TOKENS = {"H", "X", "Y", "Z", "√X", "X^½", "S", "S†", "T", "T†"}
+
+
+@dataclass
+class MeasurementFlags:
+    sources: dict[str, Any] = field(default_factory=dict)
+    writes: int = 0
+
+    def measure(self, qc: Any, wire: int, name: str) -> None:
+        # One immutable classical bit per write, not per wire: a later plain
+        # measurement/reset or another variable on that wire must not overwrite
+        # an earlier variable. flag_sources.rs publishes writes in wire order,
+        # after all column unitaries; the bottom-most write therefore wins.
+        if is_real_qiskit_circuit(qc):
+            from qiskit import ClassicalRegister
+
+            register = ClassicalRegister(1, f"flag_{self.writes}")
+            qc.add_register(register)
+            bit = register[0]
+        else:
+            bit = f"flag_{self.writes}"
+        self.writes += 1
+        qc.measure(wire, bit)
+        self.sources[name] = bit
+
+
+def split_flag_token(token: str) -> tuple[str, str | None, str | None]:
+    """Mirror gates/flag.rs; parametric gates cannot carry URL conditions."""
+    if token.startswith("Measure>"):
+        return "Measure", token.removeprefix("Measure>").strip() or None, None
+    if "<" in token:
+        base, name = token.split("<", 1)
+        if base not in IFABLE_TOKENS:
+            raise CircuitBuildError(f"unsupported gate token: {token}")
+        return base, None, name.strip() or None
+    return token, None, None
 
 
 @dataclass(frozen=True)
@@ -86,8 +122,9 @@ class QftSpec:
 
 def apply_columns_to_qiskit(qc: Any, columns: list[list[Any]], qubits: int) -> None:
     basis = initial_basis_tracker(qubits)
+    flags = MeasurementFlags()
     for column in columns:
-        apply_column_to_qiskit(qc, column, qubits, basis)
+        apply_column_to_qiskit(qc, column, qubits, basis, flag_sources=flags)
 
 
 def initial_basis_tracker(qubits: int) -> BasisTracker:
@@ -101,7 +138,11 @@ def apply_column_to_qiskit(
     basis: BasisTracker,
     *,
     save_displays: Callable[[], None] | None = None,
+    flag_sources: MeasurementFlags | None = None,
 ) -> None:
+    flags = flag_sources if flag_sources is not None else MeasurementFlags()
+    measurement_names: dict[int, str] = {}
+    conditions: dict[int, str] = {}
     controls: list[int] = []
     anti_controls: list[int] = []
     swap_wires: list[int] = []
@@ -114,6 +155,11 @@ def apply_column_to_qiskit(
         token = token_text(raw)
         if token is None:
             continue
+        token, write_name, condition_name = split_flag_token(token)
+        if write_name is not None:
+            measurement_names[wire] = write_name
+        if condition_name is not None:
+            conditions[wire] = condition_name
         if token == "ZDetectControlReset":
             if wire >= qubits:
                 raise CircuitBuildError("ZDetectControlReset references a wire beyond qubits")
@@ -163,11 +209,25 @@ def apply_column_to_qiskit(
         qc.h(wire)
     apply_swap(qc, swap_wires, controls, anti_controls, basis)
     operations = group_same_angle_phases(deferred)
-    if any(token in POSTSELECTION_TOKENS for _, token in deferred):
-        # WebGPU expands QFT after ordinary targets, including projectors.
+    if conditions or any(token in POSTSELECTION_TOKENS for _, token in deferred):
+        # WebGPU expands QFT after ordinary targets, including conditional
+        # gates and projectors, even when the QFT starts on an earlier wire.
         operations.sort(key=lambda op: parse_qft_token(split_parametric(op[1])[0]) is not None)
     for wire, token, partners in operations:
-        apply_gate(qc, wire, token, controls + partners, anti_controls, qubits, basis)
+        if wire not in conditions:
+            apply_gate(qc, wire, token, controls + partners, anti_controls, qubits, basis)
+            continue
+        bit = flags.sources.get(conditions[wire])
+        if bit is None:
+            # Never-set flags are false, including writes later in this column.
+            continue
+        branch_basis = basis[:]
+        with qc.if_test((bit, 1)):
+            apply_gate(qc, wire, token, controls + partners, anti_controls, qubits, branch_basis)
+        # The tracker must describe both classical branches, so later writes
+        # retain the existing deterministic-basis restriction rather than guess.
+        basis[:] = [before if before == after else None
+                    for before, after in zip(basis, branch_basis)]
     apply_control_only_z(
         qc,
         controls,
@@ -192,6 +252,10 @@ def apply_column_to_qiskit(
                 basis[wire] = None
         else:
             apply_measurements(qc, [wire], controls, anti_controls)
+            if wire in measurement_names:
+                # Also retain the ordinary wire bit, exactly as plain Measure.
+                # The repeated measurement has no intervening quantum operation.
+                flags.measure(qc, wire, measurement_names[wire])
     for wire, token in reversed(detector_targets):
         qc.h(wire)
         if token == "YDetector":

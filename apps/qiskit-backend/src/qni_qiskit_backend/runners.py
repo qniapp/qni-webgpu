@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from contextlib import ExitStack
 from typing import Any, Protocol, Sequence
 
-from .circuit import apply_column_to_qiskit, initial_basis_tracker, postselection_registers
+from .circuit import (
+    MeasurementFlags,
+    apply_column_to_qiskit,
+    initial_basis_tracker,
+    postselection_registers,
+)
 from .contract import (
     AmplitudeOutputRequest,
     BlochOutputRequest,
@@ -108,10 +113,7 @@ class QiskitRunner:
             raise RunnerUnavailable(f"{self.name} execution failed: {exc}") from exc
 
         counts = normalize_qiskit_counts(result.get_counts())
-        if postselection_registers(qc):
-            # Extra bits record rejection, not a quantum state to recompute.
-            counts = {key[-qubits:]: count for key, count in counts.items()
-                      if "1" not in key[:-qubits]}
+        counts = public_histogram(qc, counts, qubits)
         response = histogram_response(
             runner=self.name,
             qubits=qubits,
@@ -165,6 +167,7 @@ def add_display_saves(
     qubits = request.qubits.value
     basis = qiskit_basis_order(qubits) if request.amplitude_outputs else []
     basis_tracker = initial_basis_tracker(qubits)
+    flags = MeasurementFlags()
     for column_index, column in enumerate(request.columns):
         def save_displays() -> None:
             for amplitude in amplitudes_by_column.get(column_index, []):
@@ -206,7 +209,8 @@ def add_display_saves(
                     stack.enter_context(qc.if_test((register[0], 0)))
                 save_displays()
 
-        apply_column_to_qiskit(qc, column, qubits, basis_tracker, save_displays=save_kept_displays)
+        apply_column_to_qiskit(qc, column, qubits, basis_tracker,
+                               save_displays=save_kept_displays, flag_sources=flags)
     return amplitude_labels, bloch_labels, probability_labels, density_labels
 
 
@@ -701,6 +705,19 @@ def normalize_amplitudes(raw_ket: Sequence[complex], unity: float, theta: float)
 def normalize_incoherent(probabilities: Sequence[float], unity: float) -> list[float]:
     scale = 1 / math.sqrt(max(unity, 1e-12))
     return [math.sqrt(max(value, 0.0)) * scale for value in probabilities]
+
+
+def public_histogram(qc: Any, counts: dict[str, int], qubits: int) -> dict[str, int]:
+    # Flags and rejection bits can be interleaved. Only postselection bits
+    # reject a shot; strip ALL auxiliary bits and sum collisions afterward.
+    # These are classical records, not CPU-side quantum state calculations.
+    rejection_mask = sum(1 << qc.find_bit(register[0]).index
+                         for register in postselection_registers(qc))
+    histogram: dict[str, int] = defaultdict(int)
+    for key, count in counts.items():
+        if not int(key, 2) & rejection_mask:
+            histogram[key[-qubits:]] += count
+    return dict(sorted(histogram.items()))
 
 
 def normalize_qiskit_counts(counts: dict[str, int]) -> dict[str, int]:
