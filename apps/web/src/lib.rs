@@ -280,6 +280,8 @@ async fn start_runner(
     canvas: web_sys::HtmlCanvasElement,
     embed: Option<app::EmbedStartup>,
 ) -> Result<QniRunner, JsValue> {
+    use eframe::egui;
+
     let standalone = embed.is_none();
     if standalone {
         crate::test_hooks::set_startup_stage("runner-start");
@@ -291,8 +293,9 @@ async fn start_runner(
     };
     let render_state = std::rc::Rc::new(std::cell::RefCell::new(None));
     let captured_render_state = render_state.clone();
-    let egui_ctx = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let egui_ctx = std::rc::Rc::new(std::cell::RefCell::new(None::<egui::Context>));
     let captured_ctx = egui_ctx.clone();
+    let touch_ctx = egui_ctx.clone();
     let web_options = eframe::WebOptions {
         wgpu_options: eframe::egui_wgpu::WgpuConfiguration {
             wgpu_setup: setup,
@@ -300,6 +303,22 @@ async fn start_runner(
         },
         // An autofocused INPUT scrolls the host article to the embed on load.
         text_agent_autofocus: standalone,
+        should_prevent_default: Box::new(move |event| {
+            if standalone {
+                return true;
+            }
+            // Decide at touchstart, while the canvas listener can still
+            // prevent native scrolling. Document touchmove may be passive.
+            match event {
+                egui::Event::PointerButton {
+                    pos, pressed: true, ..
+                } => touch_ctx
+                    .borrow()
+                    .as_ref()
+                    .is_some_and(|ctx| QniApp::embed_captures_touch(ctx, *pos)),
+                _ => true,
+            }
+        }),
         ..Default::default()
     };
     let runner = eframe::WebRunner::new();
@@ -329,8 +348,8 @@ async fn start_runner(
         return Err(JsValue::from_str("WebGPU render state missing"));
     };
     let egui_ctx = egui_ctx
-        .borrow_mut()
-        .take()
+        .borrow()
+        .clone()
         .expect("context captured at startup");
     Ok(QniRunner {
         runner,
@@ -341,6 +360,9 @@ async fn start_runner(
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
+/// Standalone test harness only: reads the buffer last published by any runner's
+/// GPU preparation. Does not synchronize a pending selection or identify an embed.
+/// Embedders must use their QniRunner's read_state_vector instead.
 pub async fn read_state_vector() -> Result<js_sys::Float32Array, wasm_bindgen::JsValue> {
     gpu::read_state_vector_impl().await
 }
