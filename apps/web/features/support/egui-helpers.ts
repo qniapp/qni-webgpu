@@ -3,10 +3,20 @@ import os from 'node:os'
 import path from 'node:path'
 import type { Locator, Page } from 'playwright'
 import { UI_CONSTANTS } from '../../test-support/generated-ui-constants'
-import { getPaletteGateCenter } from '../../test-support/palette-layout'
+import { fullPaletteCircuitOffsetY, getPaletteGateCenter } from '../../test-support/palette-layout'
 import type { CanvasPixel, DragPreviewProbe, PixelSamplePoint, Point } from './support-types'
 
 export { getPaletteGateCenter }
+
+// 全パレット・コメントブロックなしの横レイアウト用。
+// ワイヤ座標はパネル内、セル座標はキャンバス内（幅 656px 以上）。
+export const getCircuitWireY = (cssWidth: number, wire = 0): number =>
+  UI_CONSTANTS.LINE_Y + fullPaletteCircuitOffsetY(cssWidth) + wire * UI_CONSTANTS.LINE_GAP
+
+export const getCircuitCellCenter = (cssWidth: number, column = 0, wire = 0): Point => ({
+  x: 8 + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + column * UI_CONSTANTS.SLOT_SPACING,
+  y: 8 + getCircuitWireY(cssWidth, wire),
+})
 
 declare global {
   interface Window {
@@ -440,6 +450,9 @@ const requireCanvasBoundingBox = async (page: Page): Promise<CanvasBoundingBox> 
   }
   return box
 }
+
+export const getCircuitOriginY = async (page: Page): Promise<number> =>
+  getCircuitWireY((await requireCanvasBoundingBox(page)).width)
 
 export const sampleCanvasPixels = async (
   page: Page,
