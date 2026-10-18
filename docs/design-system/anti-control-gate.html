@@ -291,7 +291,7 @@
         <tr><td>空円の内側</td><td><code>bg-2</code></td><td>8 px (spacing-2) の円で背面のワイヤ (<code>ui-2</code>) を隠す。40 px 領域全体は透明のままにする</td></tr>
         <tr><td>縦コネクタ</td><td><code>cyan-400</code></td><td><code>CONNECTOR_STROKE_WIDTH = 4 px</code> の矩形。中心 ±6 px の隙間付きで分割描画する</td></tr>
         <tr><td>ホバー枠</td><td><code>purple-400</code></td><td><code>gate_hover_border</code> ロール。回路上では stroke-only</td></tr>
-        <tr><td>ドラッグ中</td><td><code>purple-600</code></td><td><code>drag_fill</code> ロール。空円のストロークだけを置き換える</td></tr>
+        <tr><td>ドラッグ中</td><td><code>purple-600</code></td><td><code>drag_fill</code> ロール。40 × 40 px、角丸 6 px の本体を追加してワイヤを覆い、記号は <code>label</code> (<code>bg</code>) で描く</td></tr>
         <tr><td>ワイヤ</td><td><code>ui-2</code></td><td>透明な 40 px 領域の背面に見える。ただし空円の穴の内側だけは bg-2 マスクで隠す</td></tr>
       </tbody>
     </table>
@@ -307,7 +307,7 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>占有領域</th><td><code>40 × 40 px</code>。本体塗りはないが、ホバー / ドラッグ / 当たり判定はこの透明な領域で持つ。空円の穴だけ 8 px の背景マスクを重ねる</td></tr>
+        <tr><th>占有領域</th><td><code>40 × 40 px</code>。通常時は透明で、空円の穴だけ 8 px の背景マスクを重ねる。ドラッグ中は領域全体を紫の本体で覆う</td></tr>
         <tr><th>空円</th><td>viewBox 48 上の <code>cx=24, cy=24, r=5, stroke-width=3</code>。SVG は <code>fill=none</code>、回路上では内側に 8 px (spacing-2) の bg-2 マスクを敷く。40 px 表示時の見た目は外半径 ~5.4 px (外径 ~10.8 px) / 線幅 ~2.5 px</td></tr>
         <tr><th>占有スロット</th><td><code>56 × 56 px</code>。40 px 領域はスロット中央に置く</td></tr>
         <tr><th>縦コネクタ</th><td>列の中心 x に <code>4 px</code> 幅の矩形。最上端の制御 / 対象中心から最下端の中心までを結ぶ</td></tr>
@@ -356,7 +356,7 @@
         <div class="actual"><anti-control-gate state="hover"></anti-control-gate></div>
       </div>
       <div class="col">
-        <div class="caption">③ ドラッグ<br>purple-600</div>
+        <div class="caption">③ ドラッグ中<br>purple-600 本体 + bg 記号</div>
         <div class="actual"><anti-control-gate state="drag"></anti-control-gate></div>
       </div>
       <div class="col">

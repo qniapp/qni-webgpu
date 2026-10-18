@@ -217,10 +217,10 @@
           <td><code>gate_hover_border</code> ロール。回路上では本体 fill がないため、cyan ゲート (H / Rz) のような内側 bg 塗りは置かず、40 px 領域から 4 px 外へ拡張した 2 px の単線枠にする。パレット上では親の <code>.gp-gate</code> が surface gap 枠を描く</td>
         </tr>
         <tr>
-          <td>ドラッグ時の色変化</td>
-          <td>—</td>
-          <td>—</td>
-          <td>本体 fill を持たないため、cyan-400 → purple-600 の差し替えは起こさない。ドラッグ中は cursor と配置先候補スロットのハイライトで示す (§ 05)</td>
+          <td>ドラッグ中の色変化</td>
+          <td><code>purple-600 / purple-300 / bg</code></td>
+          <td>本体 / 括弧 / 数字</td>
+          <td>40 × 40 px、角丸 6 px の本体を <code>drag_fill</code> (purple-600) で塗る。括弧は <code>drag_accent</code> (purple-300)、数字は <code>label</code> (<code>bg</code>) にする (§ 05)</td>
         </tr>
       </tbody>
     </table>
@@ -344,9 +344,8 @@
   <div class="card">
     <p>
       既定に加え、ホバー / ドラッグ状態を <code>state</code> 属性で強制したモック。
-      |0⟩ オペレーションは本体 fill を持たないため、ドラッグ時も括弧とディジットの色は変えない。
-      ドラッグ状態の識別は cursor (<code>grabbing</code>) が担う。回路セル外でドラッグカーソル下に出る
-      プレビューも色は変えず、配置先候補スロットのハイライトと組み合わせて位置を伝える点が、cyan-400 系のゲート (H / Rz など) との大きな違い。
+      ドラッグ中は紫の角丸本体でワイヤを覆い、括弧を薄紫、数字を明るい色にする。
+      セルの外に浮いている間も、セルに重なっている間も同じ見た目にする。
     </p>
     <div class="stage">
       <div class="col">
@@ -358,13 +357,12 @@
         <div class="actual"><write0-gate state="hover"></write0-gate></div>
       </div>
       <div class="col">
-        <div class="caption">③ ドラッグ<br>色は不変<br>(cursor: grabbing)</div>
+        <div class="caption">③ ドラッグ中<br>紫の本体 + 薄紫の括弧<br>明るい数字</div>
         <div class="actual"><write0-gate state="drag"></write0-gate></div>
       </div>
     </div>
     <p class="note" style="margin-top: 16px;">
-      ③ はドラッグ中のカーソル下に表示されるプレビュー。実 UI ではホバー枠を重ねず、
-      字形そのものは既定と同じまま表示する。
+      ③ はドラッグ中のカーソル下に表示されるプレビュー。実 UI ではホバー枠を重ねない。
       |0⟩ オペレーションは span = 1 固定なので、どの状態でもリサイズハンドルは出さない。
       パラメタを持たないため、Rz / Phase ゲートのようなポップオーバ編集 UI も無い。
     </p>
@@ -431,7 +429,7 @@
       <li><strong>ケット括弧を tx-2 にする</strong>: 括弧自体は意味を持たないただのクロム (区切り記号)。tx-2 で目立たせず、データインクであるディジットを際立たせる。X ゲートの "+" や Rz の文字グリフが <code>paper</code> = #FFFCF0 で本体上にコントラスト 3.4 で乗るのと違い、|0⟩ は背景 (paper) に乗るので、stroke 色は paper にできず、可読な中性トーン tx-2 を選ぶ</li>
       <li><strong>ディジット "0" を red-600 にする</strong>: 色対 <code>red-600</code> = 0 / off と <code>blue-600</code> = 1 / on を UI 全体 (確率表示 / Measurement / |0⟩/|1⟩ operation) で 1 つに固定する。緑 / 青 / 紫など他の色を試すと、「on/off の対」という意味が崩れる</li>
       <li><strong>回路上のホバー枠を bg 塗りなしの単線にする</strong>: cyan-400 ゲートでは「本体 + paper 2 px + purple 2 px」の二層枠を使うが、本体が透明な |0⟩ では内側を paper で塗るとケット括弧と枠の間に余計な色面が生まれ、可読性が落ちる。回路上では 40 px 領域から 4 px 外へ拡張した purple-400 の単線枠にし、パレット上では親の <code>.gp-gate</code> が surface gap 枠を描く</li>
-      <li><strong>ドラッグ時に色を変えない</strong>: cyan-400 ゲートは本体 fill を <code>cyan-400 → purple-600</code> に差し替えてドラッグを示すが、本体 fill のない |0⟩ ではこの方法が使えない。色を変えない代わりに、drag preview がうっすらしか目立たないため、cursor: grabbing と配置先候補スロットのハイライト (回路グリッド側で別途定義) で位置を伝える</li>
+      <li><strong>ドラッグ中は紫の本体を追加する</strong>: 元の Qni に合わせ、通常時は透明な操作も共通の本体で操作中だと示す。ドラッグ中は数字の red / blue を <code>label</code> (<code>bg</code>) に置き換える (ドラッグ中だけの例外)。</li>
       <li><strong>パラメタを持たない</strong>: Rz / Phase ゲートのような連続パラメタが無く、配置即確定。|0⟩ ↔ |1⟩ の切替は別ゲート (<a href="write1-gate.html">|1⟩ オペレーション</a>) として独立に並べる方が、palette / 回路上での識別が早い</li>
       <li><strong>span = 1 固定</strong>: 多量子ビット同時リセットは複数 |0⟩ オペレーションを縦に並べて表現する。表示ブロックや QFT のような span リサイズは持たない</li>
     </ul>

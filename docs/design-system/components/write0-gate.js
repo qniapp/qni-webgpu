@@ -20,7 +20,12 @@
     user-select: none;
     cursor: grab;
   }
-  :host([state="drag"]) { cursor: grabbing; }
+  :host([state="drag"]) {
+    cursor: grabbing;
+    background: var(--purple-600);        /* Flexoki purple-600 / drag_fill */
+    border-radius: 6px;
+    color: var(--bg);                     /* Flexoki bg / label */
+  }
 
   .hover-frame {
     position: absolute;
@@ -40,6 +45,8 @@
     pointer-events: none;
     overflow: visible;
   }
+  :host([state="drag"]) svg line { stroke: var(--purple-300); } /* Flexoki purple-300 / drag_accent */
+  :host([state="drag"]) svg g { fill: var(--bg); } /* Flexoki bg / label */
 </style>
 <div class="hover-frame"></div>
 <svg viewBox="0 0 48 48" aria-hidden="true">

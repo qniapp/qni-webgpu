@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   dragPointer,
+  getCircuitCellCenter,
   isDragPreviewFill,
   pixelRgbDistance,
   sampleCanvasPixels,
@@ -11,11 +12,13 @@ import {
   type Point,
 } from './support/web-spec-helpers'
 
-test.use({ viewport: { width: 1280, height: 800 } })
+const VIEWPORT = { width: 1280, height: 800 }
 
-const SOURCE: Point = { x: 170, y: 264 }
-const OFFGRID: Point = { x: 320, y: 470 }
-const SLOT: Point = { x: 282, y: 264 }
+test.use({ viewport: VIEWPORT })
+
+const SOURCE: Point = getCircuitCellCenter(VIEWPORT.width)
+const OFFGRID: Point = getCircuitCellCenter(VIEWPORT.width, 3, 4)
+const SLOT: Point = getCircuitCellCenter(VIEWPORT.width, 2)
 const LABEL: CanvasPixel = [255, 252, 240, 255]
 
 const BODY_OFFSETS: Record<string, Point> = {

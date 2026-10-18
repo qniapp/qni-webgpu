@@ -22,7 +22,12 @@
     cursor: grab;
     isolation: isolate;
   }
-  :host([state="drag"]) { cursor: grabbing; }
+  :host([state="drag"]) {
+    cursor: grabbing;
+    background: var(--purple-600);        /* Flexoki purple-600 / drag_fill */
+    border-radius: 6px;
+    color: var(--bg);                     /* Flexoki bg / label */
+  }
 
   .circuit-frame {
     position: absolute;

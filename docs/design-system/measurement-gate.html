@@ -284,7 +284,7 @@
   <h2><span class="num">§ 04</span>状態バリアント</h2>
   <div class="card">
     <p>
-      測定ゲートは、本体色をドラッグ中に変えない。透明領域 + メーターという形を保ち、意味色は「未測定 purple」「測定後 red / blue」に限定する。
+      ドラッグ中は 40 × 40 px、角丸 6 px の本体を <code>drag_fill</code> (purple-600) で塗り、ワイヤを覆う。メーターは <code>drag_accent</code> (purple-300)、測定結果の数字は <code>label</code> (<code>bg</code>) にする。セルに重なっている間も同じ配色とする。
     </p>
     <div class="stage">
       <div class="col">
@@ -296,11 +296,19 @@
         <div class="actual"><measurement-gate state="hover"></measurement-gate></div>
       </div>
       <div class="col">
-        <div class="caption">③ ドラッグ<br>色変化なし</div>
+        <div class="caption">③ ドラッグ中<br>紫の本体 + 薄紫のメーター</div>
         <div class="actual"><measurement-gate state="drag"></measurement-gate></div>
       </div>
       <div class="col">
-        <div class="caption">④ 測定後<br>結果を重ねる</div>
+        <div class="caption">④ ドラッグ中の結果 0<br>明るい数字</div>
+        <div class="actual"><measurement-gate state="drag" outcome="0"></measurement-gate></div>
+      </div>
+      <div class="col">
+        <div class="caption">⑤ ドラッグ中の結果 1<br>明るい数字</div>
+        <div class="actual"><measurement-gate state="drag" outcome="1"></measurement-gate></div>
+      </div>
+      <div class="col">
+        <div class="caption">⑥ 測定後<br>結果を重ねる</div>
         <div class="actual"><measurement-gate outcome="1"></measurement-gate></div>
       </div>
     </div>

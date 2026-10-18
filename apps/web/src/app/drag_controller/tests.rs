@@ -1960,7 +1960,7 @@ fn source_roles(op: &str, shift: Option<HeldAt>) -> Vec<String> {
     roles_inside(&app, &shapes, rect)
 }
 
-const SOURCE_OPS: [&str; 15] = [
+const SOURCE_OPS: [&str; 17] = [
     "|0>",
     "|1>",
     "Measure",
@@ -1976,6 +1976,8 @@ const SOURCE_OPS: [&str; 15] = [
     "Sample1",
     "H",
     "X",
+    "inc1",
+    "dec1",
 ];
 
 #[test]
@@ -2059,7 +2061,7 @@ fn held_bloch_has_no_square_drag_body() {
     );
 }
 
-const EGUI_DRAWN_OPS: [&str; 29] = [
+const EGUI_DRAWN_OPS: [&str; 31] = [
     "H",
     "X",
     "Y",
@@ -2075,6 +2077,8 @@ const EGUI_DRAWN_OPS: [&str; 29] = [
     "Rz",
     "QFT1",
     "QFT†1",
+    "inc1",
+    "dec1",
     "Swap",
     "•",
     "◦",
@@ -2170,4 +2174,52 @@ fn offgrid_sample_drag_outlines_the_tile_in_drag_fill() {
 #[test]
 fn snapped_sample_drag_outlines_the_live_tile_in_drag_fill() {
     assert!(sample_outlined(HeldAt::Slot));
+}
+
+const ARITHMETIC_OPS: [&str; 2] = ["inc1", "dec1"];
+
+fn held_arithmetic_roles(shift: bool, at: HeldAt) -> Vec<(&'static str, Vec<String>)> {
+    ARITHMETIC_OPS
+        .iter()
+        .map(|&op| (op, held_roles(op, shift, at)))
+        .collect()
+}
+
+fn grabbed_arithmetic_roles() -> Vec<(&'static str, Vec<String>)> {
+    ARITHMETIC_OPS
+        .iter()
+        .map(|&op| (op, PLAIN.iter().map(|&role| role.to_owned()).collect()))
+        .collect()
+}
+
+#[test]
+fn offgrid_arithmetic_drag_paints_a_light_glyph_on_drag_fill() {
+    assert_eq!(
+        held_arithmetic_roles(false, HeldAt::Offgrid),
+        grabbed_arithmetic_roles()
+    );
+}
+
+#[test]
+fn snapped_arithmetic_drag_paints_a_light_glyph_on_drag_fill() {
+    assert_eq!(
+        held_arithmetic_roles(false, HeldAt::Slot),
+        grabbed_arithmetic_roles()
+    );
+}
+
+#[test]
+fn offgrid_arithmetic_shift_copy_paints_a_light_glyph_on_drag_fill() {
+    assert_eq!(
+        held_arithmetic_roles(true, HeldAt::Offgrid),
+        grabbed_arithmetic_roles()
+    );
+}
+
+#[test]
+fn snapped_arithmetic_shift_copy_paints_a_light_glyph_on_drag_fill() {
+    assert_eq!(
+        held_arithmetic_roles(true, HeldAt::Slot),
+        grabbed_arithmetic_roles()
+    );
 }

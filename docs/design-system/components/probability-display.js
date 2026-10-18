@@ -14,6 +14,7 @@
     blue400: '#4385BE',   // Flexoki blue-400
     tx3: '#B7B5AC',       // Flexoki tx-3
     purple100: '#ECE1F3', // Flexoki purple-100
+    dragFill: '#5E409D',  // Flexoki purple-600 / drag_fill
   });
 
   const TEMPLATE = document.createElement('template');
@@ -238,6 +239,9 @@
     transform: translateX(-50%) scale(1.25);
     transition: none;
   }
+  :host([state="drag"]) .cd { background: var(--purple-600); box-shadow: none; } /* Flexoki purple-600 / drag_fill */
+  :host([state="drag"]) canvas.cd-canvas { box-shadow: none; }
+  :host([state="drag"]) .row:hover::after { display: none; }
 </style>
 <div class="render-root"></div>
 `;
@@ -409,6 +413,7 @@
     }
 
     #buildCanvas(probs, totalH, opts) {
+      const drag = this.getAttribute('state') === 'drag';
       const n = probs.length;
       const rowH = totalH / n;
       const w = 40;
@@ -424,7 +429,7 @@
       ctx.scale(dpr, dpr);
 
       if (opts.placeholder) {
-        ctx.fillStyle = CANVAS_COLORS.purple100;
+        ctx.fillStyle = drag ? CANVAS_COLORS.dragFill : CANVAS_COLORS.purple100;
         ctx.fillRect(0, 0, w, h);
         if (rowH > 2) {
           ctx.strokeStyle = CANVAS_COLORS.ui2;
@@ -443,7 +448,7 @@
         return canvas;
       }
 
-      ctx.fillStyle = CANVAS_COLORS.bg;
+      ctx.fillStyle = drag ? CANVAS_COLORS.dragFill : CANVAS_COLORS.bg;
       ctx.fillRect(0, 0, w, h);
       const showText = !opts.icon && n <= 16 && rowH > 8;
       const showLogHints = !opts.icon && !showText;
