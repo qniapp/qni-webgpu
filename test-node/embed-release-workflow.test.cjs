@@ -91,7 +91,11 @@ for (const [name, change] of [
   })
 }
 
-function runReleaseStep(scenario, stepName = 'Check tag and release absence') {
+const payloadTypes = ['text/javascript; charset=utf-8', 'application/wasm', 'text/javascript; charset=utf-8', 'text/javascript; charset=utf-8', 'image/svg+xml', 'text/css; charset=utf-8', 'text/javascript; charset=utf-8', 'text/plain; charset=utf-8']
+const uploadTypes = [...payloadTypes, 'application/json', 'text/plain; charset=utf-8']
+const stagedManifest = () => ({ files: assets.slice(0, -2).map((name, index) => ({ name, content_type: payloadTypes[index] })) })
+
+function runReleaseStep(scenario, stepName = 'Check tag and release absence', changeManifest = () => {}) {
   const source = workflow()
   const block = source.split(`      - name: ${stepName}\n`)[1].split('\n      - name:')[0]
   const script = block.split('        run: |\n')[1].split('\n').filter(line => line.startsWith('          ') || line.trim() === '').map(line => line.replace(/^          /, '')).join('\n')
@@ -136,6 +140,9 @@ console.log('HTTP/2.0 404 Not Found\\n\\n{"message":"Not Found"}')
 process.exit(1)
 `, { mode: 0o755 })
     for (const name of assets) fs.writeFileSync(path.join(dir, name), name)
+    const manifest = stagedManifest()
+    changeManifest(manifest)
+    fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest))
     fs.writeFileSync(path.join(dir, 'embed-release-notes.md'), 'release notes')
     const result = spawnSync('bash', ['-euo', 'pipefail', '-c', script], { encoding: 'utf8', env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, SCENARIO: scenario, ASSET_METADATA: JSON.stringify(assets.map(name => ({ name, size: Buffer.byteLength(name) }))), CALLS: path.join(dir, 'calls'), CREATED: path.join(dir, 'created'), PUBLISHED: path.join(dir, 'published'), RELEASE_ID: '42', TAG: `embed-${'a'.repeat(40)}`, GITHUB_SHA: 'a'.repeat(40), GITHUB_REPOSITORY: 'owner/repo', RUNNER_TEMP: dir, GITHUB_ENV: path.join(dir, 'env'), GH_TOKEN: 'mock', GITHUB_TOKEN: 'mock-github', RELEASE_ASSETS: assets.join(' '), STAGING: dir } })
     const authenticatedCalls = fs.readFileSync(path.join(dir, 'calls'), 'utf8').trim().split('\n').map(line => JSON.parse(line))
@@ -204,7 +211,7 @@ test('post-create ownership uses the response id even when the release list is e
 
 test('binary upload sizes match every staged file', () => {
   const result = runReleaseStep('absent', 'Create draft and upload all assets')
-  assert.deepEqual(result.authenticatedCalls.filter(call => call.args.includes('--input')).map(call => call.size), assets.map(name => Buffer.byteLength(name)))
+  assert.deepEqual(result.authenticatedCalls.filter(call => call.args.includes('--input')).map(call => call.size), assets.map(name => Buffer.byteLength(name === 'manifest.json' ? JSON.stringify(stagedManifest()) : name)))
 })
 
 test('remote metadata verification reads the release by id', () => {
@@ -213,7 +220,37 @@ test('remote metadata verification reads the release by id', () => {
 
 test('draft upload uses exactly the ten ID-addressed binary uploads', () => {
   const result = runReleaseStep('absent', 'Create draft and upload all assets')
-  assert.deepEqual(result.calls.filter(args => args.some(a => a.startsWith('https://uploads.github.com/'))).map(args => ({ endpoint: args.find(a => a.startsWith('https://')), method: args[args.indexOf('--method') + 1], header: args[args.indexOf('-H') + 1], file: path.basename(args[args.indexOf('--input') + 1]) })), assets.map(name => ({ endpoint: `https://uploads.github.com/repos/owner/repo/releases/42/assets?name=${encodeURIComponent(name)}`, method: 'POST', header: 'Content-Type: application/octet-stream', file: name })))
+  assert.deepEqual(result.calls.filter(args => args.some(a => a.startsWith('https://uploads.github.com/'))).map(args => ({ endpoint: args.find(a => a.startsWith('https://')), method: args[args.indexOf('--method') + 1], header: args[args.indexOf('-H') + 1], file: path.basename(args[args.indexOf('--input') + 1]) })), assets.map((name, index) => ({ endpoint: `https://uploads.github.com/repos/owner/repo/releases/42/assets?name=${encodeURIComponent(name)}`, method: 'POST', header: `Content-Type: ${uploadTypes[index]}`, file: name })))
+})
+
+test('payload upload uses the recorded type rather than inferring it from the extension', () => {
+  const result = runReleaseStep('absent', 'Create draft and upload all assets', manifest => { manifest.files[0].content_type = 'application/x-recorded-type' })
+  assert.equal(result.calls.find(args => args.includes('--input'))?.find(arg => arg.startsWith('Content-Type:')), 'Content-Type: application/x-recorded-type')
+})
+
+for (const [name, change] of [
+  ['missing payload', manifest => { manifest.files.shift() }],
+  ['missing content type', manifest => { delete manifest.files[0].content_type }],
+  ['empty content type', manifest => { manifest.files[0].content_type = '' }],
+  ['whitespace content type', manifest => { manifest.files[0].content_type = '   ' }],
+  ['non-string content type', manifest => { manifest.files[0].content_type = 42 }],
+]) {
+  test(`upload fails closed for ${name}`, () => {
+    assert.notEqual(runReleaseStep('absent', 'Create draft and upload all assets', change).status, 0)
+  })
+  test(`invalid first payload prevents any uploads for ${name}`, () => {
+    const result = runReleaseStep('absent', 'Create draft and upload all assets', change)
+    assert.deepEqual(result.calls.filter(args => args.includes('--input')), [])
+  })
+}
+
+test('a missing later payload type fails the upload step', () => {
+  assert.notEqual(runReleaseStep('absent', 'Create draft and upload all assets', manifest => { delete manifest.files[7].content_type }).status, 0)
+})
+
+test('a missing later payload type prevents that upload and all remaining uploads', () => {
+  const result = runReleaseStep('absent', 'Create draft and upload all assets', manifest => { delete manifest.files[7].content_type })
+  assert.deepEqual(result.calls.filter(args => args.includes('--input')).map(args => path.basename(args[args.indexOf('--input') + 1])), assets.slice(0, 7))
 })
 
 test('every upload immediately follows ID ownership and tag absence reads', () => {
