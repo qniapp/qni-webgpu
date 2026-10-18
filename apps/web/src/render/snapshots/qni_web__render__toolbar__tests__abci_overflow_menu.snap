@@ -1,0 +1,11 @@
+---
+source: src/render/toolbar.rs
+expression: texts
+---
+[
+    "Circuit 1",
+    "EXECUTION",
+    "Local",
+    "GPU",
+    "Tutorial",
+]

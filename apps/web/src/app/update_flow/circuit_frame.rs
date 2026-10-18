@@ -124,6 +124,7 @@ impl QniApp {
         let pointer_pos = ctx.input(|input| input.pointer.latest_pos());
         let pointer_over_picker = self
             .picker_overlay_rect
+            .or(self.toolbar_more_overlay_rect)
             .is_some_and(|picker_rect| pointer_pos.is_some_and(|pos| picker_rect.contains(pos)));
         let pointer_over_vertical_panels =
             self.orientation.is_vertical() && pointer_pos.is_some_and(|pos| !rect.contains(pos));
@@ -252,6 +253,82 @@ impl QniApp {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "pages")))]
+    fn hover_angle_label_behind_more(blocked: bool) -> QniApp {
+        let ctx = egui::Context::default();
+        let mut app = QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));
+        let json = r#"{"cols":[["Rx"]]}"#;
+        app.load_circuit_json_into_editor(json, &ctx);
+        app.library = crate::app::circuit_library::for_startup(json.to_owned(), true).0;
+        app.orientation = crate::layout::CircuitOrientation::Vertical;
+        app.exec_mode = crate::app::ExecMode::Gpu;
+        app.toolbar_more.open = true;
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(280.0, 800.0));
+        let _ = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(screen),
+                ..Default::default()
+            },
+            |_| {
+                app.show_exec_mode_toolbar(&ctx, &app.colors());
+            },
+        );
+        let popup = app.toolbar_more_overlay_rect.expect("More is open");
+        let content = app.vertical_circuit_rect(screen);
+        let metrics = app.circuit_layout_metrics(content);
+        let projection = app.circuit_projection(content, 0.0);
+        let pointer = (popup.top().ceil() as i32..popup.bottom().floor() as i32)
+            .flat_map(|y| {
+                (popup.left().ceil() as i32..popup.right().floor() as i32)
+                    .map(move |x| egui::pos2(x as f32, y as f32))
+            })
+            .find(|&pos| {
+                app.angle_label_at_local_pos(Some(projection.to_local(pos)), &metrics, None)
+                    .is_some()
+            })
+            .expect("fixture angle label must sit behind the actual More popup");
+        if !blocked {
+            app.toolbar_more_overlay_rect = None;
+        }
+        // Isolate the raw circuit-frame input gate from egui's separate popup
+        // layer hit testing. The app retains the measured More overlay rect.
+        let input_ctx = egui::Context::default();
+        for _ in 0..2 {
+            let _ = input_ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(screen),
+                    events: vec![egui::Event::PointerMoved(pointer)],
+                    ..Default::default()
+                },
+                |ui| {
+                    app.show_circuit_scroll_area(
+                        &input_ctx,
+                        ui,
+                        screen,
+                        None,
+                        false,
+                        &app.colors(),
+                    );
+                },
+            );
+        }
+        app
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "pages")))]
+    #[test]
+    fn more_popup_blocks_angle_label_hover_in_circuit_frame() {
+        let app = hover_angle_label_behind_more(true);
+        assert!(app.angle_affordance.is_none());
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "pages")))]
+    #[test]
+    fn angle_label_behind_more_is_hoverable_without_overlay_blocking() {
+        let app = hover_angle_label_behind_more(false);
+        assert!(app.angle_affordance.is_some());
+    }
 
     #[test]
     fn vertical_circuit_area_stays_put_while_a_drag_grows_the_state_panel() {

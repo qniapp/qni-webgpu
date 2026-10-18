@@ -1,3 +1,4 @@
+pub(super) use super::super::toolbar_chrome::{paint_divider, paint_section_header, popover_frame};
 use eframe::egui;
 
 use crate::app::circuit_library::CircuitEntry;
@@ -7,26 +8,10 @@ use super::constants::{
     ITEMS_SCROLLBAR_HOVER_ALPHA, ITEMS_SCROLLBAR_IDLE_ALPHA, ITEMS_SCROLLBAR_OUTER_MARGIN,
     ITEMS_SCROLLBAR_THUMB_RADIUS, ITEMS_SCROLLBAR_W, ITEM_HEIGHT, ITEM_PAD_X, ITEM_RADIUS,
     RESIZE_HANDLE_ACTIVE_STROKE, RESIZE_HANDLE_IDLE_STROKE, RESIZE_HANDLE_LINE_INSET_X,
-    ROW_ICON_SIZE, ROW_TEXT_OFFSET, SECTION_HEADER_HEIGHT, SECTION_HEADER_TOP_MARGIN,
+    ROW_ICON_SIZE, ROW_TEXT_OFFSET,
 };
 
-pub(super) fn popover_frame(colors: &Colors) -> egui::Frame {
-    egui::Frame {
-        inner_margin: egui::Margin::same(crate::tailwind::SPACING_1_5 as i8),
-        fill: colors.surface,
-        stroke: egui::Stroke::new(1.0_f32, colors.line),
-        corner_radius: egui::CornerRadius::same(crate::tailwind::ROUNDED_XL),
-        outer_margin: egui::Margin::ZERO,
-        shadow: egui::epaint::Shadow {
-            offset: [0, 12],
-            blur: 32,
-            spread: 0,
-            color: with_alpha(colors.text_strong, 25),
-        },
-    }
-}
-
-#[cfg(all(target_arch = "wasm32", debug_assertions))]
+#[cfg(target_arch = "wasm32")]
 pub(super) fn publish_picker_dropdown_geometry_json(
     trigger_rect: egui::Rect,
     dropdown_rect: egui::Rect,
@@ -46,7 +31,7 @@ pub(super) fn publish_picker_dropdown_geometry_json(
     );
 }
 
-#[cfg(any(not(target_arch = "wasm32"), not(debug_assertions)))]
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) fn publish_picker_dropdown_geometry_json(
     _trigger_rect: egui::Rect,
     _dropdown_rect: egui::Rect,
@@ -229,48 +214,6 @@ pub(super) fn paint_picker_item_text(
     );
 }
 
-pub(super) fn paint_section_header(
-    ui: &mut egui::Ui,
-    colors: &Colors,
-    label: &'static str,
-    top_margin: bool,
-) -> egui::Rect {
-    if top_margin {
-        ui.add_space(SECTION_HEADER_TOP_MARGIN);
-    }
-    let (rect, _) = ui.allocate_exact_size(
-        egui::vec2(ui.available_width(), SECTION_HEADER_HEIGHT),
-        egui::Sense::hover(),
-    );
-    let color = colors.toolbar_icon_disabled;
-    let galley = ui.painter().layout_no_wrap(
-        label.to_owned(),
-        egui::FontId::new(crate::tailwind::TEXT_XS, egui::FontFamily::Proportional),
-        color,
-    );
-    let text_pos = egui::pos2(
-        rect.left() + ROW_TEXT_OFFSET,
-        rect.center().y - galley.size().y / 2.0,
-    );
-    let line_y = rect.center().y;
-    ui.painter().line_segment(
-        [
-            egui::pos2(rect.left() + ITEM_PAD_X, line_y),
-            egui::pos2(rect.left() + ITEM_PAD_X + ROW_ICON_SIZE, line_y),
-        ],
-        egui::Stroke::new(1.0_f32, colors.line),
-    );
-    ui.painter().galley(text_pos, galley.clone(), color);
-    ui.painter().line_segment(
-        [
-            egui::pos2(text_pos.x + galley.size().x + 6.0, line_y),
-            egui::pos2(rect.right() - 4.0, line_y),
-        ],
-        egui::Stroke::new(1.0_f32, colors.line),
-    );
-    rect
-}
-
 pub(super) fn footer(ui: &mut egui::Ui, colors: &Colors) -> (egui::Response, egui::Rect) {
     let (rect, response) = ui.allocate_exact_size(
         egui::vec2(ui.available_width(), ITEM_HEIGHT),
@@ -385,18 +328,6 @@ pub(super) fn submenu_item(
     response
 }
 
-pub(super) fn paint_divider(ui: &mut egui::Ui, colors: &Colors) {
-    let (rect, _) =
-        ui.allocate_exact_size(egui::vec2(ui.available_width(), 13.0), egui::Sense::hover());
-    ui.painter().line_segment(
-        [
-            egui::pos2(rect.left() + 4.0, rect.center().y),
-            egui::pos2(rect.right() - 4.0, rect.center().y),
-        ],
-        egui::Stroke::new(1.0_f32, colors.line),
-    );
-}
-
 pub(super) fn paint_chevron(
     painter: &egui::Painter,
     center: egui::Pos2,
@@ -460,3 +391,17 @@ fn rotate(point: egui::Vec2, angle: f32) -> egui::Vec2 {
     let (sin, cos) = angle.sin_cos();
     egui::vec2(point.x * cos - point.y * sin, point.x * sin + point.y * cos)
 }
+
+#[cfg(target_arch = "wasm32")]
+pub(super) fn clear_picker_geometry() {
+    for key in [
+        crate::test_hooks::QNI_CIRCUIT_PICKER_DROPDOWN_GEOMETRY_JSON,
+        crate::test_hooks::QNI_CIRCUIT_PICKER_GEOMETRY_JSON,
+        crate::test_hooks::QNI_CIRCUIT_PICKER_RESIZE_GEOMETRY_JSON,
+        crate::test_hooks::QNI_CIRCUIT_PICKER_RENAME_GEOMETRY_JSON,
+    ] {
+        crate::test_hooks::set_window_value(key, &wasm_bindgen::JsValue::from_str(""));
+    }
+}
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn clear_picker_geometry() {}

@@ -89,6 +89,7 @@ impl QniApp {
 
         let pointer_over_picker = self
             .picker_overlay_rect
+            .or(self.toolbar_more_overlay_rect)
             .is_some_and(|rect| pos.is_some_and(|pos| rect.contains(pos)));
         let no_gesture = self.dragging.is_none()
             && self.span_resize_drag.is_none()
