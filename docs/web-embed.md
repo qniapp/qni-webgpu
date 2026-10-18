@@ -48,6 +48,53 @@ wasm-bindgen の版は Cargo.lock の依存関係と合わせる。現在の確�
 この組み合わせでは通常アプリと埋め込みの最適化済みの成果物を実際の WebGPU ブラウザで起動し、
 H ゲートの実行結果とエラーがないことを確認した。版や引数を変えたときも成果物をブラウザで確認する。
 
+## 互換性の契約
+
+公開成果物の `qni-embed.mjs` は `EMBED_API_VERSION = 1` と `SOURCE_COMMIT` を公開する。
+前者は互換性の契約を表す整数、後者はビルド元の完全な 40 桁のコミット SHA である。
+ビルド時は `QNI_SOURCE_COMMIT`、`GITHUB_SHA`、`git rev-parse HEAD` の順で値を選ぶ。
+指定値が 40 桁の 16 進数でない場合と、開発用の `embed.mjs` を直接使う場合は `"unknown"` になる。
+同じビルドの 4 ファイルを同じディレクトリへ配置し、異なるビルドのファイルを混ぜない。
+
+契約の対象は以下に限る。引数、戻り値、既定値と操作の意味は本書の各節に従う。
+
+- 定数: `EMBED_API_VERSION`、`SOURCE_COMMIT`。
+- 入口: `startEmbed(canvas, circuit, settings)`。
+- 設定: `palette` (省略・空配列・指定配列)、`maxWireCount`、`showStatePanel`、`showRestartButton`、`startupTimeoutMs`。
+- 通知: `onProgress({stage, loaded, total})`、`onRestart()`、`onDeviceLost(error)`。
+- ランナー: `selectStep(n)`、`selectedStep()`、`stepCount()`、`preferredHeight(width)`、`circuitJSON()`、`readStateVector()`、`destroy()`。
+- エラー用の独立モジュール: `QniStartupError`、`diagnoseWebGpu()`、`renderStartupError()`、`STARTUP_ERROR_CODES`。
+  これらは `qni-embed.mjs` からも再公開する。
+
+`circuitJSON()` は **同期的に文字列を返す**。Promise は返さない。
+`readStateVector()` はテスト専用の明示的な GPU 読み戻しで、描画には使わない。
+`preferredHeight(width)` は繰り返し呼んでよく、250 ミリ秒ごとの問い合わせにも GPU 読み戻しは発生しない。
+
+次の変更では `EMBED_API_VERSION` を増やす。
+
+- 対象の公開名、メソッド、設定、通知の削除や改名。
+- 引数・戻り値の型、同期・非同期の区別、既定値、ステップ番号の意味の変更。
+- 既存のエラーコードの意味や通知の順序の変更。
+- 受理する回路 JSON の形式を狭める変更。
+
+新しい任意設定、メソッド、公開名の追加は互換性を保つ追加とする。
+新しいエラーコードも追加できるため、ホストは未知のコードを一般的な失敗として扱わなければならない。
+既存コードの意味を別の原因へ流用してはならない。表示文言や内部構造、描画の細かな寸法は契約に含めない。
+
+`prepareEmbed` は任意の先読み用 API で、この契約の対象外である。
+`classifyStartupError`、`preflightSync`、`detectPlatform`、`startupErrorContent`、低水準の `qni-web.js`、
+Performance API のマーク、内部のテスト用フックも対象外である。
+これらを利用する場合は、特定の `SOURCE_COMMIT` に固定し、そのビルドでの動作をホスト側で検証する。
+特に大域関数 `read_state_vector()` は埋め込み用ではない。必ず `runner.readStateVector()` を使う。
+
+### 対応端末
+
+モバイルも正式な対応対象である。WebGPU が使える Android の Chrome、iPhone・iPad の Safari を含む。
+デスクトップでは WebGPU が使える Windows / macOS の Chrome と Edge、macOS の Safari を対象とする。
+端末やブラウザが WebGPU に対応しない場合も、`diagnoseWebGpu` と `renderStartupError` で
+デスクトップと同じ原因別の診断・エラー画面を提供する。CPU や WebGL での代替計算は行わない。
+Chromium のモバイル模擬環境で操作を検証するが、各 OS・ブラウザの実機検証の代わりにはならない。
+
 ## JavaScript API
 
 ```js
@@ -114,6 +161,7 @@ const state = await runner.readStateVector() // CNOT を適用した直後の状
 `selectStep(n: number): void` は、回路のステップをクリックしたときと同じように固定選択を変更する。
 `n` はブロックの印 (`"{ラベル"` と `"}"`) を除いた列の 0 始まりの番号。
 初期化や表示ブロック、空の列も数えるが、エディタが右端に補う空の操作領域は数えない。
+幅のある表示ブロックと後続列が重なる入力は読み込み時に後続列をずらすため、番号と列数はその調整後の回路を基準にする。
 ステップ 0 は最初の列を適用した直後であり、適用前の初期状態ではない。
 `n` は `-1 <= n < runner.stepCount()` を満たす整数でなければならない。
 `-1` は最初の列より前の初期状態 `|0…0⟩` を選ぶ。小数、NaN、無限大、範囲外の値は `RangeError`、数値以外は `TypeError` を同期的に投げ、選択を変えない。
@@ -133,12 +181,20 @@ UI で回路の右側の空の操作領域を選んだ場合は、表示され�
 ゲートのドラッグ中やローカル実行以外では読み戻しを拒否する。
 ドラッグ中の `selectStep(n)` は確定済み回路の番号を選ぶ。ただし、回路の変更を確定すると、この選択も解除して最終状態を表示する。
 回路が変わらなかった場合やドラッグを取り消した場合は固定選択を保つ。
-破棄後は、回路やステップの取得、ステップの選択、読み戻しがエラーになる。
+読み戻す GPU バッファはランナーごとに独立している。複数の回路を同時に起動しても、
+ほかの回路の選択や描画は `runner.readStateVector()` の結果に混ざらない。
+1 個のランナーを破棄しても、ほかのランナーの選択と読み戻しは引き続き使える。
+
+`destroy()` は何度呼んでもよい。破棄後はそれ以外の全メソッドが
+`name: "Error"`、`message: "Circuit runner is destroyed"`、`code: "runner-destroyed"` のエラーになる。
+同期メソッドは同期的に投げ、`readStateVector()` はこのエラーで Promise を拒否する。
+破棄とデバイス喪失が重なった場合は破棄後のエラーを優先する。
 
 ### 再実行ボタン
 
 `showRestartButton: true` と `onRestart` を両方渡すと、青い状態バーの右端、状態数の右隣に円形の矢印を表示する。
 ボタンの読み上げ名とホバー時の説明は「量子回路を実行」。キーボードでも操作できる。
+キャンバスにフォーカスした状態から Shift+Tab で再実行ボタンへ移り、Enter または Space で実行できる。
 状態数の表示と操作領域を左へずらし、ボタンの領域ではパネルをドラッグしない。
 狭い埋め込みでは状態数とボタンを優先し、両方のラベルが収まらないときは左の量子ビット数を省く。
 状態数も収まらない幅では、状態数の左側をパネル内で切り取る。
@@ -150,6 +206,10 @@ UI で回路の右側の空の操作領域を選んだ場合は、表示され�
 現在のランナーを破棄して同じキャンバスで起動し直せる。通知関数は例外を投げないようにする。
 通知は描画処理が終わった後のマイクロタスクで届けるため、その中で回路の取得や破棄をしてよい。
 通知前に破棄されたランナーやデバイスを失ったランナーからは通知しない。
+
+新しいランナーには新しい測定用の乱数種を割り当て、測定結果を起動し直すたびに抽出し直す。
+同じランナー内のステップ選択や読み戻しだけでは抽出し直さず、選択した位置の状態を比較できる。
+
 低水準の `start_embed` を直接使う場合は、通知関数内で同じランナーを操作せず、
 `queueMicrotask` でホスト側の処理を遅らせる。
 
@@ -197,7 +257,11 @@ Liquid フィルタ `mini_qni` (`_plugins/mini_qni_filter.rb`) で作る回路�
 量子ビットのラベル (`q0:` など) を線の直前に右寄せし、線の始まりを描画領域の左端から 40px に置く。
 右側の余白も 64px から 16px に減らす。
 390px 幅のチュートリアルページ (キャンバス 354px) でも 5 列のゲートが切れずに収まる。
-それより長い回路は、従来どおりホイールやトラックパッドの横スクロールで右側を表示する。
+それより長い回路は、ホイールやトラックパッドの横スクロール、またはタッチの横スワイプで右側を表示する。
+ゲートのない回路領域では、タップするとステップを選択し、横スワイプすると回路を横へ動かす。
+ゲートやパレット項目から始めたドラッグはゲートの移動・配置として扱う。
+空白からの縦スワイプは記事の縦スクロールへ渡す。ホストは `preferredHeight` で必要な高さを確保し、
+キャンバスの CSS に `touch-action: none` を指定してはならない (記事のスクロールを妨げるため)。
 描画領域が 640px 以上なら配置は変わらない。
 
 ### 初期表示と状態パネルの配置
@@ -264,18 +328,20 @@ canvas.style.height = `${height}px`
 `cause` は元の例外、`detail` は HTTP 状態などの補足情報を持つ。
 `onDeviceLost(error)` にも `gpu-device-lost` のエラーを渡す。
 
-| コード | 見出し |
-| --- | --- |
-| `insecure-context` | 安全な接続で開いてください |
-| `wasm-unavailable` | ブラウザーの設定で止められています |
-| `webgpu-unsupported` | このブラウザーでは動きません |
-| `gpu-adapter-unavailable` | GPU を使えませんでした |
-| `gpu-device-unavailable` | GPU の準備に失敗しました |
-| `gpu-device-lost` | GPU との接続が切れました |
-| `load-failed` | 読み込みに失敗しました |
-| `startup-timeout` | 起動が止まってしまいました |
-| `invalid-embed` | 回路のデータに問題があります |
-| `unknown` | 量子回路を起動できませんでした |
+`STARTUP_ERROR_CODES` は次のコードを並べた凍結済みの配列である。
+
+| コード | 意味 | 見出し |
+| --- | --- | --- |
+| `insecure-context` | 安全でない接続 | 安全な接続で開いてください |
+| `wasm-unavailable` | WebAssembly が利用不能 | ブラウザーの設定で止められています |
+| `webgpu-unsupported` | WebGPU API が利用不能 | このブラウザーでは動きません |
+| `gpu-adapter-unavailable` | アダプタ取得が失敗、または結果が null | GPU を使えませんでした |
+| `gpu-device-unavailable` | GPU デバイスの取得・準備が失敗 | GPU の準備に失敗しました |
+| `gpu-device-lost` | 共有 GPU デバイスを喪失 | GPU との接続が切れました |
+| `load-failed` | モジュール・wasm の取得、コンパイル、リンクが失敗 | 読み込みに失敗しました |
+| `startup-timeout` | GPU の起動待ちが指定期限を超過 | 起動が止まってしまいました |
+| `invalid-embed` | 不正な回路・設定、または起動中のキャンバス切断 | 回路のデータに問題があります |
+| `unknown` | 分類できない失敗 | 量子回路を起動できませんでした |
 
 ```js
 let errors
@@ -336,7 +402,10 @@ wasm のダウンロードとコンパイルは期限に含めない。
 埋め込み API はキャンバスを起動する。カスタム要素は自動登録しない。
 ホスト側で旧 Qni と異なる名前 (例: `qni-webgpu-circuit`) を登録し、shadow DOM にキャンバスを作る。
 `connectedCallback` で起動し、`disconnectedCallback` で破棄する。
-起動待ちの間に切断された場合も、Promise が完了したらそのハンドルを破棄する。
+起動待ちの間にキャンバスが切断された場合、起動処理は接続状態を確認し、作成済みのハンドルがあれば破棄して
+`invalid-embed` (`Embed canvas is disconnected`) で拒否する。ホストは起動の Promise の拒否を必ず処理する。
+切断や再接続に伴う古い起動の拒否は画面にエラーを表示せずに処理し、新しい起動の表示を上書きしない。
+起動が先に完了した場合も、切断時にそのハンドルを破棄する。
 再接続時には新しいハンドルを作り、前の起動処理の完了を待ってから同じキャンバスを使う。
 
 ## 入力用 `<input>` の autofocus
@@ -351,7 +420,8 @@ eframe 0.35.0 は IME とモバイルキーボード用の隠し `<input>` に�
 
 ```sh
 bash apps/web/scripts/build-embed.sh
-pnpm -C apps/web exec playwright test tests/embed.spec.ts --workers=1
+pnpm -C apps/web exec playwright test tests/embed.spec.ts tests/embed-contract.spec.ts \
+  tests/embed-mobile-contract.spec.ts tests/embed-startup-error.spec.ts --workers=1
 ```
 
 `pnpm -C apps/web run test:pw-legacy` と `pnpm -C apps/web test` は、埋め込み用の成果物を毎回ビルドしてから全テストを実行する。
@@ -367,19 +437,39 @@ UI のクリックとの一致、ホバー表示、低水準の API、描画前�
 ステップ選択の前後で必要な高さが変わらないことと、破棄後の高さ取得の拒否も確認する。
 入力用 `<input>` に autofocus が付かないことと、長い記事の下に埋め込んでもページが先頭のままであることを確認する。
 角度エディタへの文字入力が `<input>` を通って回路に反映されること、単体アプリでは autofocus が残ることも確認する。
+契約のテストでは、成果物を実際の別 HTTP サーバから CORS 付きで配信し、
+入れ子のパスからの読み込み、ビルド元の SHA、同期の回路取得、11 個の異なる回路の同時起動と独立した読み戻しを検証する。
+共有デバイスの喪失通知を模擬する検査に加え、実際の `GPUDevice.destroy()` による喪失と新しいデバイスでの復旧も検証する。
+390px・DPR 2 のモバイル模擬環境では、タップ、横スワイプ、ゲートのドラッグ、記事の縦スクロールを検証する。
 GPU の読み戻しは明示的な検証時だけ行う。
 
-## 未対応事項
+## 共有 GPU の喪失と復旧
 
-- TODO: デバイス喪失への復旧を追加する。
-- TODO: 複数の埋め込みで使うスレッドローカルの状態をインスタンスごとに分ける。
-  `apps/web/src/icons/svg_icon.rs` の `TEXTURE_CACHE` は別の egui コンテキストのテクスチャを共有してしまう。
-  `apps/web/src/icons/sdf_icon.rs` の描画先形式も共有され、異なる形式では衝突する。
-  `apps/web/src/gpu/readback.rs` の GPU ハンドルとスロット一覧は最後に描画したランナーを指す。
-  これらのハンドルは破棄後も最後の GPU リソースを保持するため、破棄は完全な GPU メモリ解放を保証しない。
-  回路ライブラリとテストフックの状態、外部実行の通信状態も共有される。
-  埋め込みでは通常アプリのフックと外部実行を使わないが、複数同時配置の保証はまだない。
-  テスト専用の読み戻し関数はランナーを指定できないので、検証対象は 1 個ずつにする。
+同じモジュールから起動した埋め込みは GPU デバイスを共有する。
+共有デバイスが失われると、ページの `qni-device-lost` 通知を受けた、まだ破棄されていない全ランナーが
+`onDeviceLost(error)` を 1 回ずつ呼ぶ。起動中も通知の対象で、起動の Promise も `gpu-device-lost` で拒否する。
+通知を受けたランナー同士の呼び出し順には依存しない。破棄済みのランナーは通知しない。
+`onDeviceLost` は同期的に呼ばれ、まだ届いていない `onRestart` は取り消される。
+起動中の切断とデバイス喪失が重なった場合、起動の拒否では `gpu-device-lost` を優先する。
+すでに届いた `onRestart` を取り消すことはない。
 
-対応対象は WebGPU が使える Windows / macOS の Chrome と Edge、macOS の Safari。
-すべての対象ブラウザでの実機検証は別途必要。
+喪失後も `circuitJSON()` は同期的に現在の確定済み回路を返し、`destroy()` は使える。
+それ以外のメソッドは `name: "Error"`、`message: "Qni GPU device lost"`、`code: "gpu-device-lost"` のエラーになる。
+`readStateVector()` では Promise を拒否する。
+ホストは各ランナーの `circuitJSON()` を保存して `destroy()` し、その文字列で `startEmbed` を呼び直す。
+実際のデバイス喪失時には共有デバイスの保持を解除し、次の起動で新しいデバイスを準備する。
+回路は保持するが、測定の標本結果・選択位置・編集履歴は引き継がない。
+
+## 契約外の共有状態
+
+大域関数 `read_state_vector()` は単体アプリのテスト用で、このモジュールで最後に GPU の描画準備・状態更新を
+行ったランナーの登録済みバッファと状態数を使う。明示的なランナーの読み戻しも登録を更新する。
+最終状態または選択列のバッファを指すが、登録時点の複製ではなく、保留中の選択を同期しない。
+埋め込みが同居する場合はそのバッファを指すこともあるため、埋め込みでは `runner.readStateVector()` を使う。
+
+インスタンスごとの分離が未完了の内部状態もある。
+`apps/web/src/icons/svg_icon.rs` の `TEXTURE_CACHE` は別の egui コンテキストのテクスチャを共有し、
+`apps/web/src/icons/sdf_icon.rs` の描画先形式も共有する。
+大域的な読み戻し用の GPU ハンドルとスロット一覧は最後に更新したランナーを指し、破棄後もリソースを保持し得るため、
+`destroy()` は完全な GPU メモリ解放を保証しない。
+回路ライブラリ、テストフック、外部実行の通信状態も共有されるが、埋め込みではこれらを使わない。

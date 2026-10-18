@@ -1,6 +1,10 @@
 import { QniStartupError, classifyStartupError, preflightSync, diagnoseWebGpu } from './qni-embed-error.mjs'
 export { QniStartupError, classifyStartupError, preflightSync, diagnoseWebGpu, STARTUP_ERROR_CODES, renderStartupError, detectPlatform, startupErrorContent } from './qni-embed-error.mjs'
 
+export const EMBED_API_VERSION = 1
+const buildSourceCommit = '__QNI_SOURCE_COMMIT__'
+export const SOURCE_COMMIT = /^[0-9a-f]{40}$/i.test(buildSourceCommit) ? buildSourceCommit : 'unknown'
+
 let start_embed
 
 let initialization
@@ -125,6 +129,7 @@ export async function startEmbed(canvas, circuit, { showStatePanel = true, palet
   let runner
   let lostError
   const lost = event => {
+    if (destroyed || deviceLost) return
     deviceLost = true
     lostError = new QniStartupError('gpu-device-lost', runner ? 'Qni GPU device lost' : 'Qni GPU device lost during startup', { detail: event?.detail ?? {} })
     onDeviceLost?.(lostError)
@@ -144,9 +149,12 @@ export async function startEmbed(canvas, circuit, { showStatePanel = true, palet
     if (gpuProblem) throw gpuProblem
     await wasm
     if (onProgress) onProgress({ ...progress, stage: 'gpu' })
+    if (deviceLost) throw lostError
+    if (canvas.isConnected === false) throw new QniStartupError('invalid-embed', 'Embed canvas is disconnected')
     performance.mark('qni:runner-start')
     runner = await startWithTimeout(() => start_embed(canvas, circuit, showStatePanel, palette, maxWireCount, showRestartButton, restart), startupTimeoutMs)
     if (deviceLost) throw lostError
+    if (canvas.isConnected === false) throw new QniStartupError('invalid-embed', 'Embed canvas is disconnected')
     performance.mark('qni:runner-started')
     if (onProgress) onProgress({ ...progress, stage: 'prepare' })
   } catch (error) {
@@ -159,12 +167,12 @@ export async function startEmbed(canvas, circuit, { showStatePanel = true, palet
   } finally {
     if (onProgress) listeners.delete(onProgress)
   }
-  const requireRunner = () => {
-    if (destroyed) throw new Error('Circuit runner is destroyed')
-    if (deviceLost) throw new Error('Qni GPU device lost')
+  const requireRunner = (allowDeviceLost = false) => {
+    if (destroyed) throw Object.assign(new Error('Circuit runner is destroyed'), { code: 'runner-destroyed' })
+    if (deviceLost && !allowDeviceLost) throw Object.assign(new Error('Qni GPU device lost'), { code: 'gpu-device-lost' })
   }
   return {
-    circuitJSON() { requireRunner(); return runner.circuit_json() },
+    circuitJSON() { requireRunner(true); return runner.circuit_json() },
     preferredHeight(widthCssPx) { requireRunner(); return runner.preferred_height(widthCssPx) },
     selectStep(n) { requireRunner(); return runner.selectStep(n) },
     selectedStep() { requireRunner(); return runner.selectedStep() ?? null },

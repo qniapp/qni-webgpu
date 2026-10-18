@@ -1,8 +1,9 @@
 // Keep the established preflight entry point while including the independent error API tests.
 import './embed-startup-error.test.mjs'
+import './embed-build.test.mjs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, writeFile, copyFile, rm } from 'node:fs/promises'
+import { mkdtemp, writeFile, copyFile, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -10,7 +11,8 @@ import { pathToFileURL } from 'node:url'
 async function fixture(t, headers = { 'content-type': 'application/wasm' }, fail = false, options = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'qni-embed-test-'))
   t.after(() => rm(dir, { recursive: true, force: true }))
-  await copyFile(new URL('../embed.mjs', import.meta.url), join(dir, 'embed.mjs'))
+  const source = await readFile(new URL('../embed.mjs', import.meta.url), 'utf8')
+  await writeFile(join(dir, 'embed.mjs'), options.sourceCommit === undefined ? source : source.replace('__QNI_SOURCE_COMMIT__', options.sourceCommit))
   await copyFile(new URL('../qni-embed-error.mjs', import.meta.url), join(dir, 'qni-embed-error.mjs'))
   await writeFile(join(dir, 'qni-web.js'), `
     export default async function init({module_or_path}) {
@@ -282,6 +284,15 @@ test('device loss during startup is classified', async t => {
   assert.equal((await f.module.startEmbed({ lost: { reason: 'Unknown', message: 'lost' } }, '{}').catch(e => e)).code, 'gpu-device-lost')
 })
 
+test('device loss takes priority over a concurrent startup disconnect', async t => {
+  const f = await fixture(t)
+  const canvas = { isConnected: true, late: 20, lost: { reason: 'Unknown' } }
+  const pending = f.module.startEmbed(canvas, '{}').catch(error => error)
+  await new Promise(resolve => setTimeout(resolve, 10))
+  canvas.isConnected = false
+  assert.equal((await pending).code, 'gpu-device-lost')
+})
+
 test('device loss during startup retains detail', async t => {
   const f = await fixture(t)
   assert.equal((await f.module.startEmbed({ lost: { reason: 'Unknown' } }, '{}').catch(e => e)).detail.reason, 'Unknown')
@@ -375,3 +386,75 @@ test('post-start device loss message does not describe startup', async t => {
   handle.destroy()
   assert.doesNotMatch(received.message, /during startup/)
 })
+
+
+test('embed API version is the integer contract version', async t => {
+  const f = await fixture(t)
+  assert.equal(f.module.EMBED_API_VERSION, 1)
+})
+
+for (const sourceCommit of [undefined, 'invalid', 'a'.repeat(39), 'g'.repeat(40), 'a'.repeat(40), 'ABCDEF0123'.repeat(4)]) {
+  test(`source commit validates build provenance: ${sourceCommit}`, async t => {
+    const f = await fixture(t, undefined, false, { sourceCommit })
+    assert.equal(f.module.SOURCE_COMMIT, /^[a-f0-9]{40}$/i.test(sourceCommit ?? '') ? sourceCommit : 'unknown')
+  })
+}
+
+test('circuit JSON stays synchronous and available after device loss', async t => {
+  const f = await fixture(t)
+  const runner = await f.module.startEmbed({}, '{"cols":[["H"]]}')
+  globalThis.dispatchEvent(new Event('qni-device-lost'))
+  const circuit = runner.circuitJSON()
+  runner.destroy()
+  assert.equal(circuit, '{"cols":[["H"]]}')
+})
+
+test('destroyed runner errors have a stable additive code', async t => {
+  const f = await fixture(t)
+  const runner = await f.module.startEmbed({}, '{}')
+  runner.destroy()
+  assert.throws(() => runner.circuitJSON(), { name: 'Error', message: 'Circuit runner is destroyed', code: 'runner-destroyed' })
+})
+
+test('each live runner receives device loss once and disposed runners receive none', async t => {
+  const f = await fixture(t)
+  const notifications = []
+  const handles = await Promise.all([0, 1, 2].map(index => f.module.startEmbed({}, '{}', {
+    onDeviceLost: error => notifications.push([index, error.code]),
+  })))
+  handles[1].destroy()
+  globalThis.dispatchEvent(new Event('qni-device-lost'))
+  globalThis.dispatchEvent(new Event('qni-device-lost'))
+  handles.forEach(handle => handle.destroy())
+  assert.deepEqual(notifications, [[0, 'gpu-device-lost'], [2, 'gpu-device-lost']])
+})
+
+test('lost runner readback rejects with the stable loss code', async t => {
+  const f = await fixture(t)
+  const runner = await f.module.startEmbed({}, '{}')
+  globalThis.dispatchEvent(new Event('qni-device-lost'))
+  const result = runner.readStateVector()
+  runner.destroy()
+  await assert.rejects(result, { name: 'Error', message: 'Qni GPU device lost', code: 'gpu-device-lost' })
+})
+
+test('canvas disconnected during download never starts a runner', async t => {
+  const f = await fixture(t, undefined, false, { downloadDelay: 10 })
+  const canvas = { isConnected: true }
+  const pending = f.module.startEmbed(canvas, '{}').catch(error => error)
+  canvas.isConnected = false
+  const result = await pending
+  assert.deepEqual({ code: result.code, starts: f.starts.args.length }, { code: 'invalid-embed', starts: 0 })
+})
+
+for (const property of ['destroyed', 'freed']) {
+  test(`canvas disconnected during runner startup is ${property}`, async t => {
+    const f = await fixture(t)
+    const canvas = { isConnected: true, late: 20 }
+    const pending = f.module.startEmbed(canvas, '{}').catch(error => error)
+    await new Promise(resolve => setTimeout(resolve, 10))
+    canvas.isConnected = false
+    await pending
+    assert.equal(canvas[property], 1)
+  })
+}
