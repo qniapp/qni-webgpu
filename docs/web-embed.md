@@ -29,6 +29,140 @@ HTTPS または localhost が必要。別オリジンから読み込む場合は
 wasm の URL は `import.meta.url` を基準に解決する。ホストページのパスや `<base>` に依存しない。
 通常の `index.html` や `bootstrap.js` は埋め込みに使わない。
 
+## コミットに固定したリリース
+
+`qniapp/qni-webgpu` は `master` への push ごとに埋め込み用のリリースを作成する。
+`master` を選んだ手動実行にも対応し、ほかのブランチやプルリクエストからは公開しない。タグは `embed-<sha>` で、
+`<sha>` は省略しない 40 桁のコミット SHA とする。
+
+- リリース: `https://github.com/qniapp/qni-webgpu/releases/tag/embed-<sha>`
+- ファイル: `https://github.com/qniapp/qni-webgpu/releases/download/embed-<sha>/<name>`
+
+リリースとタグ、配布ファイルは上書きも削除もせず、無期限に保持する。
+所有者の高宮さんがリポジトリの設定でリリースの不変性 (release immutability) を有効にしており、
+公開後のファイル変更とタグの移動は GitHub が拒否する。
+削除禁止と無期限保持は運用方針であり、この設定だけで削除権限をなくすものではない。
+GitHub Pages の単体アプリや短期保存の CI 成果物とは別の配布経路である。
+
+### 配布ファイル
+
+すべて同じ階層に配置し、次の順で `manifest.json` に記録する。
+
+1. `qni-web.js`
+2. `qni-web_bg.wasm`
+3. `qni-embed.mjs`
+4. `qni-embed-error.mjs`
+5. `h.svg` (`apps/web/assets/icons/h.svg`)
+6. `design-system.css` (`docs/design-system/design-system.css`)
+7. `h-gate.js` (`docs/design-system/components/h-gate.js`)
+8. `LICENSE` (リポジトリ直下の MIT ライセンス)
+
+さらに `manifest.json` と `manifest.json.sha256` を配布する。
+`h-gate.js` はローカルファイルを読み込まず、SVG も内包するため、ほかのゲート部品は不要である。
+同梱 CSS の色変数を使うので、`design-system.css` と組み合わせる。
+CSS の Google Fonts への `@import` は外部依存として残る。フォントまで含む完全なオフライン配布ではない。
+既に `h-gate` を登録しているホストは重複登録しないこと。
+これらの表示用資産は SHA で固定するが、埋め込み API の互換性の契約には含めない。
+
+### 検証用マニフェスト
+
+`manifest.json` は UTF-8 の JSON で、以下の項目を持つ。
+
+| 項目 | 内容 |
+| --- | --- |
+| `schema_version` | 形式の版。現在は整数 `1` |
+| `source_commit` | ビルド元の 40 桁の小文字の 16 進 SHA |
+| `embed_api_version` | ビルド済み `qni-embed.mjs` の `EMBED_API_VERSION` から取得する正の整数 |
+| `built_at` | UTC の ISO 8601 日時 |
+| `toolchain` | `rustc`、`wasm-bindgen`、`wasm-opt`、`trunk`、`node`、`pnpm` の版を表す文字列 |
+| `files` | 上記 8 ファイルの配列。マニフェスト自身とそのチェックサムは含まない |
+| `files[].name` | ディレクトリを含まない一意なファイル名 |
+| `files[].sha256` | ファイル内容の SHA-256。小文字の 64 桁の 16 進数 |
+| `files[].size` | バイト数の整数 |
+| `files[].content_type` | `text/javascript`、`application/wasm`、`image/svg+xml`、`text/css`、`text/plain` のいずれか |
+
+`manifest.json.sha256` は `sha256sum` 形式の 1 行
+(`<SHA-256>  manifest.json` と末尾の改行) とする。
+生成時にはビルド済みの `SOURCE_COMMIT` と指定 SHA の一致も確認し、不一致なら失敗する。
+Rust は `rust-toolchain.toml` に従い、公開用ワークフローでは Trunk を `0.21.14` に固定する。
+wasm-bindgen は `apps/web/Cargo.lock`、wasm-opt は `apps/web/Trunk.toml` の指定版を記録する。
+残りのツールは `--version` の出力を記録する。版の記録は、別環境でのバイト単位の再現を保証しない。
+
+利用側のリポジトリ (例: `qniapp/qni-tutorial-webgpu`) は次の順に検証してから、取得したファイルを自身の配信先へコピーする。
+リリースの URL をブラウザから直接読み込む用途ではない。
+
+1. `qni-webgpu.ref` などで期待する完全な SHA を固定し、そのリリースから
+   `manifest.json` と `manifest.json.sha256` を取得する。
+2. `sha256sum --check manifest.json.sha256` で、解析前のマニフェストのバイト列を検証する。
+3. 下記のコマンドで `manifest.json` の来歴の証明を検証し、生成ワークフロー、`master` ブランチ、元コミットを照合する。
+4. `schema_version`、期待する `source_commit`、対応する `embed_api_version` を確認する。
+   ファイル名は上記の一覧と照合し、重複やディレクトリの指定を拒否する。
+5. 各ファイルを同じリリースから取得し、`files` の SHA-256 とバイト数を照合する。
+   各ファイルの来歴の証明も同じ条件で検証する。
+   すべて成功した後だけ配信先に反映し、`LICENSE` も保持する。
+
+チェックサムだけでは配布者の本人性を証明できない。
+ワークフローは `actions/attest-build-provenance` で全配布ファイルのビルド来歴の証明を作成する。
+`manifest.json` と取得した各ファイルについて次を実行する (例は wasm)。
+証明のリポジトリ、生成ワークフロー、ブランチ、元コミットを指定して検証する。
+
+```sh
+sha="$(cat qni-webgpu.ref)"
+gh attestation verify qni-web_bg.wasm -R qniapp/qni-webgpu \
+  --signer-workflow qniapp/qni-webgpu/.github/workflows/embed-release.yml \
+  --source-ref refs/heads/master \
+  --source-digest "$sha"
+```
+
+### 公開手順と失敗時の扱い
+
+公開には専用の GitHub App (Release App) のトークンを使い、`embed-*` タグはこの App だけが作成できるようタグのルールセットで保護し、所有者がリポジトリ変数 `EMBED_RELEASE_APP_CLIENT_ID` とシークレット `EMBED_RELEASE_APP_PRIVATE_KEY` を設定する。
+
+ワークフローは最初に同名タグと、下書きを含む同名リリースの存在を確認する。
+どちらかが存在すれば何も変更せず失敗する。認証や通信の失敗も「存在しない」とみなさない。
+SHA ごとに実行を直列化し、進行中の実行は取り消さない。
+下書きの一覧取得には書き込み権限が必要なため、存在確認は依存関係を実行しない専用のジョブで行う。
+ビルドのジョブは読み取り権限だけを持ち、OIDC や書き込み用のトークンをビルド処理に渡さない。
+検証済みファイルを CI 成果物として公開用のジョブへ渡し、そこで再検証して来歴の証明を作成する。
+
+下書き作成の直前にも、認証済みの 404 応答と全ページのリリース一覧で同名タグ・リリースの不存在を再確認する。
+存在しないタグ名と `--target` に完全な SHA を指定して下書きを作り、そのリリース ID を記録する。
+ファイルの一括アップロードと公開操作のそれぞれの直前に、タグが存在せず、同名リリースが記録した ID の下書き 1 件だけであることを再確認する。
+条件を満たさない場合や確認に失敗した場合は、その書き込みを行わず、人間の調査を待つ。
+既存タグを検出した場合は、注釈付きタグも参照先のコミットまでたどり、元コミットとの一致・不一致をエラーに記録する。
+公開前の確認では、既存タグが元コミットと一致していても失敗とする。`--target` では既存タグの参照先を変更できない。
+Git タグを事前作成する命令は使わない。
+タグの作成はリリース公開時の GitHub の処理に任せる。
+下書きの間に全ファイルをアップロードし、一覧の名前とバイト数がローカルのマニフェストと一致することを確認してから、
+`--draft=false --prerelease` でプレリリースとして公開する。
+公開直後にタグの存在と元コミットへの一致を検証し、不一致や確認の失敗はエラーとする。追加の書き込みは行わない。
+公開後は不変性の設定によりファイルを追加できないため、この順序を守る。
+書き込み命令はタグ名で対象を選ぶ。各確認と書き込みは不可分ではないため、その間の競合までは防げない。
+リリース本文には元コミットへのリンク、API の版、マニフェストの SHA-256 を記載する。
+
+公開前に失敗した場合は下書きを残し、自動で削除・上書き・再公開しない。
+再実行も存在確認で失敗する。残った下書きとファイル、失敗ログは人間が調査し、対応を判断する。
+来歴の証明が作成できない場合も公開を止める。
+
+ローカルで既存ビルドから検証する例 (出力先は空でなければならない):
+
+```sh
+export PATH="$HOME/.cargo/bin:$PATH"
+sha="$(git rev-parse HEAD)"
+QNI_SOURCE_COMMIT="$sha" bash apps/web/scripts/build-embed.sh
+node apps/web/scripts/embed-release.mjs dry-run \
+  --input apps/web/embed-dist --output release-stage --source-commit "$sha"
+node apps/web/scripts/embed-release.mjs verify --output release-stage --source-commit "$sha"
+```
+
+`build --output release-stage --source-commit "$sha"` ならビルドから一括実行する。
+`build` と `dry-run` では、指定 SHA のソースから作った信頼できるローカルのビルドを使い、
+同梱する表示用資産と `LICENSE` もその SHA の内容であることを呼び出し側で確認する。
+スクリプトの SHA 照合はビルド済みの識別情報との一致を確認するもので、ソースの真正性の証明ではない。
+`dry-run` と `verify` は GitHub を変更しない。検証時も JavaScript を実行せず、識別情報を静的に読み取る。
+`verify` の `--source-commit` を省略すると内部の整合性だけを確認するため、外部からの取得時には省略しない。
+CI では既存の `web-build` の中でこの 2 つを実行する。
+
 ## 最適化ツールの固定
 
 `apps/web/Trunk.toml` の `[tools] wasm_opt = "version_123"` で Binaryen 123 を指定する。
@@ -392,7 +526,8 @@ wasm のダウンロードとコンパイルは期限に含めない。
 
 ### チュートリアルからの利用
 
-別リポジトリ `qniapp/qni-tutorial-webgpu` では、依存コミットを記録する `qni-webgpu.ref` を更新して 4 ファイルを再取得する。
+別リポジトリ `qniapp/qni-tutorial-webgpu` では、依存コミットを記録する `qni-webgpu.ref` を更新し、
+対応する `embed-<sha>` リリースから「検証用マニフェスト」の手順でファイルを取得・検証する。
 埋め込み要素の `qni-webgpu-circuit.ts` にある独自の WebGPU 判定とエラー文をこの API に置き換える。
 属性の検証失敗は `invalid-embed` として渡し、再試行時にはエラー表示と原因属性を消す。
 テストの GPU の代用品にも `requestAdapter` を用意し、原因別の表示と再試行を検証する。
