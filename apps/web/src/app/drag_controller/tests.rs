@@ -1850,10 +1850,7 @@ fn shape_colors(shape: &egui::Shape) -> Vec<egui::Color32> {
         egui::Shape::Text(text) => vec![text.fallback_color],
         _ => Vec::new(),
     };
-    colors
-        .into_iter()
-        .filter(|color| *color != egui::Color32::default())
-        .collect()
+    colors.into_iter().filter(|color| color.a() > 0).collect()
 }
 
 fn roles_inside(app: &QniApp, shapes: &[egui::Shape], rect: egui::Rect) -> Vec<String> {
