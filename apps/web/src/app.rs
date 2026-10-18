@@ -21,9 +21,7 @@ mod step_selection;
 mod update_flow;
 
 use crate::colors::{Colors, Theme, ThemeKind};
-use crate::constants::{
-    LINE_Y, LOCAL_MAX_QUBITS, MIN_QUBITS, STEP_OUTSET_Y, VERTICAL_WIRE0_RIGHT_INSET,
-};
+use crate::constants::{LINE_Y, MIN_QUBITS, STEP_OUTSET_Y, VERTICAL_WIRE0_RIGHT_INSET};
 use crate::gates::GateKind;
 use crate::layout::{
     layout_metrics_with_gutters, CircuitGutters, CircuitOrientation, CircuitProjection,
@@ -309,14 +307,12 @@ impl QniApp {
             title: circuit_title,
         } = initial_circuit;
         let initial_required_qubits = crate::url_circuit::qubit_count_from_gates(&initial_gates);
-        let exec_mode = if initial_required_qubits > LOCAL_MAX_QUBITS {
-            ExecMode::Gpu
-        } else {
-            requested_exec_mode.unwrap_or_default()
-        };
-        let initial_qubit_count = initial_required_qubits
-            .max(mode.min_visible_wire_count())
-            .min(exec_mode.qubit_capacity().get());
+        let exec_mode = ExecMode::for_circuit(
+            requested_exec_mode.unwrap_or_default(),
+            initial_required_qubits,
+        );
+        let initial_qubit_count = exec_mode
+            .visible_wire_count(initial_required_qubits.max(mode.min_visible_wire_count()));
         let initial_serialized_qubits =
             QubitCount::try_new(initial_required_qubits.max(MIN_QUBITS))
                 .expect("initial serialized qubit count is at least one");

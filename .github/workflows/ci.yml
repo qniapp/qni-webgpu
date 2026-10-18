@@ -163,6 +163,26 @@ jobs:
           QNI_WEB_EXTERNAL_SERVER=1 QNI_WEB_BASE_URL=http://127.0.0.1:4174 pnpm run test:bdd
         working-directory: apps/web
 
+      - name: Web Pages variant Rust check
+        run: |
+          cargo clippy --locked --target wasm32-unknown-unknown --tests --features pages -- -D warnings
+          cargo test --locked --lib --features pages
+          cargo insta pending-snapshots
+        working-directory: apps/web
+
+      - name: Web Pages variant build
+        run: env -u NO_COLOR TRUNK_COLOR=never TRUNK_BUILD_FEATURES=pages trunk build --release --dist pages-dist
+        working-directory: apps/web
+
+      - name: Web Pages variant Playwright
+        run: |
+          python3 -m http.server 4175 --bind 127.0.0.1 --directory pages-dist >/tmp/web-pages-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          curl --retry 20 --retry-connrefused --retry-delay 1 --fail http://127.0.0.1:4175/ >/dev/null
+          QNI_WEB_EXTERNAL_SERVER=1 QNI_WEB_BASE_URL=http://127.0.0.1:4175 pnpm exec playwright test -c playwright.pages.config.ts
+        working-directory: apps/web
+
   web-playwright:
     needs: web-build
     name: web-playwright (${{ matrix.shard }}/4)

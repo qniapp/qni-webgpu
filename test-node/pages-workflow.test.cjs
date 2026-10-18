@@ -17,6 +17,7 @@ const contracts = [
   ['installs Trunk', /tool: trunk/],
   ['installs frozen Web dependencies in the app directory', /pnpm install --frozen-lockfile\n\s+working-directory: apps\/web/],
   ['builds the standalone release at its repository subpath from the app directory', /trunk build --release --public-url \/qni-webgpu\/\n\s+working-directory: apps\/web/],
+  ['enables the local-only Pages build', /TRUNK_BUILD_FEATURES=pages trunk build --release --public-url \/qni-webgpu\//],
   ['configures Pages', /uses: actions\/configure-pages@v5/],
   ['uploads the standalone dist', /uses: actions\/upload-pages-artifact@v4\n\s+with:\n\s+path: apps\/web\/dist/],
   ['waits for build before deploying', /\n  deploy:\n\s+needs: build/],
