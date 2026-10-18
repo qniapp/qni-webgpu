@@ -4,7 +4,7 @@ import ast
 import math
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 CONTROL_TOKENS = {"•", "●", "control", "Control"}
 ANTI_CONTROL_TOKENS = {"◦", "○", "anti", "Anti"}
@@ -94,18 +94,30 @@ def initial_basis_tracker(qubits: int) -> BasisTracker:
 
 
 def apply_column_to_qiskit(
-    qc: Any, column: list[Any], qubits: int, basis: BasisTracker
+    qc: Any,
+    column: list[Any],
+    qubits: int,
+    basis: BasisTracker,
+    *,
+    save_displays: Callable[[], None] | None = None,
 ) -> None:
     controls: list[int] = []
     anti_controls: list[int] = []
     swap_wires: list[int] = []
     measurement_wires: list[int] = []
     detector_targets: list[tuple[int, str]] = []
+    detect_control_reset_wires: list[int] = []
     has_readonly_display = False
     deferred: list[tuple[int, str]] = []
     for wire, raw in enumerate(column):
         token = token_text(raw)
         if token is None:
+            continue
+        if token == "ZDetectControlReset":
+            if wire >= qubits:
+                raise CircuitBuildError("ZDetectControlReset references a wire beyond qubits")
+            detect_control_reset_wires.append(wire)
+            controls.append(wire)
             continue
         if token in CONTROL_TOKENS:
             controls.append(wire)
@@ -132,6 +144,18 @@ def apply_column_to_qiskit(
         deferred.append((wire, token))
     if detector_targets and 1 + len(controls) + len(anti_controls) > 8:
         raise CircuitBuildError("detector target plus controls must be <= 8 qubits")
+    # A QFT span can cover a control cell, unlike single-wire gates and swaps.
+    # It would make the measured wire quantum again: reset would then differ
+    # from WebGPU's per-pair Write0. Refuse rather than change that semantics.
+    for wire, token in deferred:
+        qft = parse_qft_token(split_parametric(token)[0])
+        if qft is not None and any(
+            wire <= detector < wire + qft.span
+            for detector in detect_control_reset_wires
+        ):
+            raise CircuitBuildError("QFT span overlaps a ZDetectControlReset wire")
+    for wire in detect_control_reset_wires:
+        qc.measure(wire, wire)
     for wire, token in detector_targets:
         if token == "YDetector":
             qc.sdg(wire)
@@ -149,6 +173,7 @@ def apply_column_to_qiskit(
             or swap_wires
             or measurement_wires
             or detector_targets
+            or detect_control_reset_wires
             or has_readonly_display
         ),
     )
@@ -166,6 +191,11 @@ def apply_column_to_qiskit(
         qc.h(wire)
         if token == "YDetector":
             qc.s(wire)
+    if save_displays is not None:
+        save_displays()
+    for wire in detect_control_reset_wires:
+        qc.reset(wire)
+        basis[wire] = 0
 
 
 def apply_detector_measurement(

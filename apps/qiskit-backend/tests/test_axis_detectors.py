@@ -17,7 +17,7 @@ class FakeCircuit:
         self.ops = []
 
     def __getattr__(self, name):
-        if name not in {"h", "s", "sdg", "x", "z", "t", "swap", "measure", "cx", "mcx", "cp"}:
+        if name not in {"h", "s", "sdg", "x", "z", "t", "swap", "measure", "reset", "cx", "mcx", "cp"}:
             raise AttributeError(name)
         return lambda *args: self.ops.append((name, *args))
 
