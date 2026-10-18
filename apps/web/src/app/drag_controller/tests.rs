@@ -1852,7 +1852,7 @@ fn shape_colors(shape: &egui::Shape) -> Vec<egui::Color32> {
     };
     colors
         .into_iter()
-        .filter(|color| *color != egui::Color32::TRANSPARENT)
+        .filter(|color| *color != egui::Color32::default())
         .collect()
 }
 
