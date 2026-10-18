@@ -12,6 +12,7 @@ EMPTY_TOKENS = {None, 1, "1", ""}
 AMPLITUDE_DISPLAY_RE = re.compile(r"^Amps(?:[1-9]|1[0-6])$")
 PROBABILITY_DISPLAY_RE = re.compile(r"^Probability(?:[1-9]|1[0-6])?$")
 DENSITY_DISPLAY_RE = re.compile(r"^Density(?:[1-8])?$")
+SAMPLE_DISPLAY_RE = re.compile(r"^Sample[1-3]$")
 DISPLAY_TOKENS = {"Bloch"}
 POSTSELECTION_TOKENS = {"|0⟩⟨0|", "|1⟩⟨1|", "|+⟩⟨+|", "|-⟩⟨-|"}
 
@@ -305,8 +306,6 @@ def column_parity_targets(column: list[Any], qubits: int) -> list[tuple[int, str
         elif is_readonly_display_token(token) and token != "Bloch":
             suffix = re.search(r"\d+$", token)
             span = int(suffix.group()) if suffix else 1
-        elif re.fullmatch(r"Sample[1-3]", token):
-            span = int(token[-1])
         else:
             continue
         spans.append((wire, min(wire + span, qubits)))
@@ -424,6 +423,7 @@ def is_readonly_display_token(token: str) -> bool:
         or bool(AMPLITUDE_DISPLAY_RE.fullmatch(token))
         or bool(PROBABILITY_DISPLAY_RE.fullmatch(token))
         or bool(DENSITY_DISPLAY_RE.fullmatch(token))
+        or bool(SAMPLE_DISPLAY_RE.fullmatch(token))
     )
 
 

@@ -41,13 +41,34 @@ fn validation_failure(
 }
 
 #[test]
-fn sample_is_rejected_before_backend_start() {
+fn sample_reaches_backend_start() {
     let (mut app, ctx) = app();
     app.placed_gates = vec![gate(GateKind::SampleDisplay, 1, 0, 0)];
-    with_times(&[], || app.start_external_gpu_run(&ctx));
+    app.external_gpu.transport_handle().queue_start(Ok(RUN_ID));
+    let (_, remaining) = with_times(&[5.0], || app.start_external_gpu_run(&ctx));
     assert_eq!(
-        state(&app).status,
-        StatusState::Failed(GpuFailure::UnsupportedGate("Sample".into()))
+        (state(&app).status, state(&app).run_id, remaining),
+        (StatusState::Running, Some(RUN_ID), 0)
+    );
+}
+
+#[test]
+fn sample_result_is_published_in_its_external_probability_slot() {
+    let (mut app, ctx) = app();
+    app.placed_gates = vec![gate(GateKind::SampleDisplay, 33, 0, 0)];
+    app.external_gpu.transport_handle().queue_start(Ok(RUN_ID));
+    with_times(&[5.0], || app.start_external_gpu_run(&ctx));
+    let message = r#"{"probability":[{"gate_id":33,"span":1,"probabilities":[1,0]}]}"#;
+    parser_fixtures::inject_probability(Some((message.into(), probability(0))));
+    poll(&mut app, &ctx, Ok(message.into()));
+    assert_eq!(
+        app.external_gpu
+            .view()
+            .displays
+            .probability
+            .as_ref()
+            .and_then(|batch| batch.slot_for_gate(33)),
+        Some(0)
     );
 }
 
