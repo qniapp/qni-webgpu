@@ -98,22 +98,26 @@ const args = process.argv.slice(2)
 const scenario = process.env.SCENARIO
 require('node:fs').appendFileSync(process.env.CALLS, JSON.stringify(args) + '\\n')
 if (args[0] === 'release') {
-  if (args[1] === 'create' || args[1] === 'upload' || scenario === 'release') process.exit(0)
+  if (args[1] === 'create') { require('node:fs').writeFileSync(process.env.CREATED, 'yes'); process.exit(0) }
+  if (args[1] === 'upload') process.exit(0)
+  if (args[1] === 'edit') { require('node:fs').writeFileSync(process.env.PUBLISHED, 'yes'); process.exit(0) }
   process.exit(1)
 }
 if (args.includes('--paginate')) {
   if (scenario === 'list-error') process.exit(1)
   if (scenario === 'bad-json') { console.log('no'); process.exit(0) }
-  console.log(JSON.stringify([[], scenario === 'draft' ? [{tag_name: process.env.TAG, draft: true}] : []]))
+  const listCount = require('node:fs').readFileSync(process.env.CALLS, 'utf8').trim().split('\\n').map(JSON.parse).filter(call => call.includes('--paginate')).length
+  const changed = listCount >= 3
+  console.log(JSON.stringify([[], scenario === 'draft' || scenario === 'release' || scenario === 'publish-wrong' || require('node:fs').existsSync(process.env.CREATED) ? [{id: scenario === 'upload-id-change' && changed ? 43 : 42, tag_name: process.env.TAG, draft: scenario !== 'release' && !(scenario === 'upload-published' && changed)}] : []]))
   process.exit(0)
 }
-if (args.some(a => a.includes('/git/ref/')) && scenario === 'tag') process.exit(0)
+if (args.some(a => a.includes('/git/ref/')) && (scenario === 'tag' || require('node:fs').existsSync(process.env.PUBLISHED))) { console.log(JSON.stringify({object: {type: 'commit', sha: scenario === 'publish-wrong' ? 'b'.repeat(40) : process.env.GITHUB_SHA}})); process.exit(0) }
 if (scenario === 'auth') { console.log('HTTP/2.0 401 Unauthorized'); process.exit(1) }
 if (scenario === 'network') process.exit(1)
 console.log('HTTP/2.0 404 Not Found\\n\\n{"message":"Not Found"}')
 process.exit(1)
 `, { mode: 0o755 })
-    const result = spawnSync('bash', ['-euo', 'pipefail', '-c', script], { encoding: 'utf8', env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, SCENARIO: scenario, CALLS: path.join(dir, 'calls'), TAG: `embed-${'a'.repeat(40)}`, GITHUB_SHA: 'a'.repeat(40), GITHUB_REPOSITORY: 'owner/repo', RUNNER_TEMP: dir, GITHUB_ENV: path.join(dir, 'env'), GH_TOKEN: 'mock', RELEASE_ASSETS: assets.join(' '), STAGING: dir } })
+    const result = spawnSync('bash', ['-euo', 'pipefail', '-c', script], { encoding: 'utf8', env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, SCENARIO: scenario, CALLS: path.join(dir, 'calls'), CREATED: path.join(dir, 'created'), PUBLISHED: path.join(dir, 'published'), RELEASE_ID: '42', TAG: `embed-${'a'.repeat(40)}`, GITHUB_SHA: 'a'.repeat(40), GITHUB_REPOSITORY: 'owner/repo', RUNNER_TEMP: dir, GITHUB_ENV: path.join(dir, 'env'), GH_TOKEN: 'mock', RELEASE_ASSETS: assets.join(' '), STAGING: dir } })
     return { ...result, calls: fs.readFileSync(path.join(dir, 'calls'), 'utf8').trim().split('\n').map(line => JSON.parse(line)) }
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
@@ -124,16 +128,90 @@ for (const scenario of ['tag', 'release', 'draft', 'auth', 'network', 'list-erro
 }
 test('guard permits confirmed tag and release absence', () => assert.equal(runReleaseStep('absent').status, 0))
 
-for (const scenario of ['tag', 'auth', 'network']) {
-  test(`draft creation stops without uploading if pending tag check finds ${scenario}`, () => {
+for (const scenario of ['tag', 'release', 'draft', 'auth', 'network', 'list-error', 'bad-json']) {
+  test(`draft creation makes no release writes when recheck finds ${scenario}`, () => {
     const result = runReleaseStep(scenario, 'Create draft and upload all assets')
-    assert.deepEqual([result.status !== 0, result.calls.some(args => args[1] === 'upload')], [true, false])
+    assert.equal(result.calls.some(args => args[0] === 'release'), false)
+  })
+  test(`draft creation fails when recheck finds ${scenario}`, () => {
+    assert.notEqual(runReleaseStep(scenario, 'Create draft and upload all assets').status, 0)
   })
 }
 
-test('draft creation confirms tag absence before uploading all ten assets', () => {
+for (const scenario of ['upload-id-change', 'upload-published']) {
+  test(`upload stops when draft ownership changes after recording: ${scenario}`, () => {
+    const result = runReleaseStep(scenario, 'Create draft and upload all assets')
+    assert.deepEqual(result.calls.filter(args => args[0] === 'release').map(args => args[1]), ['create'])
+  })
+  test(`upload fails when draft ownership changes after recording: ${scenario}`, () => {
+    assert.notEqual(runReleaseStep(scenario, 'Create draft and upload all assets').status, 0)
+  })
+}
+
+test('draft creation and upload succeed with confirmed ownership', () => {
+  assert.equal(runReleaseStep('absent', 'Create draft and upload all assets').status, 0)
+})
+
+test('draft creation confirms ownership before uploading all ten assets', () => {
   const result = runReleaseStep('absent', 'Create draft and upload all assets')
-  assert.deepEqual([result.status, result.calls.map(args => args.slice(0, 2)), result.calls.at(-1).slice(3).map(filename => path.basename(filename))], [0, [['release', 'create'], ['api', '--include'], ['release', 'upload']], assets])
+  assert.deepEqual(result.calls.map(args => args.slice(0, 2)), [['api', '--include'], ['api', '--include'], ['api', '--paginate'], ['release', 'create'], ['api', '--include'], ['api', '--paginate'], ['api', '--include'], ['api', '--paginate'], ['release', 'upload']])
+})
+
+test('draft upload includes exactly the ten declared assets', () => {
+  const result = runReleaseStep('absent', 'Create draft and upload all assets')
+  assert.deepEqual(result.calls.at(-1).slice(3).map(filename => path.basename(filename)), assets)
+})
+
+for (const [name, pattern] of [
+  ['creation', /node apps\/web\/scripts\/embed-release-guard.mjs assert-absent\n          gh release create/],
+  ['upload', /node apps\/web\/scripts\/embed-release-guard.mjs assert-own-draft --release-id "\$release_id"\n          gh release upload/],
+  ['publication', /node apps\/web\/scripts\/embed-release-guard.mjs assert-own-draft --release-id "\$RELEASE_ID"\n          gh release edit/],
+  ['post-publication', /gh release edit[^\n]+\n          node apps\/web\/scripts\/embed-release-guard.mjs assert-published/],
+  ['recorded identity', /release_id=\$\(node apps\/web\/scripts\/embed-release-guard.mjs record-draft\)\n          echo "RELEASE_ID=\$release_id" >> "\$GITHUB_ENV"/],
+]) {
+  test(`release guard orders ${name}`, () => assert.match(workflow(), pattern))
+}
+
+for (const scenario of ['tag', 'release', 'absent', 'auth', 'network', 'list-error', 'bad-json']) {
+  test(`publication makes no release writes when recheck finds ${scenario}`, () => {
+    const result = runReleaseStep(scenario, 'Publish prerelease')
+    assert.equal(result.calls.some(args => args[0] === 'release'), false)
+  })
+  test(`publication fails when recheck finds ${scenario}`, () => {
+    assert.notEqual(runReleaseStep(scenario, 'Publish prerelease').status, 0)
+  })
+}
+
+test('publication succeeds with a matching published tag', () => {
+  assert.equal(runReleaseStep('draft', 'Publish prerelease').status, 0)
+})
+
+test('publication verifies the created tag after the edit', () => {
+  const result = runReleaseStep('draft', 'Publish prerelease')
+  assert.deepEqual(result.calls.map(args => args.slice(0, 2)), [['api', '--include'], ['api', '--paginate'], ['release', 'edit'], ['api', '--include']])
+})
+
+test('publication fails for a wrong tag commit', () => {
+  assert.notEqual(runReleaseStep('publish-wrong', 'Publish prerelease').status, 0)
+})
+
+test('publication reports a wrong tag commit', () => {
+  assert.match(runReleaseStep('publish-wrong', 'Publish prerelease').stderr, /matches GITHUB_SHA: false/)
+})
+
+test('publication makes no further writes for a wrong tag commit', () => {
+  const result = runReleaseStep('publish-wrong', 'Publish prerelease')
+  assert.deepEqual(result.calls.filter(args => args[0] === 'release').map(args => args[1]), ['edit'])
+})
+
+test('every release write has its corresponding guard on the immediately preceding line', () => {
+  const lines = workflow().split('\n').map(line => line.trim())
+  const guards = { create: 'assert-absent', upload: 'assert-own-draft --release-id "$release_id"', edit: 'assert-own-draft --release-id "$RELEASE_ID"' }
+  const writes = lines.flatMap((line, index) => {
+    const command = line.match(/^gh release (create|upload|edit) /)
+    return command ? [[command[1], lines[index - 1]]] : []
+  })
+  assert.deepEqual(writes, Object.entries(guards).map(([command, guard]) => [command, `node apps/web/scripts/embed-release-guard.mjs ${guard}`]))
 })
 
 test('write tokens are scoped only to the four gh steps', () => {

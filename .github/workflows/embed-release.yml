@@ -38,36 +38,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Only an authenticated HTTP 404 proves absence; transport/auth errors fail closed.
-          require_absent() {
-            local response
-            if response=$(gh api --include "$1" 2>"$RUNNER_TEMP/embed-release-api-error"); then
-              echo "Already exists: $1" >&2
-              exit 1
-            fi
-            if ! printf '%s\n' "$response" | grep -Eq '^HTTP/[^ ]+ 404( |\r?$)'; then
-              printf '%s\n' "$response" >&2
-              cat "$RUNNER_TEMP/embed-release-api-error" >&2
-              exit 1
-            fi
-          }
-          require_absent "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG"
-          if gh release view "$TAG" > /dev/null; then
-            echo "Release already exists: $TAG" >&2
-            exit 1
-          fi
-          require_absent "repos/$GITHUB_REPOSITORY/releases/tags/$TAG"
-          # The tag lookup can omit drafts, so inspect every authenticated release page too.
-          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/embed-releases.json"
-          node <<'NODE'
-          const fs = require('node:fs');
-          const pages = JSON.parse(fs.readFileSync(`${process.env.RUNNER_TEMP}/embed-releases.json`, 'utf8'));
-          if (!Array.isArray(pages) || !pages.length || !pages.every(Array.isArray)) throw new Error('Invalid releases response');
-          for (const release of pages.flat()) {
-            if (!release || typeof release.tag_name !== 'string') throw new Error('Invalid release');
-            if (release.tag_name === process.env.TAG) throw new Error('Release (including draft) already exists');
-          }
-          NODE
+          node apps/web/scripts/embed-release-guard.mjs assert-absent
 
   build:
     needs: check
@@ -180,19 +151,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node apps/web/scripts/embed-release-guard.mjs assert-absent
           gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "$TAG" --notes-file "$RUNNER_TEMP/embed-release-notes.md"
-          # A pending draft must not have created the Git tag yet.
-          if response=$(gh api --include "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>"$RUNNER_TEMP/embed-draft-tag-error"); then
-            echo "Git tag exists before publication; inspect the draft manually" >&2
-            exit 1
-          fi
-          if ! printf '%s\n' "$response" | grep -Eq '^HTTP/[^ ]+ 404( |\r?$)'; then
-            cat "$RUNNER_TEMP/embed-draft-tag-error" >&2
-            exit 1
-          fi
+          release_id=$(node apps/web/scripts/embed-release-guard.mjs record-draft)
+          echo "RELEASE_ID=$release_id" >> "$GITHUB_ENV"
           read -r -a names <<< "$RELEASE_ASSETS"
           files=()
           for name in "${names[@]}"; do files+=("$STAGING/$name"); done
+          node apps/web/scripts/embed-release-guard.mjs assert-own-draft --release-id "$release_id"
           gh release upload "$TAG" "${files[@]}"
 
       - name: Verify uploaded assets
@@ -217,4 +183,8 @@ jobs:
       - name: Publish prerelease
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release edit "$TAG" --draft=false --prerelease
+        run: |
+          set -euo pipefail
+          node apps/web/scripts/embed-release-guard.mjs assert-own-draft --release-id "$RELEASE_ID"
+          gh release edit "$TAG" --draft=false --prerelease
+          node apps/web/scripts/embed-release-guard.mjs assert-published
