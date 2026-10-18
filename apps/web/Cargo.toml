@@ -11,6 +11,9 @@ members = ["crates/circuit-library-model", "crates/external-gpu-model"]
 exclude = ["vendor/eframe"]
 resolver = "2"
 
+[features]
+pages = []
+
 [dependencies]
 # Used to rasterize the measurement gate digits ("0" / "1") into a GPU
 # texture so the WGSL fragment shader can sample the same Geist Bold glyphs

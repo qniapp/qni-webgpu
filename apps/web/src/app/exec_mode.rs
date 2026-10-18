@@ -12,6 +12,27 @@ pub(crate) enum ExecMode {
 }
 
 impl ExecMode {
+    /// Pages has no external service. Keep oversized circuits without local
+    /// simulation rather than silently selecting an unreachable backend.
+    pub(crate) fn for_circuit(requested: Self, required_qubits: usize) -> Self {
+        if cfg!(feature = "pages") {
+            Self::Local
+        } else if required_qubits > QubitCapacity::local().get() {
+            Self::Gpu
+        } else {
+            requested
+        }
+    }
+
+    /// Display every loaded wire even when Pages cannot simulate the circuit.
+    pub(crate) fn visible_wire_count(self, required: usize) -> usize {
+        if cfg!(feature = "pages") {
+            required
+        } else {
+            required.min(self.qubit_capacity().get())
+        }
+    }
+
     fn is_gpu(self) -> bool {
         matches!(self, Self::Gpu)
     }
@@ -339,6 +360,73 @@ fn lerp(start: f32, end: f32, t: f32) -> f32 {
 mod tests {
     use super::{exec_mode_after_key, ExecMode, ExecModeKey};
     use crate::qubit_count::QubitCapacity;
+
+    #[test]
+    fn deployment_policy_handles_requested_gpu() {
+        assert_eq!(
+            ExecMode::for_circuit(ExecMode::Gpu, 1),
+            if cfg!(feature = "pages") {
+                ExecMode::Local
+            } else {
+                ExecMode::Gpu
+            }
+        );
+    }
+
+    #[test]
+    fn deployment_policy_handles_oversized_circuits() {
+        assert_eq!(
+            ExecMode::for_circuit(ExecMode::Local, 17),
+            if cfg!(feature = "pages") {
+                ExecMode::Local
+            } else {
+                ExecMode::Gpu
+            }
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn oversized_circuit_keeps_all_required_wires() {
+        let ctx = eframe::egui::Context::default();
+        let mut app = super::QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));
+        app.load_circuit_json_into_editor(
+            r#"{"cols":[[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,"H"]]}"#,
+            &ctx,
+        );
+        assert_eq!(app.qubit_count, 17);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn deployment_toggle_labels() {
+        let ctx = eframe::egui::Context::default();
+        let mut app = super::QniApp::new(&eframe::CreationContext::_new_kittest(ctx.clone()));
+        let mut draw = || {
+            ctx.run_ui(Default::default(), |_| {
+                app.show_exec_mode_toolbar(&ctx, &app.colors());
+            })
+        };
+        let _ = draw();
+        let output = draw();
+        let labels: Vec<_> = output
+            .shapes
+            .iter()
+            .filter_map(|shape| {
+                if let eframe::egui::epaint::Shape::Text(text) = &shape.shape {
+                    Some(text.galley.job.text.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let name = if cfg!(feature = "pages") {
+            "pages_toggle_labels"
+        } else {
+            "default_toggle_labels"
+        };
+        insta::assert_debug_snapshot!(name, labels);
+    }
 
     #[test]
     fn arrow_keys_select_sibling_modes() {

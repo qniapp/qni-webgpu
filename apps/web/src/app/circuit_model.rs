@@ -300,8 +300,8 @@ impl QniApp {
 
     pub(crate) fn update_qubit_count(&mut self) {
         self.qubit_count = self
-            .required_visible_wire_count()
-            .min(self.exec_mode.qubit_capacity().get());
+            .exec_mode
+            .visible_wire_count(self.required_visible_wire_count());
     }
 
     /// After a successful drop or off-circuit removal, collapse empty columns
