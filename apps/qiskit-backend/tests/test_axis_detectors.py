@@ -49,7 +49,7 @@ class AxisDetectorFakeTests(unittest.TestCase):
 
     def test_detector_wraps_existing_qft_and_column_gate_order(self):
         self.assertEqual(build([["XDetector", "QFT1", "X"]], 3), [
-            ("h", 0), ("h", 1), ("x", 2), ("measure", 0, 0), ("h", 0),
+            ("h", 0), ("x", 2), ("h", 1), ("measure", 0, 0), ("h", 0),
         ])
 
     def test_controlled_projector_tuple_and_no_control_only_cz(self):
@@ -71,13 +71,17 @@ class AxisDetectorFakeTests(unittest.TestCase):
             ("h", 7), ("detector_projector", 7, list(range(7)), []), ("h", 7),
         ])
 
-    def test_projector_rejects_more_than_eight_total_wires(self):
-        with self.assertRaises(CircuitBuildError):
-            build([["•"] * 8 + ["XDetector"]], 9)
+    def test_projector_uses_aux_above_eight_total_wires(self):
+        self.assertEqual(build([["•"] * 8 + ["XDetector"]], 9), [
+            ("h", 8), ("detector_projector_aux", 8, list(range(8)), []), ("h", 8),
+        ])
 
-    def test_projector_limit_counts_anti_controls(self):
-        with self.assertRaises(CircuitBuildError):
-            build([["•"] * 4 + ["◦"] * 4 + ["YDetector"]], 9)
+    def test_projector_aux_counts_anti_controls(self):
+        self.assertEqual(build([["•"] * 4 + ["◦"] * 4 + ["YDetector"]], 9), [
+            ("sdg", 8), ("h", 8),
+            ("detector_projector_aux", 8, list(range(4)), list(range(4, 8))),
+            ("h", 8), ("s", 8),
+        ])
 
     def test_detector_rejects_wire_beyond_register(self):
         with self.assertRaises(CircuitBuildError):
