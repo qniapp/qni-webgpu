@@ -149,6 +149,7 @@ def apply_column_to_qiskit(
     measurement_wires: list[int] = []
     detector_targets: list[tuple[int, str]] = []
     detect_control_reset_wires: list[int] = []
+    parity_targets = column_parity_targets(column, qubits)
     has_readonly_display = False
     deferred: list[tuple[int, str]] = []
     for wire, raw in enumerate(column):
@@ -165,6 +166,8 @@ def apply_column_to_qiskit(
                 raise CircuitBuildError("ZDetectControlReset references a wire beyond qubits")
             detect_control_reset_wires.append(wire)
             controls.append(wire)
+            continue
+        if token in {"zpar", "xpar"}:
             continue
         if token in CONTROL_TOKENS:
             controls.append(wire)
@@ -189,6 +192,8 @@ def apply_column_to_qiskit(
             has_readonly_display = True
             continue
         deferred.append((wire, token))
+    if parity_targets:
+        controls.append(parity_targets[0][0])
     if detector_targets and 1 + len(controls) + len(anti_controls) > 8:
         raise CircuitBuildError("detector target plus controls must be <= 8 qubits")
     # A QFT span can cover a control cell, unlike single-wire gates and swaps.
@@ -203,13 +208,25 @@ def apply_column_to_qiskit(
             raise CircuitBuildError("QFT span overlaps a ZDetectControlReset wire")
     for wire in detect_control_reset_wires:
         qc.measure(wire, wire)
+    # Mirror linearize.rs in place: the topmost parity wire reversibly stores
+    # the XOR. Its ordinary control gates the entire column in this frame,
+    # including measurements/displays; reversing the setup restores the frame.
+    # No helper qubit is needed, even for mixed X/Z parity.
+    parity_setup: list[tuple[str, int, int | None]] = [
+        ("h", wire, None) for wire, token in parity_targets if token == "xpar"
+    ]
+    if parity_targets:
+        anchor = parity_targets[0][0]
+        parity_setup.extend(("cx", wire, anchor) for wire, _ in parity_targets[1:])
+    for operation, wire, target in parity_setup:
+        apply_parity_step(qc, basis, operation, wire, target)
     for wire, token in detector_targets:
         if token == "YDetector":
             qc.sdg(wire)
         qc.h(wire)
     apply_swap(qc, swap_wires, controls, anti_controls, basis)
     operations = group_same_angle_phases(deferred)
-    if conditions or any(token in POSTSELECTION_TOKENS for _, token in deferred):
+    if parity_targets or conditions or any(token in POSTSELECTION_TOKENS for _, token in deferred):
         # WebGPU expands QFT after ordinary targets, including conditional
         # gates and projectors, even when the QFT starts on an earlier wire.
         operations.sort(key=lambda op: parse_qft_token(split_parametric(op[1])[0]) is not None)
@@ -235,6 +252,7 @@ def apply_column_to_qiskit(
         basis,
         has_column_content=bool(
             deferred
+            or parity_targets
             or swap_wires
             or measurement_wires
             or detector_targets
@@ -265,6 +283,47 @@ def apply_column_to_qiskit(
     for wire in detect_control_reset_wires:
         qc.reset(wire)
         basis[wire] = 0
+    for operation, wire, target in reversed(parity_setup):
+        apply_parity_step(qc, basis, operation, wire, target)
+
+
+def column_parity_targets(column: list[Any], qubits: int) -> list[tuple[int, str]]:
+    """Drop markers covered by a resizable span, as WebGPU linearize.rs does."""
+    spans: list[tuple[int, int]] = []
+    parity: list[tuple[int, str]] = []
+    for wire, raw in enumerate(column):
+        token = token_text(raw)
+        if token is None:
+            continue
+        if token in {"zpar", "xpar"}:
+            if wire >= qubits:
+                raise CircuitBuildError("parity control references a wire beyond qubits")
+            parity.append((wire, token))
+        qft = parse_qft_token(split_parametric(token)[0])
+        if qft is not None:
+            span = qft.span
+        elif is_readonly_display_token(token) and token != "Bloch":
+            suffix = re.search(r"\d+$", token)
+            span = int(suffix.group()) if suffix else 1
+        elif re.fullmatch(r"Sample[1-3]", token):
+            span = int(token[-1])
+        else:
+            continue
+        spans.append((wire, min(wire + span, qubits)))
+    return [(wire, token) for wire, token in parity
+            if not any(start <= wire < end for start, end in spans)]
+
+
+def apply_parity_step(
+    qc: Any, basis: BasisTracker, operation: str, wire: int, target: int | None
+) -> None:
+    if operation == "h":
+        qc.h(wire)
+        basis[wire] = None
+    else:
+        assert target is not None
+        qc.cx(wire, target)
+        track_controlled_gate(basis, [wire], [], target, "X")
 
 
 def apply_detector_measurement(
