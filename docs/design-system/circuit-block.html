@@ -135,8 +135,8 @@
     }
     .cb-icon--large { transform: scale(3); transform-origin: top left; }
     .cb-icon-host--large { width: 120px; height: 120px; }
-    .cb-icon .rule { position: absolute; left: 0; top: 18px; width: 40px; height: 4px; background: var(--blue-400); }
-    .cb-icon .comment { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); color: var(--blue-400); font-size: 12px; line-height: 16px; letter-spacing: -0.6px; }
+    .cb-icon .rule { position: absolute; left: 0; top: 27px; width: 40px; height: 4px; background: var(--blue-400); }
+    .cb-icon .word { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); color: var(--blue-400); font-size: 14px; line-height: 16.125px; }
   </style>
 </head>
 <body>
@@ -145,7 +145,7 @@
   <div class="cb-preview-pad" aria-hidden="true">
     <div class="cb-icon">
       <i class="rule"></i>
-      <span class="comment">comment</span>
+      <span class="word">block</span>
     </div>
   </div>
 </div>
@@ -224,7 +224,7 @@
           <div class="cb-icon-host--large">
             <div class="cb-icon cb-icon--large" role="img" aria-label="パレットのアイコン (3 倍)">
               <i class="rule"></i>
-              <span class="comment">comment</span>
+              <span class="word">block</span>
             </div>
           </div>
         </div>
@@ -251,7 +251,7 @@
         <tr><td>リサイズハンドル</td><td><code>6 × 24 px</code>、角丸 <code>3 px</code>。ゲートの上下に出る範囲変更ハンドル (<a href="resize-handle.html">リサイズハンドル</a>) を 90° 回した形で、本体の左右の辺の縦中央に置く。当たり判定は左右に <code>5 px</code>、上下に <code>4 px</code> 広げた <code>16 × 32 px</code>。2 つのブロックが接する辺では、ポインタの下にあるブロックのハンドルを優先する</td><td><code>SPAN_RESIZE_HANDLE_HEIGHT</code> / <code>SPAN_RESIZE_HANDLE_MIN_WIDTH</code></td></tr>
         <tr><td>ハンドルの拡大</td><td>出現時 <code>0.7</code> → <code>1.0</code> 倍 (250 ms、ゲートのリサイズハンドルと同じイージング)、ホバー <code>1.15</code> 倍、ドラッグ中 <code>1.25</code> 倍</td><td><code>span_resize_ease_out_back</code></td></tr>
         <tr><td>回路の押し下げ</td><td>ブロックが 1 つでもあれば回路を <code>58 px</code> 下げる。最初のブロックを置いた瞬間に回路が下がる</td><td><code>CIRCUIT_BLOCK_OUTSET_Y</code></td></tr>
-        <tr><td>パレットのアイコン</td><td><code>40 × 40 px</code> の枠の中央を横切る太さ <code>4 px</code> の横罫線。その上に <code>comment</code> の文字を <code>12 px</code>、字間 <code>-0.6 px</code> で中央揃えし、罫線との間を <code>2 px</code> 空ける</td><td><code>draw_circuit_block_palette_icon</code></td></tr>
+        <tr><td>パレットのアイコン</td><td><code>40 × 40 px</code> の枠に、<code>block</code> の文字 (<code>14 px</code>) と、その <code>2 px</code> 下に枠いっぱいの幅 <code>40 px</code>・太さ <code>4 px</code> の横罫線を置く。文字と罫線は横中央に揃え、ひとまとまりとして縦中央に置く (罫線は整数ピクセルに丸める)。ドロップしたブロックの既定のコメントは「comment」のまま</td><td><code>draw_circuit_block_palette_icon</code></td></tr>
       </tbody>
     </table>
   </div>
