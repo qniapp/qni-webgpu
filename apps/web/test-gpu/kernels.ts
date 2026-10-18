@@ -98,7 +98,7 @@ export const constants = {
 } as const
 export const fingerprints: [string, string, number][] = [
   ['gpu/recompute/pack.rs', 'let rest_count = (state_count as u32) >> *span;', 1],
-  ['gpu/recompute/pack.rs', 'seed: gate_id.as_u32(),', 1],
+  ['gpu/recompute/pack.rs', 'seed: gate_id.as_u32() ^ measurement_seed,', 1],
   ['gpu/recompute/pack.rs', 'let total_qubits = usize::BITS - state_count.leading_zeros() - 1;', 1],
   ['gpu/recompute/pack.rs', 'phase_lock_enabled: u32::from(*span != total_qubits),', 1],
   ['gpu/recompute/dispatch.rs', 'let dispatch_x = outcomes.min(256);', 1],

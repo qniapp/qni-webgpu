@@ -529,6 +529,8 @@ test('narrow embed wraps a nine-gate palette into two rows', async ({ page }) =>
 })
 
 test('narrow embed keeps trailing measurements inside the canvas', async ({ page }) => {
+  // Seed zero preserves the pre-seed screenshot outcome; the contract suite tests fresh shots.
+  await page.addInitScript(() => { Math.random = () => 0 })
   await hostEmbed(page, ENTANGLEMENT, { settings: { palette: ['H', '•', 'X'] }, width: 354, height: 592 })
   await waitForStepZero(page, 2)
   await expect(page.locator('qni-webgpu-test canvas')).toHaveScreenshot('embed-narrow-entanglement.png')

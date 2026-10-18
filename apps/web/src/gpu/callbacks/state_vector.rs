@@ -58,6 +58,7 @@ pub(crate) struct StateVectorUpdate {
     pub(crate) sim_ops: std::sync::Arc<Vec<SimulationOp>>,
     pub(crate) state_count: usize,
     pub(crate) plan_revision: u64,
+    pub(crate) measurement_seed: u32,
     pub(crate) preview_step: Option<usize>,
     pub(crate) snapshot_slot_count: usize,
 }
@@ -160,7 +161,14 @@ impl StateVectorUpdate {
             );
         }
         if recomputed
-            && !recompute_state_vector(device, queue, resources, &self.sim_ops, self.state_count)
+            && !recompute_state_vector(
+                device,
+                queue,
+                resources,
+                &self.sim_ops,
+                self.state_count,
+                self.measurement_seed,
+            )
         {
             return false;
         }

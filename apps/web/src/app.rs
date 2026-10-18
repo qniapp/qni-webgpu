@@ -129,6 +129,8 @@ pub(crate) struct QniApp {
     pub(crate) exec_mode_keyboard_focus: bool,
     pub(crate) external_gpu: external_gpu::ExternalGpuSession,
     pub(crate) gpu_plan: GpuPlanState,
+    /// Fixed for this runner's lifetime; only GPU measurement sampling uses it.
+    measurement_seed: u32,
     last_content_rect: Option<egui::Rect>,
     drag_cursor_pos: Option<egui::Pos2>,
     drag_repaint_deadline: Option<f64>,
@@ -375,6 +377,20 @@ impl QniApp {
             exec_mode_keyboard_focus: false,
             external_gpu: external_gpu::ExternalGpuSession::default(),
             gpu_plan: GpuPlanState::default(),
+            measurement_seed: {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    if matches!(mode, AppMode::Embed { .. }) {
+                        (js_sys::Math::random() * 4294967296.0) as u32
+                    } else {
+                        0
+                    }
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    0
+                }
+            },
             last_content_rect: None,
             drag_cursor_pos: None,
             drag_repaint_deadline: None,

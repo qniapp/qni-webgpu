@@ -24,7 +24,12 @@ pub(super) struct PackedRecomputeParams {
 }
 
 impl PackedRecomputeParams {
-    pub(super) fn from_ops(sim_ops: &[SimulationOp], state_count: usize, pair_count: u32) -> Self {
+    pub(super) fn from_ops(
+        sim_ops: &[SimulationOp],
+        state_count: usize,
+        pair_count: u32,
+        measurement_seed: u32,
+    ) -> Self {
         let mut packed = Self {
             gate: Vec::with_capacity(sim_ops.len()),
             postselection: Vec::new(),
@@ -71,7 +76,9 @@ impl PackedRecomputeParams {
                     qubit_bit: qubit_bit.as_u32(),
                     state_count: state_count as u32,
                     output_slot: output_slot.as_u32(),
-                    seed: gate_id.as_u32(),
+                    // Standalone keeps seed zero; embeds mix in a seed owned by
+                    // the runner, never by the current step or rendered frame.
+                    seed: gate_id.as_u32() ^ measurement_seed,
                     control_mask: controls.mask(),
                     control_value: controls.value(),
                     _pad: [0; 2],
@@ -226,7 +233,7 @@ mod tests {
     use crate::gpu::SlotIndex;
     use crate::qubit_bit::QubitBit;
 
-    fn packed_measurement() -> PackedRecomputeParams {
+    fn packed_measurement(measurement_seed: u32) -> PackedRecomputeParams {
         let mut controls = ColumnControls::NONE.with_control(QubitBit::new(0));
         controls.add_anti_control(QubitBit::new(1));
         PackedRecomputeParams::from_ops(
@@ -245,12 +252,13 @@ mod tests {
             ],
             8,
             4,
+            measurement_seed,
         )
     }
 
     #[test]
     fn reduce_uniform_preserves_joint_predicate_and_seed() {
-        let packed = packed_measurement();
+        let packed = packed_measurement(0);
         assert_eq!(
             bytemuck::cast_slice::<_, u32>(&packed.measure_reduce),
             &[2, 8, 3, 7, 3, 1, 0, 0]
@@ -258,8 +266,14 @@ mod tests {
     }
 
     #[test]
+    fn reduce_uniform_mixes_runner_seed_with_gate_identity() {
+        let packed = packed_measurement(0x12345678);
+        assert_eq!(packed.measure_reduce[0].seed, 7 ^ 0x12345678);
+    }
+
+    #[test]
     fn collapse_uniform_preserves_joint_predicate_and_aux_slot() {
-        let packed = packed_measurement();
+        let packed = packed_measurement(0);
         assert_eq!(
             bytemuck::cast_slice::<_, u32>(&packed.measure_collapse),
             &[2, 8, 3, 0, 3, 1, 0, 0]
