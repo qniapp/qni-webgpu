@@ -51,6 +51,11 @@
     stroke: var(--tx-3);               /* Flexoki tx-3 / bloch_sphere_lines */
     stroke-width: 1.5;
   }
+  :host([state="drag"]) .sphere {
+    stroke: var(--purple-600);           /* Flexoki purple-600 / drag_fill */
+    stroke-width: 2;
+  }
+  :host([state="drag"]) { box-shadow: none; }
   .axis {
     stroke: var(--tx-3);               /* Flexoki tx-3 / bloch_sphere_lines */
     stroke-width: 1;
@@ -92,7 +97,7 @@
     white-space: nowrap;
     box-shadow: 0 10px 28px rgba(16, 15, 15, 0.14); /* Flexoki tx alpha */
   }
-  :host(:not([icon]):not([no-popover]):hover) .bd-popover,
+  :host(:not([icon]):not([no-popover]):not([state="drag"]):hover) .bd-popover,
   :host(:not([icon]):not([no-popover])[state="hover"]) .bd-popover {
     display: block;
   }

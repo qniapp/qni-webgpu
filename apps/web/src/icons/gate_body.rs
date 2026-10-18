@@ -5,6 +5,7 @@ use eframe::egui;
 use crate::colors::{lerp_color, with_alpha, Colors};
 use crate::constants::{GATE_SIZE, LINE_GAP};
 use crate::gates::GateKind;
+use crate::tailwind::STROKE_2;
 
 use super::gate_glyphs::draw_gate_icon;
 
@@ -52,7 +53,7 @@ pub(crate) fn draw_gate_glyph(
     kind: GateKind,
     colors: &Colors,
 ) {
-    draw_gate_icon_with_fallback(painter, gate_rect, kind, colors, colors.box_fill);
+    draw_gate_icon_with_fallback(painter, gate_rect, kind, colors, colors.box_fill, false);
 }
 
 const GATE_CORNER_RADIUS: u8 = 6;
@@ -74,10 +75,18 @@ fn draw_gate_body_with_fill(
     kind: GateKind,
     colors: &Colors,
     fill: egui::Color32,
-    dragging: bool,
+    grabbed: bool,
 ) {
+    if grabbed && is_frameless(kind) {
+        painter.rect_filled(
+            gate_rect,
+            egui::CornerRadius::same(GATE_CORNER_RADIUS),
+            fill,
+        );
+    }
     if kind == GateKind::ZDetectControlReset {
-        draw_gate_icon(painter, gate_rect, kind, fill, colors);
+        let color = if grabbed { colors.label } else { fill };
+        draw_gate_icon(painter, gate_rect, kind, color, colors, grabbed);
         return;
     }
     if kind == GateKind::X {
@@ -87,14 +96,15 @@ fn draw_gate_body_with_fill(
         draw_sample_palette_icon(painter, gate_rect, colors);
         return;
     } else if kind == GateKind::ProbabilityDisplay {
-        draw_probability_preview_body(painter, gate_rect, colors);
+        let background = if grabbed { fill } else { colors.surface };
+        draw_probability_preview_body(painter, gate_rect, colors, background);
         return;
     } else if kind == GateKind::AmplitudeDisplay {
-        let background = if dragging { fill } else { colors.surface };
+        let background = if grabbed { fill } else { colors.surface };
         draw_amplitude_preview_body(painter, gate_rect, colors, background);
         return;
     } else if kind == GateKind::DensityMatrixDisplay {
-        let background = if dragging { fill } else { colors.surface };
+        let background = if grabbed { fill } else { colors.surface };
         draw_density_preview_body(painter, gate_rect, colors, background);
         return;
     } else if kind == GateKind::Phase {
@@ -120,34 +130,41 @@ fn draw_gate_body_with_fill(
             egui::pos2(cx - half, cy - half),
             egui::pos2(cx + half, cy + half),
         );
-        draw_gate_icon(painter, icon_rect, kind, colors.label, colors);
+        draw_gate_icon(painter, icon_rect, kind, colors.label, colors, grabbed);
         return;
     } else if kind == GateKind::BlochDisplay {
         // qni renders the bloch display as a stand-alone sphere — bg-green-50
         // background with a gray-400 border (`packages/elements/css/bloch_display.css`).
         let radius = gate_rect.width().min(gate_rect.height()) * 0.5 - 1.0;
+        let outline = if grabbed {
+            egui::Stroke::new(STROKE_2, fill)
+        } else {
+            egui::Stroke::new(1.5_f32, colors.bloch_sphere_lines)
+        };
         painter.circle_filled(gate_rect.center(), radius, colors.bloch_sphere_bg);
-        painter.circle_stroke(
-            gate_rect.center(),
-            radius,
-            egui::Stroke::new(1.5_f32, colors.bloch_sphere_lines),
-        );
-    } else if kind != GateKind::Control
-        && kind != GateKind::AntiControl
-        && kind != GateKind::Swap
-        && !kind.is_sampled_measurement()
-        && kind != GateKind::Spacer
-        && kind != GateKind::Write0
-        && kind != GateKind::Write1
-        && !kind.is_postselection()
-    {
+        painter.circle_stroke(gate_rect.center(), radius, outline);
+    } else if !is_frameless(kind) {
         painter.rect_filled(
             gate_rect,
             egui::CornerRadius::same(GATE_CORNER_RADIUS),
             fill,
         );
     }
-    draw_gate_icon_with_fallback(painter, gate_rect, kind, colors, fill);
+    draw_gate_icon_with_fallback(painter, gate_rect, kind, colors, fill, grabbed);
+}
+
+fn is_frameless(kind: GateKind) -> bool {
+    matches!(
+        kind,
+        GateKind::Control
+            | GateKind::AntiControl
+            | GateKind::Swap
+            | GateKind::Spacer
+            | GateKind::Write0
+            | GateKind::Write1
+            | GateKind::ZDetectControlReset
+    ) || kind.is_sampled_measurement()
+        || kind.is_postselection()
 }
 
 fn draw_gate_icon_with_fallback(
@@ -156,27 +173,33 @@ fn draw_gate_icon_with_fallback(
     kind: GateKind,
     colors: &Colors,
     fill: egui::Color32,
+    grabbed: bool,
 ) {
-    let icon_color =
-        if kind == GateKind::Control || kind == GateKind::AntiControl || kind == GateKind::Swap {
-            fill
-        } else if kind == GateKind::BlochDisplay {
-            colors.bloch_sphere_lines
-        } else if kind.is_sampled_measurement() {
-            // qni `measurement_gate.css`: icon color is semantic-color-intermediate (purple).
-            colors.semantic_intermediate
-        } else if kind == GateKind::Spacer {
-            // qni `spacer_gate.css`: text-neutral-900 (#171717).
-            colors.spacer_dots
-        } else if kind == GateKind::Write0 || kind == GateKind::Write1 {
-            // qni `write_gate.css`: ::part(icon) (the brackets) is
-            // semantic-fill-color-disabled (zinc-500). Only the digit itself
-            // is red/blue — handled inside draw_gate_icon.
-            colors.semantic_disabled
-        } else {
-            colors.label
-        };
-    if !draw_gate_icon(painter, gate_rect, kind, icon_color, colors) {
+    let icon_color = if grabbed && is_frameless(kind) {
+        match kind {
+            GateKind::Write0 | GateKind::Write1 => colors.drag_accent,
+            _ if kind.is_sampled_measurement() || kind.is_postselection() => colors.drag_accent,
+            _ => colors.label,
+        }
+    } else if kind == GateKind::Control || kind == GateKind::AntiControl || kind == GateKind::Swap {
+        fill
+    } else if kind == GateKind::BlochDisplay {
+        colors.bloch_sphere_lines
+    } else if kind.is_sampled_measurement() {
+        // qni `measurement_gate.css`: icon color is semantic-color-intermediate (purple).
+        colors.semantic_intermediate
+    } else if kind == GateKind::Spacer {
+        // qni `spacer_gate.css`: text-neutral-900 (#171717).
+        colors.spacer_dots
+    } else if kind == GateKind::Write0 || kind == GateKind::Write1 || kind.is_postselection() {
+        // qni `write_gate.css`: ::part(icon) (the brackets) is
+        // semantic-fill-color-disabled (zinc-500). Only the digit itself
+        // is red/blue — handled inside draw_gate_icon.
+        colors.semantic_disabled
+    } else {
+        colors.label
+    };
+    if !draw_gate_icon(painter, gate_rect, kind, icon_color, colors, grabbed) {
         painter.text(
             gate_rect.center(),
             egui::Align2::CENTER_CENTER,
@@ -185,6 +208,19 @@ fn draw_gate_icon_with_fallback(
             colors.label,
         );
     }
+}
+
+pub(crate) fn draw_sample_drag_outline(
+    painter: &egui::Painter,
+    body_rect: egui::Rect,
+    colors: &Colors,
+) {
+    painter.rect_stroke(
+        body_rect,
+        egui::CornerRadius::same(GATE_CORNER_RADIUS),
+        egui::Stroke::new(STROKE_2, colors.drag_fill),
+        egui::StrokeKind::Outside,
+    );
 }
 
 /// Static unlit tiles for a placed Sample that has no GPU slot yet. Live
@@ -363,10 +399,15 @@ pub(crate) fn draw_density_palette_icon(
     }
 }
 
-fn draw_probability_preview_body(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
+fn draw_probability_preview_body(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    colors: &Colors,
+    background: egui::Color32,
+) {
     // Static mini-preview only. Live probabilities are drawn later by the
     // GPU Probability render callback, directly from `probability_output`.
-    painter.rect_filled(rect, egui::CornerRadius::ZERO, colors.surface);
+    painter.rect_filled(rect, egui::CornerRadius::ZERO, background);
 
     // docs/design-system/probability-display.html §02: 4 行のガウス風 mini preview。
     // 本体と同じく右端マーカー、区切り線は
@@ -452,8 +493,17 @@ mod tests {
     }
 
     #[test]
-    fn postselection_drag_body_matches_static_body() {
-        assert_eq!(postselection_shapes(true), postselection_shapes(false));
+    fn postselection_drag_bodies_are_drag_filled_frames() {
+        let fill = Colors::new().drag_fill;
+        assert_eq!(
+            postselection_shapes(true)
+                .iter()
+                .filter(
+                    |shape| matches!(&shape.shape, egui::Shape::Rect(rect) if rect.fill == fill)
+                )
+                .count(),
+            4
+        );
     }
 
     #[test]

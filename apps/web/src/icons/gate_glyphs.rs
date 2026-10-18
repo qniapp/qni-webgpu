@@ -60,7 +60,7 @@ pub(crate) fn draw_sampled_measurement_icon(
     rect: egui::Rect,
     kind: GateKind,
     color: egui::Color32,
-    colors: &Colors,
+    axis_color: egui::Color32,
 ) {
     draw_meter_icon(painter, rect, color);
     let axis = match kind {
@@ -73,7 +73,7 @@ pub(crate) fn draw_sampled_measurement_icon(
         egui::Align2::LEFT_TOP,
         axis,
         egui::FontId::proportional(crate::tailwind::TEXT_XS),
-        colors.semantic_intermediate,
+        axis_color,
     );
 }
 
@@ -83,6 +83,7 @@ pub(super) fn draw_gate_icon(
     kind: GateKind,
     color: egui::Color32,
     colors: &Colors,
+    grabbed: bool,
 ) -> bool {
     // H / Y / Z / √X / S / S† / T / T† / Phase(Φ) / RX / RY / RZ / QFT /
     // QFT† / X (本体は "+" として描く) / Write の 0・1 は
@@ -119,7 +120,8 @@ pub(super) fn draw_gate_icon(
                 GateKind::PostSelectAntiX => ("+", colors.semantic_intermediate),
                 _ => ("−", colors.semantic_intermediate),
             };
-            let projector_stroke = egui::Stroke::new(STROKE_2 * scale, colors.semantic_disabled);
+            let symbol_color = if grabbed { colors.label } else { symbol_color };
+            let projector_stroke = egui::Stroke::new(STROKE_2 * scale, color);
             for x in [SPACING_1, VIEWBOX - SPACING_1] {
                 painter.line_segment([p(x, SPACING_2), p(x, SPACING_10)], projector_stroke);
             }
@@ -150,8 +152,17 @@ pub(super) fn draw_gate_icon(
             true
         }
         GateKind::ZDetectControlReset => {
-            let meter_stroke = egui::Stroke::new(stroke.width, colors.semantic_intermediate);
-            let ket_stroke = egui::Stroke::new(stroke.width, colors.semantic_disabled);
+            let (meter_color, ket_color, digit_color) = if grabbed {
+                (colors.drag_accent, colors.drag_accent, colors.label)
+            } else {
+                (
+                    colors.semantic_intermediate,
+                    colors.semantic_disabled,
+                    colors.semantic_off,
+                )
+            };
+            let meter_stroke = egui::Stroke::new(stroke.width, meter_color);
+            let ket_stroke = egui::Stroke::new(stroke.width, ket_color);
             draw_meter_arc(painter, rect, SvgPoint::new(24.0, 24.0), 18.0, meter_stroke);
             painter.line_segment([p(24.0, 24.0), p(35.8, 3.75)], meter_stroke);
             painter.line_segment([p(24.0, 24.0), p(24.0, 45.0)], stroke);
@@ -162,7 +173,7 @@ pub(super) fn draw_gate_icon(
             super::svg_icon::draw_glyph(
                 painter,
                 digit_rect,
-                colors.semantic_off,
+                digit_color,
                 super::svg_icon::GateGlyph::Digit0,
             );
             painter.circle_filled(p(24.0, 24.0), DETECTOR_CONTROL_RADIUS * scale, color);
@@ -170,7 +181,12 @@ pub(super) fn draw_gate_icon(
         }
         GateKind::Measurement | GateKind::XDetector | GateKind::YDetector => {
             // qni reference: packages/elements/icon/measurement-gate.svg
-            draw_sampled_measurement_icon(painter, rect, kind, color, colors);
+            let axis_color = if grabbed {
+                colors.label
+            } else {
+                colors.semantic_intermediate
+            };
+            draw_sampled_measurement_icon(painter, rect, kind, color, axis_color);
             true
         }
         GateKind::Spacer => {
@@ -197,6 +213,7 @@ pub(super) fn draw_gate_icon(
             } else {
                 (super::svg_icon::GateGlyph::Digit1, colors.semantic_on)
             };
+            let digit_color = if grabbed { colors.label } else { digit_color };
             // Ket digit uses Geist Mono from the shared SVG/SDF path so the
             // slashed "0" stays unambiguous and the palette/circuit weight
             // does not depend on egui text rasterization.

@@ -21,8 +21,9 @@ use crate::gpu::{
 };
 use crate::grid_cell::GridCell;
 use crate::icons::{
-    conditional_gate_body_shape, draw_bloch_vector, draw_gate_body, draw_gate_body_filled,
-    draw_gate_glyph, draw_sample_placeholder_tiles, draw_sampled_measurement_icon,
+    conditional_gate_body_shape, draw_bloch_vector, draw_drag_gate_body, draw_gate_body,
+    draw_gate_body_filled, draw_gate_glyph, draw_sample_placeholder_tiles,
+    draw_sampled_measurement_icon,
 };
 #[cfg(test)]
 use crate::layout::gate_visible_rect;
@@ -302,7 +303,9 @@ impl QniApp {
             {
                 painter.rect_filled(gate_rect, egui::CornerRadius::ZERO, colors.background);
             }
-            if measurement_has_slot {
+            if dragging_gate_id == Some(gate.id) {
+                draw_drag_gate_body(painter, body_rect, gate.kind, colors);
+            } else if measurement_has_slot {
                 // Repaint the meter in the same neutral tone as the wire after
                 // masking the wire gap. Draw it once (instead of purple then
                 // neutral) so anti-aliased edges do not leak the palette colour.
@@ -311,7 +314,7 @@ impl QniApp {
                     gate_rect,
                     gate.kind,
                     colors.measurement_fired_icon,
-                    colors,
+                    colors.semantic_intermediate,
                 );
             } else if let Some(body) = batch.conditional_bodies.get(&gate.id) {
                 match body {
@@ -831,10 +834,39 @@ impl QniApp {
         // GPU overlay: 0/1 digit per measurement, sourced directly from
         // `measurement_aux_buffer.z`. Half extent is roughly digit-bounding
         // box + AA fringe.
+        let measurement_digit_instances =
+            self.measurement_digit_instances(projection, dragging_gate_id);
+        if !measurement_digit_instances.is_empty() {
+            let callback = MeasurementDigitCallback {
+                instances: measurement_digit_instances.into(),
+                viewport_min: [callback_rect.min.x, callback_rect.min.y],
+                viewport_size: [callback_rect.width(), callback_rect.height()],
+                // Surface is rgba8unorm (non-sRGB) — egui paints text using
+                // sRGB-encoded colours straight to the framebuffer, so we
+                // need to do the same for the digit to read identically.
+                // `Rgba::from(Color32)` would convert to linear and produce
+                // a desaturated digit.
+                zero_color: colors.semantic_off.to_normalized_gamma_f32(),
+                one_color: colors.semantic_on.to_normalized_gamma_f32(),
+                grabbed_color: colors.label.to_normalized_gamma_f32(),
+            };
+            let paint_callback = egui_wgpu::Callback::new_paint_callback(
+                callback_rect,
+                FrameCallback::new(callback),
+            );
+            shapes.push(egui::Shape::Callback(paint_callback));
+        }
+        shapes
+    }
+
+    pub(crate) fn measurement_digit_instances(
+        &self,
+        projection: CircuitProjection,
+        dragging_gate_id: Option<GateId>,
+    ) -> Vec<MeasurementDigitInstance> {
         let live_dragging_measurement_id =
             dragging_gate_id.filter(|_| self.dragging_live_display_snap);
-        let measurement_digit_instances: Vec<MeasurementDigitInstance> = self
-            .placed_gates
+        self.placed_gates
             .iter()
             .filter_map(|gate| {
                 if !gate.kind.is_sampled_measurement() {
@@ -858,29 +890,10 @@ impl QniApp {
                     // rect so Measurement and Write share the same SVG/SDF digit size.
                     half_extent: GATE_SIZE * 0.5,
                     slot,
+                    grabbed: u32::from(dragging_gate_id == Some(gate.id)),
                 })
             })
-            .collect();
-        if !measurement_digit_instances.is_empty() {
-            let callback = MeasurementDigitCallback {
-                instances: measurement_digit_instances.into(),
-                viewport_min: [callback_rect.min.x, callback_rect.min.y],
-                viewport_size: [callback_rect.width(), callback_rect.height()],
-                // Surface is rgba8unorm (non-sRGB) — egui paints text using
-                // sRGB-encoded colours straight to the framebuffer, so we
-                // need to do the same for the digit to read identically.
-                // `Rgba::from(Color32)` would convert to linear and produce
-                // a desaturated digit.
-                zero_color: colors.semantic_off.to_normalized_gamma_f32(),
-                one_color: colors.semantic_on.to_normalized_gamma_f32(),
-            };
-            let paint_callback = egui_wgpu::Callback::new_paint_callback(
-                callback_rect,
-                FrameCallback::new(callback),
-            );
-            shapes.push(egui::Shape::Callback(paint_callback));
-        }
-        shapes
+            .collect()
     }
 
     pub(crate) fn draw_survival_labels(

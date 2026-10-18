@@ -178,7 +178,7 @@
         <div class="actual"><spacer-gate frame="palette"></spacer-gate></div>
       </div>
       <div class="col">
-        <div class="caption">ドラッグ<br>色変化なし</div>
+        <div class="caption">ドラッグ中<br>紫の本体 + 明るい 3 点</div>
         <div class="actual"><spacer-gate state="drag"></spacer-gate></div>
       </div>
     </div>
@@ -219,9 +219,9 @@
         </tr>
         <tr>
           <td>ドラッグ中</td>
-          <td>—</td>
-          <td>変化なし</td>
-          <td>本体 fill が無いため <code>drag_fill</code> (purple-600) へ置き換えない。3 点は <code>tx</code> のまま</td>
+          <td><code>purple-600 / bg</code></td>
+          <td>本体 / 3 点</td>
+          <td>40 × 40 px、角丸 6 px の本体を <code>drag_fill</code> で追加し、ワイヤを覆う。3 点は <code>label</code> (<code>bg</code>) で描く</td>
         </tr>
       </tbody>
     </table>
@@ -276,8 +276,8 @@
   <h2><span class="num">§ 04</span>状態バリアント</h2>
   <div class="card">
     <p>
-      Spacer は本体色を持たないため、状態差はホバー枠とカーソルだけで伝える。
-      ドラッグ中も 3 点の色は変えず、「仮配置中」の紫色本体を出さない。
+      通常時の Spacer は本体色を持たず、ホバーは枠とカーソルで示す。
+      ドラッグ中は紫色の本体を追加し、3 点を明るい色で描く。セルの外でも、セルに重なっている間も同じ見た目にする。
     </p>
     <div class="stage">
       <div class="col">
@@ -293,7 +293,7 @@
         <div class="actual"><spacer-gate frame="palette"></spacer-gate></div>
       </div>
       <div class="col">
-        <div class="caption">④ ドラッグ<br>色変化なし</div>
+        <div class="caption">④ ドラッグ中<br>紫の本体 + 明るい 3 点</div>
         <div class="actual"><spacer-gate state="drag"></spacer-gate></div>
       </div>
     </div>
@@ -337,7 +337,7 @@
       <li><strong>3 点だけで描く</strong>: 空白を示す記号なので、操作ゲートの cyan-400 本体や枠線を足さない。</li>
       <li><strong>tx を使う</strong>: <code>tx-2</code> では wire 上で弱すぎ、<code>tx</code> なら小さな 5 px 点でも見失わない。</li>
       <li><strong>wire マスクをしない</strong>: Spacer は回路の流れを止めない。wire が連続していることを保ち、点だけが上に乗る。</li>
-      <li><strong>ドラッグ中に紫化しない</strong>: 本体 fill が無いゲートに purple-600 の仮本体を出すと、Spacer が操作ゲートに見えるため避ける。</li>
+      <li><strong>ドラッグ中は紫の本体を追加する</strong>: 元の Qni に合わせ、ほかの操作と同じ配色で操作中だと示す。配置後は透明な領域と 3 点に戻る。</li>
       <li><strong>span = 1 固定</strong>: 列を占有するだけで、複数量子ビットの領域を持たない。リサイズハンドルは出さない。</li>
     </ul>
   </div>

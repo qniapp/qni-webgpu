@@ -253,9 +253,9 @@
           <td><code>gate_hover_border</code> ロール。回路上では透明内部を塗らない、線だけの枠</td>
         </tr>
         <tr>
-          <td>× 記号 (ドラッグ)</td>
+          <td>ドラッグ中</td>
           <td><code>purple-600</code></td>
-          <td><code>drag_fill</code> / <code>semantic_intermediate</code> ロール。仮配置中だけ記号色を置き換える</td>
+          <td><code>drag_fill</code> ロール。40 × 40 px、角丸 6 px の本体でワイヤを覆い、× は <code>label</code> (<code>bg</code>) で描く</td>
         </tr>
         <tr>
           <td>ワイヤ</td>
@@ -276,7 +276,7 @@
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>占有領域</th><td><code>40 × 40 px</code>。見た目は透明だが、ホバー / ドラッグ / 当たり判定はこの領域で持つ</td></tr>
+        <tr><th>占有領域</th><td><code>40 × 40 px</code>。通常時は透明で、ホバー / ドラッグ / 当たり判定はこの領域で持つ。ドラッグ中は領域全体を角丸本体で覆う</td></tr>
         <tr><th>表示記号</th><td>× 記号。viewBox 48 上で 2 本の対角線 <code>(12,36)→(36,12)</code> / <code>(12,12)→(36,36)</code></td></tr>
         <tr><th>線幅</th><td>× 記号は基準 SVG の viewBox 48 上で <code>4 px</code> (40 px 表示では約 <code>3.33 px</code>)。縦コネクタは実寸 <code>4 px</code> (<code>CONNECTOR_STROKE_WIDTH</code>)</td></tr>
         <tr><th>本体 fill</th><td>なし。Swap マーカは矩形 / 円の本体を描かない</td></tr>
@@ -322,7 +322,7 @@
   <h2><span class="num">§ 04</span>状態バリアント (常時表示モック)</h2>
   <div class="card">
     <p>
-      既定 / ホバー / ドラッグ / パレットホバーを並べる。Swap は本体面を持たないため、状態差は記号色と周囲の枠で表す。
+      既定 / ホバー / ドラッグ / パレットホバーを並べる。通常時の Swap は透明だが、ドラッグ中は紫の本体と明るい記号で表す。
     </p>
     <div class="stage">
       <div class="col">
@@ -334,7 +334,7 @@
         <div class="actual"><swap-gate state="hover"></swap-gate></div>
       </div>
       <div class="col">
-        <div class="caption">③ ドラッグ<br>purple-600 ×</div>
+        <div class="caption">③ ドラッグ中<br>purple-600 本体 + bg ×</div>
         <div class="actual"><swap-gate state="drag"></swap-gate></div>
       </div>
       <div class="col">
@@ -407,7 +407,7 @@
       <tbody>
         <tr>
           <td>本体</td>
-          <td>矩形 / 円のゲート本体は持たず、× 記号だけを描く。idle は <code>box_fill</code>、drag 中は <code>drag_fill</code> を使う。</td>
+          <td>通常時は透明な領域に <code>box_fill</code> の × を描く。ドラッグ中は <code>drag_fill</code> の角丸本体を追加し、× は <code>label</code> にする。</td>
         </tr>
         <tr>
           <td>× 記号</td>

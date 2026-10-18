@@ -20,5 +20,6 @@ pub(crate) const BLUE_300: Color32 = Color32::from_rgb(0x66, 0xA0, 0xC8);
 pub(crate) const BLUE_400: Color32 = Color32::from_rgb(0x43, 0x85, 0xBE);
 pub(crate) const BLUE_600: Color32 = Color32::from_rgb(0x20, 0x5E, 0xA6);
 pub(crate) const PURPLE_100: Color32 = Color32::from_rgb(0xEC, 0xE1, 0xF3);
+pub(crate) const PURPLE_300: Color32 = Color32::from_rgb(0xA6, 0x99, 0xD0);
 pub(crate) const PURPLE_400: Color32 = Color32::from_rgb(0x8B, 0x7E, 0xC8);
 pub(crate) const PURPLE_600: Color32 = Color32::from_rgb(0x5E, 0x40, 0x9D);

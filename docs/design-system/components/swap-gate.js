@@ -12,7 +12,7 @@
  *
  *   <swap-gate></swap-gate>                <!-- 既定 (rest)、cyan-400 の × -->
  *   <swap-gate state="hover"></swap-gate>  <!-- ホバー枠 (stroke 派生) を強制 -->
- *   <swap-gate state="drag"></swap-gate>   <!-- drag preview (× が purple-600) -->
+ *   <swap-gate state="drag"></swap-gate>   <!-- 紫の本体と明るい × -->
  *
  * 設計判断:
  * - Shadow DOM (open): ホスト側の CSS が swap-gate などを再定義しても見た目が壊れない
@@ -41,7 +41,9 @@
   }
   :host([state="drag"]) {
     cursor: grabbing;
-    color: var(--purple-600);             /* Flexoki purple-600 / drag_fill */
+    color: var(--bg);                     /* Flexoki bg / label */
+    background: var(--purple-600);        /* Flexoki purple-600 / drag_fill */
+    border-radius: 6px;
   }
 
   /* ホバー枠 (stroke 派生)。透明本体の Swap では内側を塗らず 2 px の紫線だけにする

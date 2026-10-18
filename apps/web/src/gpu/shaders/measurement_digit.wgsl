@@ -4,6 +4,7 @@ struct DigitParams {
   viewport_size: vec2<f32>,
   zero_color: vec4<f32>,
   one_color: vec4<f32>,
+  grabbed_color: vec4<f32>,
 };
 
 @group(0) @binding(0) var<storage, read> aux_data: array<vec4<f32>>;
@@ -18,6 +19,7 @@ struct VsIn {
   @location(1) center: vec2<f32>,
   @location(2) half_extent: f32,
   @location(3) slot: u32,
+  @location(4) grabbed: u32,
 };
 
 struct VsOut {
@@ -25,6 +27,7 @@ struct VsOut {
   @location(0) local: vec2<f32>,
   @location(1) half_extent: f32,
   @location(2) @interpolate(flat) slot: u32,
+  @location(3) @interpolate(flat) grabbed: u32,
 };
 
 @vertex
@@ -42,6 +45,7 @@ fn vs_main(input: VsIn) -> VsOut {
   out.local = local;
   out.half_extent = input.half_extent;
   out.slot = input.slot;
+  out.grabbed = input.grabbed;
   return out;
 }
 
@@ -69,6 +73,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   if (alpha < 1.0e-3) {
     discard;
   }
-  let color = select(params.zero_color.rgb, params.one_color.rgb, outcome >= 0.5);
+  let outcome_color = select(params.zero_color.rgb, params.one_color.rgb, outcome >= 0.5);
+  let color = select(outcome_color, params.grabbed_color.rgb, input.grabbed != 0u);
   return vec4<f32>(color * alpha, alpha);
 }

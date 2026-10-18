@@ -17,6 +17,7 @@ pub(crate) struct MeasurementDigitCallback {
     pub(crate) viewport_size: [f32; 2],
     pub(crate) zero_color: [f32; 4],
     pub(crate) one_color: [f32; 4],
+    pub(crate) grabbed_color: [f32; 4],
 }
 
 impl egui_wgpu::CallbackTrait for MeasurementDigitCallback {
@@ -39,6 +40,7 @@ impl egui_wgpu::CallbackTrait for MeasurementDigitCallback {
             viewport_size: self.viewport_size,
             zero_color: self.zero_color,
             one_color: self.one_color,
+            grabbed_color: self.grabbed_color,
         };
         if resources.digit.last_params != Some(params) {
             queue.write_buffer(
