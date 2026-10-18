@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  getCircuitOriginY,
   readAmplitudeCell,
   readBlochVectors,
   readDensityMatrixCell,
@@ -101,9 +102,12 @@ for (const { name, cols } of survivalLabelCases) {
 
 test('state panel occludes column survival labels when moved over the circuit', async ({ page }) => {
   await openCircuit(page, [['H'], ['|0⟩⟨0|']])
-  await page.mouse.move(500, 552)
+  const circuitY = await getCircuitOriginY(page)
+  const viewport = page.viewportSize()
+  if (!viewport) throw new Error('expected a fixed viewport')
+  await page.mouse.move(500, viewport.height - 248)
   await page.mouse.down()
-  await page.mouse.move(400, 344, { steps: 12 })
+  await page.mouse.move(400, circuitY + 88, { steps: 12 })
   await page.mouse.up()
   await page.mouse.move(999, 450)
   await expect(page).toHaveScreenshot('postselection-panel-occludes-labels.png')
@@ -174,14 +178,14 @@ for (const detector of ['XDetector', 'YDetector']) {
 
 test('selecting a column before impossible postselection restores its defined snapshot', async ({ page }) => {
   await openCircuit(page, [['X'], ['|0⟩⟨0|']])
-  await page.mouse.click(170, 224)
+  await page.mouse.click(170, await getCircuitOriginY(page) - 32)
   await page.mouse.move(1000, 450)
   await expect.poll(() => readState(page)).toEqual([0, 0, 1, 0])
 })
 
 test('column preview does not change gate survival rates', async ({ page }) => {
   await openCircuit(page, [['H'], ['|0⟩⟨0|']])
-  await page.mouse.click(170, 224)
+  await page.mouse.click(170, await getCircuitOriginY(page) - 32)
   await page.mouse.move(1000, 450)
   await expect.poll(async () => ({ state: await readState(page), rates: await readRates(page) })).toEqual({
     state: [0.70711, 0, 0.70711, 0],
@@ -232,7 +236,7 @@ test('postselection survival covers more than one reduction stride', async ({ pa
 
 test('a defined column preview clears the undefined panel rendering', async ({ page }) => {
   await openCircuit(page, [['X'], ['|0⟩⟨0|'], ['Bloch'], ['Probability'], ['Amps1'], ['Density']])
-  await page.mouse.click(170, 224)
+  await page.mouse.click(170, await getCircuitOriginY(page) - 32)
   await page.mouse.move(999, 450)
   await expect(page).toHaveScreenshot('postselection-defined-preview.png')
 })
