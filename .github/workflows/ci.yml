@@ -302,17 +302,19 @@ jobs:
           retention-days: 7
 
   web:
-    needs: [web-build, web-check, web-playwright]
+    needs: [web-preflight, web-build, web-check, web-playwright]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Check Web job results
         env:
+          PREFLIGHT_RESULT: ${{ needs.web-preflight.result }}
           BUILD_RESULT: ${{ needs.web-build.result }}
           CHECK_RESULT: ${{ needs.web-check.result }}
           PLAYWRIGHT_RESULT: ${{ needs.web-playwright.result }}
         run: |
+          test "$PREFLIGHT_RESULT" = success
           test "$BUILD_RESULT" = success
           test "$CHECK_RESULT" = success
           test "$PLAYWRIGHT_RESULT" = success
