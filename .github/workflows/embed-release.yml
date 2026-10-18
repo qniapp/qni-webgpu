@@ -27,6 +27,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Check Release App configuration
+        env:
+          CLIENT_ID: ${{ vars.EMBED_RELEASE_APP_CLIENT_ID }}
+          HAS_KEY: ${{ secrets.EMBED_RELEASE_APP_PRIVATE_KEY != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$CLIENT_ID" ]]; then
+            echo "::error::EMBED_RELEASE_APP_CLIENT_ID repository variable is not set" >&2
+            exit 1
+          fi
+          if [[ "$HAS_KEY" != 'true' ]]; then
+            echo "::error::EMBED_RELEASE_APP_PRIVATE_KEY secret is not set" >&2
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -145,20 +161,39 @@ jobs:
         with:
           subject-path: ${{ env.STAGING }}/*
 
-      - name: Create draft and upload all assets
+      - name: Recheck tag and release absence
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           node apps/web/scripts/embed-release-guard.mjs assert-absent
+
+      - name: Create Release App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.EMBED_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.EMBED_RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: qni-webgpu
+          permission-contents: write
+
+      - name: Create draft and upload all assets
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          GH_TOKEN="$GITHUB_TOKEN" node apps/web/scripts/embed-release-guard.mjs assert-absent
           gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "$TAG" --notes-file "$RUNNER_TEMP/embed-release-notes.md"
-          release_id=$(node apps/web/scripts/embed-release-guard.mjs record-draft)
+          release_id=$(GH_TOKEN="$GITHUB_TOKEN" node apps/web/scripts/embed-release-guard.mjs record-draft)
           echo "RELEASE_ID=$release_id" >> "$GITHUB_ENV"
           read -r -a names <<< "$RELEASE_ASSETS"
           files=()
           for name in "${names[@]}"; do files+=("$STAGING/$name"); done
-          node apps/web/scripts/embed-release-guard.mjs assert-own-draft --release-id "$release_id"
+          GH_TOKEN="$GITHUB_TOKEN" node apps/web/scripts/embed-release-guard.mjs assert-own-draft --release-id "$release_id"
           gh release upload "$TAG" "${files[@]}"
 
       - name: Verify uploaded assets
@@ -182,9 +217,10 @@ jobs:
 
       - name: Publish prerelease
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          node apps/web/scripts/embed-release-guard.mjs assert-own-draft --release-id "$RELEASE_ID"
+          GH_TOKEN="$GITHUB_TOKEN" node apps/web/scripts/embed-release-guard.mjs assert-own-draft --release-id "$RELEASE_ID"
           gh release edit "$TAG" --draft=false --prerelease
-          node apps/web/scripts/embed-release-guard.mjs assert-published
+          GH_TOKEN="$GITHUB_TOKEN" node apps/web/scripts/embed-release-guard.mjs assert-published

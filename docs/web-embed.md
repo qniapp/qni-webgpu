@@ -116,6 +116,8 @@ gh attestation verify qni-web_bg.wasm -R qniapp/qni-webgpu \
 
 ### 公開手順と失敗時の扱い
 
+公開には専用の GitHub App (Release App) のトークンを使い、`embed-*` タグはこの App だけが作成できるようタグのルールセットで保護し、所有者がリポジトリ変数 `EMBED_RELEASE_APP_CLIENT_ID` とシークレット `EMBED_RELEASE_APP_PRIVATE_KEY` を設定する。
+
 ワークフローは最初に同名タグと、下書きを含む同名リリースの存在を確認する。
 どちらかが存在すれば何も変更せず失敗する。認証や通信の失敗も「存在しない」とみなさない。
 SHA ごとに実行を直列化し、進行中の実行は取り消さない。

@@ -96,7 +96,7 @@ function runReleaseStep(scenario, stepName = 'Check tag and release absence') {
     fs.writeFileSync(path.join(dir, 'gh'), `#!/usr/bin/env node
 const args = process.argv.slice(2)
 const scenario = process.env.SCENARIO
-require('node:fs').appendFileSync(process.env.CALLS, JSON.stringify(args) + '\\n')
+require('node:fs').appendFileSync(process.env.CALLS, JSON.stringify({ args, token: process.env.GH_TOKEN }) + '\\n')
 if (args[0] === 'release') {
   if (args[1] === 'create') { require('node:fs').writeFileSync(process.env.CREATED, 'yes'); process.exit(0) }
   if (args[1] === 'upload') process.exit(0)
@@ -106,7 +106,7 @@ if (args[0] === 'release') {
 if (args.includes('--paginate')) {
   if (scenario === 'list-error') process.exit(1)
   if (scenario === 'bad-json') { console.log('no'); process.exit(0) }
-  const listCount = require('node:fs').readFileSync(process.env.CALLS, 'utf8').trim().split('\\n').map(JSON.parse).filter(call => call.includes('--paginate')).length
+  const listCount = require('node:fs').readFileSync(process.env.CALLS, 'utf8').trim().split('\\n').map(JSON.parse).filter(call => call.args.includes('--paginate')).length
   const changed = listCount >= 3
   console.log(JSON.stringify([[], scenario === 'draft' || scenario === 'release' || scenario === 'publish-wrong' || require('node:fs').existsSync(process.env.CREATED) ? [{id: scenario === 'upload-id-change' && changed ? 43 : 42, tag_name: process.env.TAG, draft: scenario !== 'release' && !(scenario === 'upload-published' && changed)}] : []]))
   process.exit(0)
@@ -117,8 +117,9 @@ if (scenario === 'network') process.exit(1)
 console.log('HTTP/2.0 404 Not Found\\n\\n{"message":"Not Found"}')
 process.exit(1)
 `, { mode: 0o755 })
-    const result = spawnSync('bash', ['-euo', 'pipefail', '-c', script], { encoding: 'utf8', env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, SCENARIO: scenario, CALLS: path.join(dir, 'calls'), CREATED: path.join(dir, 'created'), PUBLISHED: path.join(dir, 'published'), RELEASE_ID: '42', TAG: `embed-${'a'.repeat(40)}`, GITHUB_SHA: 'a'.repeat(40), GITHUB_REPOSITORY: 'owner/repo', RUNNER_TEMP: dir, GITHUB_ENV: path.join(dir, 'env'), GH_TOKEN: 'mock', RELEASE_ASSETS: assets.join(' '), STAGING: dir } })
-    return { ...result, calls: fs.readFileSync(path.join(dir, 'calls'), 'utf8').trim().split('\n').map(line => JSON.parse(line)) }
+    const result = spawnSync('bash', ['-euo', 'pipefail', '-c', script], { encoding: 'utf8', env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, SCENARIO: scenario, CALLS: path.join(dir, 'calls'), CREATED: path.join(dir, 'created'), PUBLISHED: path.join(dir, 'published'), RELEASE_ID: '42', TAG: `embed-${'a'.repeat(40)}`, GITHUB_SHA: 'a'.repeat(40), GITHUB_REPOSITORY: 'owner/repo', RUNNER_TEMP: dir, GITHUB_ENV: path.join(dir, 'env'), GH_TOKEN: 'mock', GITHUB_TOKEN: 'mock-github', RELEASE_ASSETS: assets.join(' '), STAGING: dir } })
+    const authenticatedCalls = fs.readFileSync(path.join(dir, 'calls'), 'utf8').trim().split('\n').map(line => JSON.parse(line))
+    return { ...result, calls: authenticatedCalls.map(call => call.args), authenticatedCalls }
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
@@ -163,11 +164,11 @@ test('draft upload includes exactly the ten declared assets', () => {
 })
 
 for (const [name, pattern] of [
-  ['creation', /node apps\/web\/scripts\/embed-release-guard.mjs assert-absent\n          gh release create/],
-  ['upload', /node apps\/web\/scripts\/embed-release-guard.mjs assert-own-draft --release-id "\$release_id"\n          gh release upload/],
-  ['publication', /node apps\/web\/scripts\/embed-release-guard.mjs assert-own-draft --release-id "\$RELEASE_ID"\n          gh release edit/],
-  ['post-publication', /gh release edit[^\n]+\n          node apps\/web\/scripts\/embed-release-guard.mjs assert-published/],
-  ['recorded identity', /release_id=\$\(node apps\/web\/scripts\/embed-release-guard.mjs record-draft\)\n          echo "RELEASE_ID=\$release_id" >> "\$GITHUB_ENV"/],
+  ['creation', /GH_TOKEN="\$GITHUB_TOKEN" node apps\/web\/scripts\/embed-release-guard.mjs assert-absent\n          gh release create/],
+  ['upload', /GH_TOKEN="\$GITHUB_TOKEN" node apps\/web\/scripts\/embed-release-guard.mjs assert-own-draft --release-id "\$release_id"\n          gh release upload/],
+  ['publication', /GH_TOKEN="\$GITHUB_TOKEN" node apps\/web\/scripts\/embed-release-guard.mjs assert-own-draft --release-id "\$RELEASE_ID"\n          gh release edit/],
+  ['post-publication', /gh release edit[^\n]+\n          GH_TOKEN="\$GITHUB_TOKEN" node apps\/web\/scripts\/embed-release-guard.mjs assert-published/],
+  ['recorded identity', /release_id=\$\(GH_TOKEN="\$GITHUB_TOKEN" node apps\/web\/scripts\/embed-release-guard.mjs record-draft\)\n          echo "RELEASE_ID=\$release_id" >> "\$GITHUB_ENV"/],
 ]) {
   test(`release guard orders ${name}`, () => assert.match(workflow(), pattern))
 }
@@ -211,10 +212,82 @@ test('every release write has its corresponding guard on the immediately precedi
     const command = line.match(/^gh release (create|upload|edit) /)
     return command ? [[command[1], lines[index - 1]]] : []
   })
-  assert.deepEqual(writes, Object.entries(guards).map(([command, guard]) => [command, `node apps/web/scripts/embed-release-guard.mjs ${guard}`]))
+  assert.deepEqual(writes, Object.entries(guards).map(([command, guard]) => [command, `GH_TOKEN="$GITHUB_TOKEN" node apps/web/scripts/embed-release-guard.mjs ${guard}`]))
 })
 
-test('write tokens are scoped only to the four gh steps', () => {
-  const lines = workflow().split('\n').filter(line => line.includes('GH_TOKEN:'))
-  assert.deepEqual(lines, Array(4).fill('          GH_TOKEN: ${{ github.token }}'))
+function workflowSteps() {
+  return workflow().split('      - name: ').slice(1)
+}
+
+const appToken = '${{ steps.app-token.outputs.token }}'
+
+test('release App token has exactly the verified v3 inputs and contents permission', () => {
+  const step = workflowSteps().find(step => step.includes('id: app-token')) || ''
+  assert.deepEqual(step.match(/^          [\w-]+: .+$/gm), [
+    '          client-id: ${{ vars.EMBED_RELEASE_APP_CLIENT_ID }}',
+    '          private-key: ${{ secrets.EMBED_RELEASE_APP_PRIVATE_KEY }}',
+    '          owner: ${{ github.repository_owner }}',
+    '          repositories: qni-webgpu',
+    '          permission-contents: write',
+  ])
+})
+
+test('release App token uses v3 after read-only pre-write checks and before draft creation', () => {
+  assert.match(workflow(), /- name: Recheck tag and release absence[\s\S]*?assert-absent\n\n      - name: Create Release App token\n        id: app-token\n        uses: actions\/create-github-app-token@v3[\s\S]*?gh release create/)
+})
+
+test('release App configuration is checked before checkout and the build', () => {
+  assert.match(workflow(), /steps:\n      - name: Check Release App configuration\n        env:\n          CLIENT_ID: \$\{\{ vars.EMBED_RELEASE_APP_CLIENT_ID \}\}\n          HAS_KEY: \$\{\{ secrets.EMBED_RELEASE_APP_PRIVATE_KEY != '' \}\}\n[\s\S]*?- name: Checkout[\s\S]*?build:\n    needs: check/)
+})
+
+for (const [name, env, message] of [
+  ['client ID', { CLIENT_ID: '', HAS_KEY: 'true' }, 'EMBED_RELEASE_APP_CLIENT_ID repository variable is not set'],
+  ['private key', { CLIENT_ID: 'client', HAS_KEY: 'false' }, 'EMBED_RELEASE_APP_PRIVATE_KEY secret is not set'],
+]) {
+  test(`missing Release App ${name} fails clearly`, () => {
+    const step = workflowSteps().find(step => step.startsWith('Check Release App configuration\n')) || ''
+    const script = step.split('        run: |\n')[1] || ''
+    const result = spawnSync('bash', ['-c', script], { encoding: 'utf8', env: { ...process.env, ...env } })
+    assert.deepEqual({ status: result.status, stderr: result.stderr.trim() }, { status: 1, stderr: `::error::${message}` })
+  })
+}
+
+test('valid Release App configuration succeeds', () => {
+  const step = workflowSteps().find(step => step.startsWith('Check Release App configuration\n')) || ''
+  assert.equal(spawnSync('bash', ['-c', step.split('        run: |\n')[1] || 'exit 1'], { env: { ...process.env, CLIENT_ID: 'client', HAS_KEY: 'true' } }).status, 0)
+})
+
+test('every release write step uses only the App token for gh writes', () => {
+  const writes = workflowSteps().filter(step => /gh release (create|upload|edit) /.test(step))
+  assert.deepEqual(writes.map(step => step.match(/GH_TOKEN: (.+)/)?.[1]), [appToken, appToken])
+})
+
+for (const [step, scenario] of [['Create draft and upload all assets', 'absent'], ['Publish prerelease', 'draft']]) {
+  test(`${step} executes every write with the App token and every guard read with the GitHub token`, () => {
+    const { authenticatedCalls } = runReleaseStep(scenario, step)
+    assert.deepEqual(authenticatedCalls.map(call => call.token), authenticatedCalls.map(call => call.args[0] === 'release' ? 'mock' : 'mock-github'))
+  })
+}
+
+test('read steps retain the GitHub token', () => {
+  assert.deepEqual(workflowSteps().filter(step => /^(Check tag and release absence|Recheck tag and release absence|Verify uploaded assets)\n/.test(step)).map(step => step.match(/GH_TOKEN: (.+)/)?.[1]), Array(3).fill('${{ github.token }}'))
+})
+
+test('tokens are scoped only to the five gh steps', () => {
+  assert.deepEqual(workflow().split('\n').filter(line => line.includes('GH_TOKEN:')), [
+    '          GH_TOKEN: ${{ github.token }}',
+    '          GH_TOKEN: ${{ github.token }}',
+    `          GH_TOKEN: ${appToken}`,
+    '          GH_TOKEN: ${{ github.token }}',
+    `          GH_TOKEN: ${appToken}`,
+  ])
+})
+
+test('attestation does not receive an App token', () => {
+  assert.doesNotMatch(workflowSteps().find(step => step.startsWith('Attest release files\n')), /app-token|github-token:|GH_TOKEN:/)
+})
+
+test('only embed release workflow references the Release App private key', () => {
+  const directory = path.dirname(workflowPath)
+  assert.deepEqual(fs.readdirSync(directory).filter(name => /\.ya?ml$/.test(name) && fs.readFileSync(path.join(directory, name), 'utf8').includes('EMBED_RELEASE_APP_PRIVATE_KEY')), ['embed-release.yml'])
 })
