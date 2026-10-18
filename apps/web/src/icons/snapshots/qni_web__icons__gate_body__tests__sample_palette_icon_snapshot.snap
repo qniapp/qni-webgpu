@@ -14,7 +14,7 @@ expression: output.shapes
                     sw: 7,
                     se: 7,
                 },
-                fill: #34_2A_0C_3C,
+                fill: #08_16_27_3C,
                 stroke: Stroke {
                     width: 0.0,
                     color: #00_00_00_00,
@@ -38,7 +38,7 @@ expression: output.shapes
                     sw: 6,
                     se: 6,
                 },
-                fill: #69_55_17_78,
+                fill: #0F_2C_4E_78,
                 stroke: Stroke {
                     width: 0.0,
                     color: #00_00_00_00,
@@ -62,7 +62,7 @@ expression: output.shapes
                     sw: 5,
                     se: 5,
                 },
-                fill: #DF_B4_31_FF,
+                fill: #20_5E_A6_FF,
                 stroke: Stroke {
                     width: 0.0,
                     color: #00_00_00_00,
@@ -86,7 +86,7 @@ expression: output.shapes
                     sw: 4,
                     se: 4,
                 },
-                fill: #EC_CB_60_FF,
+                fill: #92_BF_DB_FF,
                 stroke: Stroke {
                     width: 0.0,
                     color: #00_00_00_00,
@@ -105,7 +105,7 @@ expression: output.shapes
             CircleShape {
                 center: [36.0 36.0],
                 radius: 13.68,
-                fill: #F1_D7_82_FF,
+                fill: #A3_C9_DF_FF,
                 stroke: Stroke {
                     width: 0.0,
                     color: #00_00_00_00,
@@ -119,7 +119,7 @@ expression: output.shapes
             CircleShape {
                 center: [36.0 36.0],
                 radius: 12.24,
-                fill: #F5_E2_A4_FF,
+                fill: #B5_D3_E4_FF,
                 stroke: Stroke {
                     width: 0.0,
                     color: #00_00_00_00,
@@ -133,7 +133,7 @@ expression: output.shapes
             CircleShape {
                 center: [36.0 36.0],
                 radius: 10.8,
-                fill: #FA_EE_C6_FF,
+                fill: #C6_DD_E8_FF,
                 stroke: Stroke {
                     width: 0.0,
                     color: #00_00_00_00,
