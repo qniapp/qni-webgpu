@@ -13,11 +13,6 @@ version: 1
 rules:
   - expected: ベルペア
     pattern: /Bell ペア/
-  - expected: 回路ブロック
-    patterns:
-      - /回路コメントブロック/
-      - /サーキットブロック/
-
   - expected: 事後選択
     patterns:
       - /ポストセレクション/
@@ -102,6 +97,8 @@ rules:
   # ── コメントブロック (qni の circuit-block、コード上は CircuitBlock) 用語統一 ──
   - expected: コメントブロック
     patterns:
+      - /回路コメントブロック/
+      - /サーキットブロック/
       - /コメント付きブロック/
       - /注釈ブロック/
       - /回路ブロック/

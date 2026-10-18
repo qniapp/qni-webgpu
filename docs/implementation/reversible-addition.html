@@ -71,7 +71,7 @@
     </div>
 
     <div class="ra-legend" aria-hidden="true">
-      <span class="item">青い上下罫線の帯 = 回路ブロック（上下に同じラベル）</span>
+      <span class="item">青い上下罫線の帯 = コメントブロック（上下に同じラベル）</span>
       <span class="item"><span class="glyph"><x-gate></x-gate></span>X（NOT）</span>
       <span class="item"><span class="glyph"><control-gate></control-gate></span>制御</span>
       <span class="item"><span class="glyph"><swap-gate></swap-gate></span>Swap（入れ替え）</span>
@@ -90,7 +90,7 @@
   <h2>§ 02 回路の読み方</h2>
   <div class="card">
     <table class="spec">
-      <thead><tr><th>回路ブロック</th><th>操作</th><th>意味</th></tr></thead>
+      <thead><tr><th>コメントブロック</th><th>操作</th><th>意味</th></tr></thead>
       <tbody>
         <tr><td><code>A=5, B=3</code></td><td>X による入力準備 → Probability5 ×2</td><td>A（q0–q4）は 5、B（q5–q9）は 3 に確率 1 が集中する。</td></tr>
         <tr><td><code>B += A</code></td><td>X の壁と制御 Swap 網（19 列）</td><td>A を保ったまま B += A を計算する（mod 32）。</td></tr>
