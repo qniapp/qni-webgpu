@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  getCircuitOriginY,
   pixelRgbDistance,
   pollForValue,
   readProbabilityDistributions,
@@ -22,7 +23,6 @@ const HALO_MIN_DISTANCE = 48
 const SPAN_RESIZE_HANDLE: [number, number, number, number] = [58, 169, 159, 255]
 const SPAN_RESIZE_HANDLE_TOLERANCE = 56
 const SAMPLE_X = PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING
-const wireY = (wire: number) => PANEL_MARGIN + UI_CONSTANTS.LINE_Y + wire * UI_CONSTANTS.LINE_GAP
 
 const readCols = (page: Page): string => JSON.stringify(JSON.parse(decodeURIComponent(new URL(page.url()).hash.slice(1))).cols)
 
@@ -71,6 +71,8 @@ for (const span of [1, 2, 3]) {
     const bits = Array.from({ length: span }, (_, wire) => wire % 2 === 0 ? 1 : 0)
     await openCircuit(page, [bits.map((bit) => `|${bit}>`), [`Sample${span}`]])
     await sampleOutcome(page, span)
+    const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+    const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
     const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), bits.map((_, wire) => (
       { name: `tile${wire}`, x: SAMPLE_X, y: wireY(wire) }
     )))
@@ -83,6 +85,8 @@ for (const span of [1, 2, 3]) {
 test('Sample3 leaves the gaps between lit and unlit tiles transparent', async ({ page }) => {
   await openCircuit(page, [['X', 1, 'X'], ['Sample3']])
   await sampleOutcome(page, 3)
+  const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+  const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
   const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [0, 1].map((wire) => (
     { name: `gap${wire}`, x: SAMPLE_X, y: wireY(wire) + UI_CONSTANTS.LINE_GAP / 2 }
   )))
@@ -92,6 +96,8 @@ test('Sample3 leaves the gaps between lit and unlit tiles transparent', async ({
 test('Sample lit tile glows past its edge', async ({ page }) => {
   await openCircuit(page, [['X'], ['Sample1']])
   await sampleOutcome(page, 1)
+  const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+  const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
   const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [{
     name: 'halo', x: SAMPLE_X - UI_CONSTANTS.GATE_SIZE / 2 - 2, y: wireY(0) - 12,
   }])
@@ -101,6 +107,8 @@ test('Sample lit tile glows past its edge', async ({ page }) => {
 test('Sample unlit tile has no halo', async ({ page }) => {
   await openCircuit(page, [['|0>'], ['Sample1']])
   await sampleOutcome(page, 1)
+  const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+  const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
   const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [{
     name: 'outside', x: SAMPLE_X - UI_CONSTANTS.GATE_SIZE / 2 - 2, y: wireY(0) - 12,
   }])
@@ -111,6 +119,8 @@ test('Sample1 over zero shows an unlit grey tile', async ({ page }) => {
   await openCircuit(page, [['Sample1']])
   await sampleOutcome(page, 1)
   const centerX = PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE
+  const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+  const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
   const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
     { name: 'tile', x: centerX, y: wireY(0) },
   ])
@@ -127,7 +137,9 @@ test('Sample free drag remains visible over the palette', async ({ page }) => {
   await openCircuit(page, [['X', 1, 'X'], ['Sample3']])
   await sampleOutcome(page, 3)
   const sourceX = PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING
-  await page.mouse.move(sourceX, PANEL_MARGIN + UI_CONSTANTS.LINE_Y)
+  const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+  const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
+  await page.mouse.move(sourceX, wireY(0))
   await page.mouse.down()
   await page.mouse.move(399, 108, { steps: 8 })
   const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
@@ -142,7 +154,9 @@ test('Sample free drag visual snapshot', async ({ page }) => {
   await openCircuit(page, [['X', 1, 'X'], ['Sample3']])
   await sampleOutcome(page, 3)
   const sourceX = PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING
-  await page.mouse.move(sourceX, PANEL_MARGIN + UI_CONSTANTS.LINE_Y)
+  const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+  const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
+  await page.mouse.move(sourceX, wireY(0))
   await page.mouse.down()
   await page.mouse.move(399, 108, { steps: 8 })
   await expect(page.locator('#egui-canvas')).toHaveScreenshot('sample3-free-drag.png')
@@ -154,9 +168,11 @@ test('Sample snapped drag shows the GPU sampled tile colors', async ({ page }) =
   await sampleOutcome(page, 3)
   const sourceX = PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING
   const targetX = sourceX + UI_CONSTANTS.SLOT_SPACING
-  await page.mouse.move(sourceX, PANEL_MARGIN + UI_CONSTANTS.LINE_Y)
+  const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+  const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
+  await page.mouse.move(sourceX, wireY(0))
   await page.mouse.down()
-  await page.mouse.move(targetX, PANEL_MARGIN + UI_CONSTANTS.LINE_Y, { steps: 8 })
+  await page.mouse.move(targetX, wireY(0), { steps: 8 })
   const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [0, 1, 2].map((wire) => ({
     name: `wire${wire}`, x: targetX, y: wireY(wire),
   })))
@@ -168,7 +184,9 @@ test('Sample resize from one to three wires lights the added tile', async ({ pag
   await openCircuit(page, [['X', 1, 'X'], ['Sample1']])
   await sampleOutcome(page, 1)
   const centerX = PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING
-  const handleY = PANEL_MARGIN + UI_CONSTANTS.LINE_Y + UI_CONSTANTS.GATE_SIZE / 2 + 9
+  const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+  const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
+  const handleY = wireY(0) + UI_CONSTANTS.GATE_SIZE / 2 + 9
   await page.mouse.move(centerX, handleY)
   await page.mouse.down()
   await page.mouse.move(centerX, handleY + 2 * UI_CONSTANTS.LINE_GAP, { steps: 8 })
@@ -189,6 +207,8 @@ test('Sample resize from one to three wires lights the added tile', async ({ pag
 test('Sample bottom resize handle stretches Sample1 to Sample3', async ({ page }) => {
   await openCircuit(page, [['X', 1, 'X'], ['Sample1']])
   const before = readCols(page)
+  const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+  const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
   await dragSpanHandle(page, wireY(0) + UI_CONSTANTS.GATE_SIZE / 2 + 9, 2)
   expect(await colsAfterChange(page, before)).toBe(JSON.stringify([['X', 1, 'X'], ['Sample3']]))
 })
@@ -196,6 +216,8 @@ test('Sample bottom resize handle stretches Sample1 to Sample3', async ({ page }
 test('Sample top resize handle stretches Sample1 upward to Sample3', async ({ page }) => {
   await openCircuit(page, [['X', 1, 'X'], [1, 1, 'Sample1']])
   const before = readCols(page)
+  const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+  const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
   await dragSpanHandle(page, wireY(2) - UI_CONSTANTS.GATE_SIZE / 2 - 9, -2)
   expect(await colsAfterChange(page, before)).toBe(JSON.stringify([['X', 1, 'X'], ['Sample3']]))
 })
@@ -203,12 +225,16 @@ test('Sample top resize handle stretches Sample1 upward to Sample3', async ({ pa
 test('Sample resize stops at three wires', async ({ page }) => {
   await openCircuit(page, [['X', 1, 1, 1, 'X'], ['Sample1']])
   const before = readCols(page)
+  const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+  const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
   await dragSpanHandle(page, wireY(0) + UI_CONSTANTS.GATE_SIZE / 2 + 9, 4)
   expect(await colsAfterChange(page, before)).toBe(JSON.stringify([['X', 1, 1, 1, 'X'], ['Sample3']]))
 })
 
 test('Sample resize handles show two pills around the tile column', async ({ page }) => {
   await openCircuit(page, [['X', 1, 'X'], [1, 'Sample1']])
+  const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+  const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
   await page.mouse.move(SAMPLE_X, wireY(1))
   const visiblePills = await pollForValue(async () => {
     const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
@@ -272,6 +298,8 @@ test('Sample reports an unavailable outcome for impossible controls', async ({ p
 test('Sample with impossible controls shows an unlit tile', async ({ page }) => {
   await openCircuit(page, [['|0>', '|1>'], ['•', 'Sample1']])
   await sampleOutcome(page, 1)
+  const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+  const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
   const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
     { name: 'tile', x: SAMPLE_X, y: wireY(1) },
   ])

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import {
+  getCircuitOriginY,
   pixelRgbDistance,
   readDensityMatrixCell,
   sampleCanvasPixels,
@@ -52,9 +53,9 @@ const summary = (cell: DensityMatrixCell | null) => cell && {
   span: cell.span,
 }
 
-const spanTwoDensityGateOrigin = () => ({
+const spanTwoDensityGateOrigin = async (page: TestPage) => ({
   x: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING - UI_CONSTANTS.GATE_SIZE / 2,
-  y: EGUI_PANEL_MARGIN + UI_CONSTANTS.LINE_Y - UI_CONSTANTS.GATE_SIZE / 2,
+  y: EGUI_PANEL_MARGIN + await getCircuitOriginY(page) - UI_CONSTANTS.GATE_SIZE / 2,
 })
 
 const openSpanTwoDensityCircuit = async (page: TestPage): Promise<void> => {
@@ -93,7 +94,7 @@ test('Density Matrix display renders span-two cells from the GPU buffer', async 
   await openSpanTwoDensityCircuit(page)
 
   const canvas = page.locator('#egui-canvas')
-  const gate = spanTwoDensityGateOrigin()
+  const gate = await spanTwoDensityGateOrigin(page)
 
   await expect.poll(async () => {
     const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'densityCell', x: gate.x + 12, y: gate.y + 12 }])
@@ -105,7 +106,7 @@ test('Density Matrix display omits internal cell separator lines', async ({ page
   await openSpanTwoDensityCircuit(page)
 
   const canvas = page.locator('#egui-canvas')
-  const gate = spanTwoDensityGateOrigin()
+  const gate = await spanTwoDensityGateOrigin(page)
 
   await expect.poll(async () => {
     const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'separator', x: gate.x + 24, y: gate.y + 4 }])
@@ -117,7 +118,7 @@ test('Density Matrix display maximizes circle outlines without touching the oute
   await openSpanTwoDensityCircuit(page)
 
   const canvas = page.locator('#egui-canvas')
-  const gate = spanTwoDensityGateOrigin()
+  const gate = await spanTwoDensityGateOrigin(page)
 
   await expect.poll(async () => {
     const pixels = await sampleCanvasPixels(page, canvas, [
@@ -137,7 +138,7 @@ test('hovering Density Matrix display shows the host hover frame', async ({ page
   const canvas = page.locator('#egui-canvas')
   const box = await canvas.boundingBox()
   if (!box) throw new Error('canvas not found')
-  const gate = spanTwoDensityGateOrigin()
+  const gate = await spanTwoDensityGateOrigin(page)
   await page.mouse.move(box.x + gate.x + 12, box.y + gate.y + 12)
 
   await expect.poll(async () => {

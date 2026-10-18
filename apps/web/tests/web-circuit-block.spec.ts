@@ -32,8 +32,8 @@ test('circuit block visual snapshot', async ({ page }) => {
   })
 })
 
-// コメントブロックの編集。パレットの右下の項目 (通し番号 36) を回路へ運ぶ。
-const COMMENT_BLOCK_PALETTE_INDEX = 36
+// コメントブロックの編集。パレットの右下の項目 (通し番号 38) を回路へ運ぶ。
+const COMMENT_BLOCK_PALETTE_INDEX = 38
 const EGUI_PANEL_MARGIN = 8
 const BELL_JSON = '{"cols":[["|0>","|0>"],["H"],["•","X"]]}'
 const BLOCK_JSON = '{"cols":[["|0>","|0>"],["{量子もつれ"],["H"],["}"],["•","X"]]}'

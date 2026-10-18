@@ -100,4 +100,31 @@ mod tests {
         let span = GateSpan::try_new(2).unwrap();
         assert_eq!(span.clamped_for(GateKind::ProbabilityDisplay, 8).get(), 2);
     }
+
+    #[test]
+    fn arithmetic_span_caps_at_sixteen() {
+        let span = GateSpan::try_new(32).unwrap();
+        assert_eq!(
+            [GateKind::Increment, GateKind::Decrement].map(|kind| span.clamped_for(kind, 32).get()),
+            [16, 16]
+        );
+    }
+
+    #[test]
+    fn arithmetic_span_clamps_to_remaining_wires() {
+        let span = GateSpan::try_new(16).unwrap();
+        assert_eq!(
+            [GateKind::Increment, GateKind::Decrement].map(|kind| span.clamped_for(kind, 3).get()),
+            [3, 3]
+        );
+    }
+
+    #[test]
+    fn arithmetic_span_has_minimum_one() {
+        assert_eq!(
+            [GateKind::Increment, GateKind::Decrement]
+                .map(|kind| GateSpan::SINGLE.clamped_for(kind, 0).get()),
+            [1, 1]
+        );
+    }
 }

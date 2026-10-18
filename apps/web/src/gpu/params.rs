@@ -10,6 +10,21 @@ use std::sync::Arc;
 use super::probability_distribution::ProbabilityDistribution;
 use crate::colors::Colors;
 
+/// Modular addition over a contiguous little-endian field. `amount` is a
+/// wrapping u32 (−1 = u32::MAX); target_mask is unshifted. The two reserved
+/// words leave room for a future input-register amount source, not implemented.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct ArithmeticParams {
+    pub(crate) state_count: u32,
+    pub(crate) target_shift: u32,
+    pub(crate) target_mask: u32,
+    pub(crate) amount: u32,
+    pub(crate) control_mask: u32,
+    pub(crate) control_value: u32,
+    pub(crate) _pad: [u32; 2],
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct RenderParams {
