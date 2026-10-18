@@ -201,8 +201,9 @@ repo root の `scripts/check-all.sh` でも staged rollout を維持し、
 GitHub Actions では、`web-build` が開発用の Trunk 成果物とリリース用の埋め込み成果物を一度ずつビルドし、`web-playwright` の 4 並列ジョブで共有する。
 各ジョブは `scripts/serve-static.ts` による SPA フォールバック付きの静的サーバで開発用の成果物を配信し、`test:pw-legacy` の代わりに `playwright test --shard` で全テストを分割して実行する。
 並行して `web-check` が Rust の検査、リリース用の Trunk ビルド、BDD テストを実行する。
-`web` はこの 3 種類のジョブすべての成功を必須とし、`web-playwright-report` による HTML レポートの統合結果には依存しない。
-`web-preflight` は他の Web ジョブに依存せず独立して実行し、`web` の成否判定には含まれない。
+`web-preflight` は他の Web ジョブに依存せず独立して実行する。
+`web` は `web-preflight`、`web-build`、`web-check`、`web-playwright` のすべての成功を必須とし、いずれかが失敗・キャンセル・スキップされた場合は失敗する。
+`web-playwright-report` による HTML レポートの統合結果には依存しない。
 
 ### 起動の固まりとテストの不安定さ
 
