@@ -187,14 +187,37 @@ jobs:
         run: |
           set -euo pipefail
           GH_TOKEN="$GITHUB_TOKEN" node apps/web/scripts/embed-release-guard.mjs assert-absent
-          gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "$TAG" --notes-file "$RUNNER_TEMP/embed-release-notes.md"
-          release_id=$(GH_TOKEN="$GITHUB_TOKEN" node apps/web/scripts/embed-release-guard.mjs record-draft)
-          echo "RELEASE_ID=$release_id" >> "$GITHUB_ENV"
+          gh api --method POST "repos/$GITHUB_REPOSITORY/releases" \
+            -f tag_name="$TAG" -f target_commitish="$GITHUB_SHA" -f name="$TAG" \
+            -F draft=true -F prerelease=false -F body=@"$RUNNER_TEMP/embed-release-notes.md" \
+            > "$RUNNER_TEMP/embed-release-created.json"
+          RELEASE_ID=$(node <<'NODE'
+          const fs = require('node:fs');
+          const { RUNNER_TEMP, TAG, GITHUB_SHA, GITHUB_ENV } = process.env;
+          const release = JSON.parse(fs.readFileSync(`${RUNNER_TEMP}/embed-release-created.json`, 'utf8'));
+          if (!Number.isSafeInteger(release?.id) || release.id < 1 || release.draft !== true || release.tag_name !== TAG || release.target_commitish !== GITHUB_SHA) throw new Error('Invalid created draft release');
+          fs.appendFileSync(GITHUB_ENV, `RELEASE_ID=${release.id}\n`);
+          process.stdout.write(String(release.id));
+          NODE
+          )
+          GH_TOKEN="$GITHUB_TOKEN" node apps/web/scripts/embed-release-guard.mjs assert-own-draft --release-id "$RELEASE_ID"
           read -r -a names <<< "$RELEASE_ASSETS"
-          files=()
-          for name in "${names[@]}"; do files+=("$STAGING/$name"); done
-          GH_TOKEN="$GITHUB_TOKEN" node apps/web/scripts/embed-release-guard.mjs assert-own-draft --release-id "$release_id"
-          gh release upload "$TAG" "${files[@]}"
+          for name in "${names[@]}"; do
+            encoded_name=$(node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$name")
+            content_type=$(node - "$name" <<'NODE'
+          const fs = require('node:fs');
+          const name = process.argv[2];
+          const manifest = JSON.parse(fs.readFileSync(`${process.env.STAGING}/manifest.json`, 'utf8'));
+          const contentType = name === 'manifest.json' ? 'application/json'
+            : name === 'manifest.json.sha256' ? 'text/plain; charset=utf-8'
+            : manifest.files.find(file => file.name === name)?.content_type;
+          if (typeof contentType !== 'string' || !contentType.trim()) throw new Error(`Missing content type for ${name}`);
+          process.stdout.write(contentType);
+          NODE
+            )
+            GH_TOKEN="$GITHUB_TOKEN" node apps/web/scripts/embed-release-guard.mjs assert-own-draft --release-id "$RELEASE_ID"
+            gh api --method POST "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$encoded_name" -H "Content-Type: $content_type" --input "$STAGING/$name"
+          done
 
       - name: Verify uploaded assets
         env:
@@ -204,12 +227,12 @@ jobs:
           set -euo pipefail
           # Verify payload names/sizes/hashes against the local manifest before comparing remote metadata.
           node apps/web/scripts/embed-release.mjs verify --output "$STAGING" --source-commit "$GITHUB_SHA"
-          gh release view "$TAG" --json isDraft,assets > "$RUNNER_TEMP/embed-release-assets.json"
+          gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" > "$RUNNER_TEMP/embed-release-assets.json"
           node <<'NODE'
           const fs = require('node:fs');
           const { STAGING, RELEASE_ASSETS, RUNNER_TEMP } = process.env;
           const release = JSON.parse(fs.readFileSync(`${RUNNER_TEMP}/embed-release-assets.json`, 'utf8'));
-          if (release.isDraft !== true || !Array.isArray(release.assets)) throw new Error('Expected draft release assets');
+          if (release.draft !== true || !Array.isArray(release.assets)) throw new Error('Expected draft release assets');
           const expected = RELEASE_ASSETS.split(' ').map(name => [name, fs.statSync(`${STAGING}/${name}`).size]).sort();
           const actual = release.assets.map(asset => [asset.name, asset.size]).sort();
           if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error('Uploaded asset names/sizes differ from verified local files');
@@ -222,5 +245,5 @@ jobs:
         run: |
           set -euo pipefail
           GH_TOKEN="$GITHUB_TOKEN" node apps/web/scripts/embed-release-guard.mjs assert-own-draft --release-id "$RELEASE_ID"
-          gh release edit "$TAG" --draft=false --prerelease
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false -F prerelease=true
           GH_TOKEN="$GITHUB_TOKEN" node apps/web/scripts/embed-release-guard.mjs assert-published
