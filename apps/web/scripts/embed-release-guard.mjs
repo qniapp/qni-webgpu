@@ -57,16 +57,14 @@ export class EmbedReleaseGuard {
     if (this.releases().length) throw new Error('Release already exists (including draft)')
   }
 
-  recordDraft() {
-    this.assertTagAbsent()
-    const releases = this.releases()
-    if (releases.length !== 1 || releases[0].draft !== true || !Number.isSafeInteger(releases[0].id) || releases[0].id < 1) throw new Error('Expected exactly one draft release with a valid id')
-    return String(releases[0].id)
-  }
-
   assertOwnDraft(releaseId) {
-    if (!/^[1-9][0-9]*$/.test(releaseId ?? '')) throw new Error('Recorded release id is required')
-    if (this.recordDraft() !== releaseId) throw new Error('Draft release id differs from recorded id')
+    if (!/^[1-9][0-9]*$/.test(releaseId ?? '') || !Number.isSafeInteger(Number(releaseId))) throw new Error('A positive safe integer release id is required')
+    const release = this.api(`releases/${releaseId}`)
+    if (release.id !== Number(releaseId)) throw new Error('Draft release id differs from recorded id')
+    if (release.draft !== true) throw new Error('Expected draft release')
+    if (release.tag_name !== this.tag) throw new Error('Draft release tag differs from TAG')
+    if (release.target_commitish !== this.sha) throw new Error('Draft release target differs from GITHUB_SHA')
+    this.assertTagAbsent()
   }
 
   assertPublished() {
@@ -84,7 +82,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     else if (option !== undefined) throw new Error('Unexpected arguments')
     else if (command === 'assert-absent') guard.assertAbsent()
     else if (command === 'assert-published') guard.assertPublished()
-    else if (command === 'record-draft') process.stdout.write(`${guard.recordDraft()}\n`)
     else throw new Error('Unknown release guard command')
   } catch (error) {
     process.stderr.write(`${error.message}\n`)
