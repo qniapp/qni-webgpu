@@ -20,7 +20,9 @@
     cursor: grab;
   }
   :host([state="drag"]) {
-    color: var(--purple-600);             /* Flexoki purple-600 / drag_fill */
+    color: var(--bg);                     /* Flexoki bg / label */
+    background: var(--purple-600);        /* Flexoki purple-600 / drag_fill */
+    border-radius: 6px;
     cursor: grabbing;
   }
 
@@ -46,6 +48,7 @@
     transform: translate(-50%, -50%);
     pointer-events: none;
   }
+  :host([state="drag"]) .mask { background: var(--purple-600); }
   .body {
     position: absolute;
     inset: 0;

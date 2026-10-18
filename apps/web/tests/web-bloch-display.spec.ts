@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import {
   UI_CONSTANTS,
+  getCircuitOriginY,
   waitForBlochVectorsApprox,
   waitForStartupReady,
   pollForValue,
@@ -10,7 +11,6 @@ import {
 const EGUI_PANEL_MARGIN = 8
 const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
 const LINE_LEFT_OFFSET = UI_CONSTANTS.LINE_LEFT_OFFSET
-const LINE_Y = UI_CONSTANTS.LINE_Y
 const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
 
 type BlochPopoverEvidence = {
@@ -34,7 +34,7 @@ const waitForBlochPopoverEvidence = async (
   canvas: Locator,
 ): Promise<BlochPopoverEvidence> => {
   const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + SLOT_SPACING + GATE_SIZE / 2
-  const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
+  const gateTop = EGUI_PANEL_MARGIN + await getCircuitOriginY(page) - GATE_SIZE / 2
   const popupLeft = gateLeft + GATE_SIZE + 12
   const popupTop = gateTop
   const dividerY = popupTop + 12 + 20 + 12
@@ -196,7 +196,7 @@ test('Bloch hover opens a GPU-valued popover', async ({ page }) => {
   if (!box) throw new Error('expected egui canvas to be measurable')
   await page.mouse.move(
     box.x + EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + SLOT_SPACING + GATE_SIZE,
-    box.y + EGUI_PANEL_MARGIN + LINE_Y,
+    box.y + EGUI_PANEL_MARGIN + await getCircuitOriginY(page),
   )
   const evidence = await waitForBlochPopoverEvidence(page, canvas)
 

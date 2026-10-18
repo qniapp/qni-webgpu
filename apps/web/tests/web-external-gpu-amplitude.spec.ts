@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
+  getCircuitOriginY,
   pixelRgbDistance,
   readAmplitudeCell,
   readBlochVectors,
@@ -28,10 +29,10 @@ const amplitudeFirstCellCenterX = (column: number): number =>
   (UI_CONSTANTS.SLOT_SPACING - UI_CONSTANTS.GATE_SIZE) / 2
 const amplitudeCellCenterX = (column: number, cell: number): number =>
   amplitudeFirstCellCenterX(column) + UI_CONSTANTS.GATE_SIZE * cell
-const probabilityRowCenterY = (span: number, outcome: number): number => {
+const probabilityRowCenterY = (lineY: number, span: number, outcome: number): number => {
   const gateHeight = (span - 1) * UI_CONSTANTS.LINE_GAP + UI_CONSTANTS.GATE_SIZE
   const rowHeight = gateHeight / (1 << span)
-  return UI_CONSTANTS.LINE_Y - UI_CONSTANTS.GATE_SIZE / 2 + rowHeight * (outcome + 0.5)
+  return lineY - UI_CONSTANTS.GATE_SIZE / 2 + rowHeight * (outcome + 0.5)
 }
 
 const execModeProbePoints = (cssWidth: number): PixelSamplePoint[] => [
@@ -116,7 +117,7 @@ test('GPU mode shows pre-run Amplitude placeholder before Qiskit results', async
     {
       name: 'placeholder',
       x: amplitudeFirstCellCenterX(1),
-      y: UI_CONSTANTS.LINE_Y,
+      y: await getCircuitOriginY(page),
     },
   ])
 
@@ -129,7 +130,7 @@ test('GPU mode cold-start shows Amplitude placeholder without local state resour
   await waitForStartupReady(page)
 
   const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-    { name: 'placeholder', x: amplitudeFirstCellCenterX(1), y: UI_CONSTANTS.LINE_Y },
+    { name: 'placeholder', x: amplitudeFirstCellCenterX(1), y: await getCircuitOriginY(page) },
   ])
 
   expect(pixelRgbDistance(pixel.placeholder, DISPLAY_PLACEHOLDER_FILL)).toBeLessThan(32)
@@ -141,7 +142,7 @@ test('GPU mode shows pre-run Probability placeholder before Qiskit results', asy
   await switchToGpuMode(page)
 
   const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-    { name: 'placeholder', x: amplitudeFirstCellCenterX(1), y: probabilityRowCenterY(1, 0) },
+    { name: 'placeholder', x: amplitudeFirstCellCenterX(1), y: probabilityRowCenterY(await getCircuitOriginY(page), 1, 0) },
   ])
 
   expect(pixelRgbDistance(pixel.placeholder, DISPLAY_PLACEHOLDER_FILL)).toBeLessThan(32)
@@ -154,7 +155,7 @@ test('GPU mode Sample placeholder stays inside the gate', async ({ page }) => {
 
   const gateLeft = amplitudeFirstCellCenterX(1) - UI_CONSTANTS.GATE_SIZE / 2
   const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-    { name: 'outside', x: gateLeft - 4, y: probabilityRowCenterY(1, 0) },
+    { name: 'outside', x: gateLeft - 4, y: probabilityRowCenterY(await getCircuitOriginY(page), 1, 0) },
   ])
 
   expect(pixelRgbDistance(pixel.outside, CIRCUIT_BACKGROUND)).toBeLessThan(8)
@@ -166,7 +167,7 @@ test('GPU mode Sample shows unlit grey tiles before Qiskit results', async ({ pa
   await switchToGpuMode(page)
 
   const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-    { name: 'tile', x: amplitudeFirstCellCenterX(1), y: UI_CONSTANTS.LINE_Y },
+    { name: 'tile', x: amplitudeFirstCellCenterX(1), y: await getCircuitOriginY(page) },
   ])
 
   expect(pixelRgbDistance(pixel.tile, SAMPLE_UNLIT_FILL)).toBeLessThan(8)
@@ -178,7 +179,7 @@ test('GPU mode Sample keeps the gap between tiles transparent', async ({ page })
   await switchToGpuMode(page)
 
   const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-    { name: 'gap', x: amplitudeFirstCellCenterX(1), y: UI_CONSTANTS.LINE_Y + UI_CONSTANTS.LINE_GAP / 2 },
+    { name: 'gap', x: amplitudeFirstCellCenterX(1), y: await getCircuitOriginY(page) + UI_CONSTANTS.LINE_GAP / 2 },
   ])
 
   expect(pixelRgbDistance(pixel.gap, CIRCUIT_BACKGROUND)).toBeLessThan(8)
@@ -190,7 +191,7 @@ test('GPU mode Probability placeholder shows row guide lines', async ({ page }) 
   await switchToGpuMode(page)
 
   const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-    { name: 'guide', x: amplitudeFirstCellCenterX(1), y: UI_CONSTANTS.LINE_Y + 8 },
+    { name: 'guide', x: amplitudeFirstCellCenterX(1), y: await getCircuitOriginY(page) + 8 },
   ])
 
   expect(pixelRgbDistance(pixel.guide, DISPLAY_PLACEHOLDER_GUIDE)).toBeLessThan(36)
@@ -202,7 +203,7 @@ test('GPU mode cold-start shows Probability placeholder without local state reso
   await waitForStartupReady(page)
 
   const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-    { name: 'placeholder', x: amplitudeFirstCellCenterX(1), y: probabilityRowCenterY(1, 0) },
+    { name: 'placeholder', x: amplitudeFirstCellCenterX(1), y: probabilityRowCenterY(await getCircuitOriginY(page), 1, 0) },
   ])
 
   expect(pixelRgbDistance(pixel.placeholder, DISPLAY_PLACEHOLDER_FILL)).toBeLessThan(32)
@@ -214,7 +215,7 @@ test('GPU mode shows pre-run Density Matrix placeholder before Qiskit results', 
   await switchToGpuMode(page)
 
   const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
-    { name: 'placeholder', x: amplitudeFirstCellCenterX(1), y: UI_CONSTANTS.LINE_Y },
+    { name: 'placeholder', x: amplitudeFirstCellCenterX(1), y: await getCircuitOriginY(page) },
   ])
 
   expect(pixelRgbDistance(pixel.placeholder, DISPLAY_PLACEHOLDER_FILL)).toBeLessThan(32)
@@ -539,7 +540,7 @@ test('Run GPU replaces the Amplitude placeholder with Qiskit-rendered data', asy
   await page.waitForFunction(() => (window as any).__qniLastQiskitResult?.status === 'completed')
   await waitForExternalAmplitudeCell(page, 2, 1)
   const pixel = await sampleCanvasPixels(page, canvas, [
-    { name: 'result', x: amplitudeCellCenterX(1, 1), y: UI_CONSTANTS.LINE_Y },
+    { name: 'result', x: amplitudeCellCenterX(1, 1), y: await getCircuitOriginY(page) },
   ])
 
   expect(pixelRgbDistance(pixel.result, DISPLAY_PLACEHOLDER_FILL)).toBeGreaterThan(64)
@@ -643,7 +644,7 @@ test('Run GPU replaces the Probability placeholder with Qiskit-rendered data', a
   await page.waitForFunction(() => (window as any).__qniLastQiskitResult?.status === 'completed')
   await waitForExternalProbability(page, 2, 1, 0.75)
   const pixel = await sampleCanvasPixels(page, canvas, [
-    { name: 'result', x: amplitudeFirstCellCenterX(1), y: probabilityRowCenterY(1, 1) },
+    { name: 'result', x: amplitudeFirstCellCenterX(1), y: probabilityRowCenterY(await getCircuitOriginY(page), 1, 1) },
   ])
 
   expect(pixelRgbDistance(pixel.result, DISPLAY_PLACEHOLDER_FILL)).toBeGreaterThan(64)

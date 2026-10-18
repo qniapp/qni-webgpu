@@ -60,7 +60,7 @@ pub(crate) fn draw_sampled_measurement_icon(
     rect: egui::Rect,
     kind: GateKind,
     color: egui::Color32,
-    colors: &Colors,
+    axis_color: egui::Color32,
 ) {
     draw_meter_icon(painter, rect, color);
     let axis = match kind {
@@ -73,7 +73,7 @@ pub(crate) fn draw_sampled_measurement_icon(
         egui::Align2::LEFT_TOP,
         axis,
         egui::FontId::proportional(crate::tailwind::TEXT_XS),
-        colors.semantic_intermediate,
+        axis_color,
     );
 }
 
@@ -83,6 +83,7 @@ pub(super) fn draw_gate_icon(
     kind: GateKind,
     color: egui::Color32,
     colors: &Colors,
+    grabbed: bool,
 ) -> bool {
     // H / Y / Z / √X / S / S† / T / T† / Phase(Φ) / RX / RY / RZ / QFT /
     // QFT† / X (本体は "+" として描く) / Write の 0・1 は
@@ -101,6 +102,14 @@ pub(super) fn draw_gate_icon(
     let p = |x: f32, y: f32| map_svg_point_in_rect(rect, SvgPoint::new(x, y), viewbox);
 
     match kind {
+        GateKind::Increment => {
+            draw_increment_icon(painter, rect, color);
+            true
+        }
+        GateKind::Decrement => {
+            draw_decrement_icon(painter, rect, color);
+            true
+        }
         GateKind::PostSelectOff
         | GateKind::PostSelectOn
         | GateKind::PostSelectAntiX
@@ -111,7 +120,8 @@ pub(super) fn draw_gate_icon(
                 GateKind::PostSelectAntiX => ("+", colors.semantic_intermediate),
                 _ => ("−", colors.semantic_intermediate),
             };
-            let projector_stroke = egui::Stroke::new(STROKE_2 * scale, colors.semantic_disabled);
+            let symbol_color = if grabbed { colors.label } else { symbol_color };
+            let projector_stroke = egui::Stroke::new(STROKE_2 * scale, color);
             for x in [SPACING_1, VIEWBOX - SPACING_1] {
                 painter.line_segment([p(x, SPACING_2), p(x, SPACING_10)], projector_stroke);
             }
@@ -142,8 +152,17 @@ pub(super) fn draw_gate_icon(
             true
         }
         GateKind::ZDetectControlReset => {
-            let meter_stroke = egui::Stroke::new(stroke.width, colors.semantic_intermediate);
-            let ket_stroke = egui::Stroke::new(stroke.width, colors.semantic_disabled);
+            let (meter_color, ket_color, digit_color) = if grabbed {
+                (colors.drag_accent, colors.drag_accent, colors.label)
+            } else {
+                (
+                    colors.semantic_intermediate,
+                    colors.semantic_disabled,
+                    colors.semantic_off,
+                )
+            };
+            let meter_stroke = egui::Stroke::new(stroke.width, meter_color);
+            let ket_stroke = egui::Stroke::new(stroke.width, ket_color);
             draw_meter_arc(painter, rect, SvgPoint::new(24.0, 24.0), 18.0, meter_stroke);
             painter.line_segment([p(24.0, 24.0), p(35.8, 3.75)], meter_stroke);
             painter.line_segment([p(24.0, 24.0), p(24.0, 45.0)], stroke);
@@ -154,7 +173,7 @@ pub(super) fn draw_gate_icon(
             super::svg_icon::draw_glyph(
                 painter,
                 digit_rect,
-                colors.semantic_off,
+                digit_color,
                 super::svg_icon::GateGlyph::Digit0,
             );
             painter.circle_filled(p(24.0, 24.0), DETECTOR_CONTROL_RADIUS * scale, color);
@@ -162,7 +181,12 @@ pub(super) fn draw_gate_icon(
         }
         GateKind::Measurement | GateKind::XDetector | GateKind::YDetector => {
             // qni reference: packages/elements/icon/measurement-gate.svg
-            draw_sampled_measurement_icon(painter, rect, kind, color, colors);
+            let axis_color = if grabbed {
+                colors.label
+            } else {
+                colors.semantic_intermediate
+            };
+            draw_sampled_measurement_icon(painter, rect, kind, color, axis_color);
             true
         }
         GateKind::Spacer => {
@@ -189,6 +213,7 @@ pub(super) fn draw_gate_icon(
             } else {
                 (super::svg_icon::GateGlyph::Digit1, colors.semantic_on)
             };
+            let digit_color = if grabbed { colors.label } else { digit_color };
             // Ket digit uses Geist Mono from the shared SVG/SDF path so the
             // slashed "0" stays unambiguous and the palette/circuit weight
             // does not depend on egui text rasterization.
@@ -242,6 +267,89 @@ pub(super) fn draw_gate_icon(
         // Anything that reaches here without matching is a non-typographic gate
         // the body code knows how to fall back on with `kind.label()`.
         _ => false,
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum ArithmeticSign {
+    Plus,
+    Minus,
+}
+
+const ARITHMETIC_GLYPH_SCALE: f32 = 0.02208;
+const ARITHMETIC_CAP_HEIGHT: f32 = 710.0;
+const ARITHMETIC_STROKE: f32 = 96.0;
+const ARITHMETIC_SIGN_WIDTH: f32 = 520.0;
+const ARITHMETIC_OPERAND_X: f32 = 576.0;
+const ARITHMETIC_INK_WIDTH: f32 = 855.0;
+const ARITHMETIC_ONE_OUTLINES: [&[[f32; 2]]; 3] = [
+    &[
+        [183.0, 0.0],
+        [279.0, 0.0],
+        [279.0, 710.0],
+        [204.0, 710.0],
+        [183.0, 631.0],
+    ],
+    &[[34.0, 522.0], [204.0, 522.0], [204.0, 606.0], [34.0, 606.0]],
+    &[[97.0, 560.0], [204.0, 560.0], [204.0, 638.0], [97.0, 606.0]],
+];
+
+fn draw_increment_icon(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {
+    draw_arithmetic_icon(painter, rect, color, ArithmeticSign::Plus);
+}
+
+fn draw_decrement_icon(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {
+    draw_arithmetic_icon(painter, rect, color, ArithmeticSign::Minus);
+}
+
+fn draw_arithmetic_icon(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    color: egui::Color32,
+    sign: ArithmeticSign,
+) {
+    let origin_x = VIEWBOX * 0.5 - ARITHMETIC_INK_WIDTH * ARITHMETIC_GLYPH_SCALE * 0.5;
+    let baseline = VIEWBOX * 0.5 + ARITHMETIC_CAP_HEIGHT * ARITHMETIC_GLYPH_SCALE * 0.5;
+    let p = |x: f32, y: f32| {
+        map_svg_point_in_rect(
+            rect,
+            SvgPoint::new(
+                origin_x + x * ARITHMETIC_GLYPH_SCALE,
+                baseline - y * ARITHMETIC_GLYPH_SCALE,
+            ),
+            VIEWBOX,
+        )
+    };
+    let bar = |center: [f32; 2], half_size: [f32; 2]| {
+        painter.rect_filled(
+            egui::Rect::from_two_pos(
+                p(center[0] - half_size[0], center[1] - half_size[1]),
+                p(center[0] + half_size[0], center[1] + half_size[1]),
+            ),
+            egui::CornerRadius::ZERO,
+            color,
+        );
+    };
+    let center = [ARITHMETIC_SIGN_WIDTH * 0.5, ARITHMETIC_CAP_HEIGHT * 0.5];
+    bar(
+        center,
+        [ARITHMETIC_SIGN_WIDTH * 0.5, ARITHMETIC_STROKE * 0.5],
+    );
+    if sign == ArithmeticSign::Plus {
+        bar(
+            center,
+            [ARITHMETIC_STROKE * 0.5, ARITHMETIC_SIGN_WIDTH * 0.5],
+        );
+    }
+    for outline in ARITHMETIC_ONE_OUTLINES {
+        painter.add(egui::Shape::convex_polygon(
+            outline
+                .iter()
+                .map(|&[x, y]| p(ARITHMETIC_OPERAND_X + x, y))
+                .collect(),
+            color,
+            egui::Stroke::NONE,
+        ));
     }
 }
 

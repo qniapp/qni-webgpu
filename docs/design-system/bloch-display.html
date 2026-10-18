@@ -208,6 +208,9 @@
         「弱い |1⟩」と誤読されうるため本仕様で tx-3 へ差し替え (§ 07 視覚要素)。
       </span>
     </p>
+    <p>
+      ドラッグ中は球面の色を変えず、通常 1.5 px の <code>tx-3</code> の輪郭だけを 2 px の <code>drag_fill</code> (purple-600) にする。四角い本体は追加しない。
+    </p>
     <div class="stage" style="gap: 32px;">
       <div class="col">
         <div class="caption">実寸 40×40 px</div>
@@ -220,6 +223,12 @@
         <div class="zoom">
           <bloch-display icon zoom no-popover></bloch-display>
         </div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="col">
+        <div class="caption">ドラッグ中</div>
+        <div class="actual"><bloch-display state="drag" no-popover></bloch-display></div>
       </div>
     </div>
   </div>

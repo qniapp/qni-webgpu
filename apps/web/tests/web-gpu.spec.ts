@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import {
   chromium,
   dragPointer,
+  getCircuitOriginY,
   getDragPreviewAboveStatePanelProbe,
   getPaletteGateCenter,
   getPlainChromiumLaunchOptions,
@@ -47,6 +48,7 @@ const isBlochTipPurple = ([r, g, b]: CanvasPixel): boolean =>
 // Measurement outcome digits are painted in a darker blue with no green floor,
 // distinct from the brighter blue-300 Bloch south-pole tip above.
 const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
+const isGrabbedDigit = ([r, g, b]: CanvasPixel): boolean => r > 200 && g > 190 && b > 190
 
 const waitForSeedHook = async (page: Page): Promise<void> => {
   await page.waitForFunction(() => typeof (window as any).__seedCircuits === 'function')
@@ -180,7 +182,7 @@ test('GPU compute pipeline applies a unitary chain end-to-end', async ({ page })
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   const LINE_GAP = UI_CONSTANTS.LINE_GAP
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
@@ -232,7 +234,7 @@ test('GPU bloch reduction captures the textbook vectors per qubit', async ({ pag
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   const LINE_GAP = UI_CONSTANTS.LINE_GAP
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
@@ -261,14 +263,15 @@ test('GPU bloch reduction follows snapped drag placement before drop', async ({ 
   await waitForStartupReady(page, { waitForStateVector: true })
   await waitForBlochVectorsApprox(page, [[1, 0, 0]])
 
+  const LINE_Y = await getCircuitOriginY(page)
   const source = {
     x: UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING,
-    y: UI_CONSTANTS.LINE_Y,
+    y: LINE_Y,
   }
   await dragPointer(
     page,
     source,
-    { x: source.x, y: UI_CONSTANTS.LINE_Y + UI_CONSTANTS.LINE_GAP },
+    { x: source.x, y: LINE_Y + UI_CONSTANTS.LINE_GAP },
     6,
     false,
   )
@@ -285,7 +288,7 @@ test('GPU bloch reduction follows snapped drag placement before drop', async ({ 
   const canvas = page.locator('#egui-canvas')
   const eguiPanelMargin = 8
   const liveX = eguiPanelMargin + source.x
-  const liveY = eguiPanelMargin + UI_CONSTANTS.LINE_Y + UI_CONSTANTS.LINE_GAP - 21
+  const liveY = eguiPanelMargin + LINE_Y + UI_CONSTANTS.LINE_GAP - 21
   const samples = await sampleCanvasPixels(page, canvas, [{ name: 'liveTip', x: liveX, y: liveY }])
   await page.mouse.up()
 
@@ -316,11 +319,12 @@ test('GPU measurement digit follows snapped drag placement before drop', async (
     await page.waitForTimeout(50)
   }
   if (!initialOutcomeReady) throw new Error('measurement outcome did not initialize before drag')
+  const LINE_Y = await getCircuitOriginY(page)
   const source = {
     x: UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE + UI_CONSTANTS.SLOT_SPACING,
-    y: UI_CONSTANTS.LINE_Y,
+    y: LINE_Y,
   }
-  await dragPointer(page, source, { x: source.x, y: UI_CONSTANTS.LINE_Y + UI_CONSTANTS.LINE_GAP }, 6, false)
+  await dragPointer(page, source, { x: source.x, y: LINE_Y + UI_CONSTANTS.LINE_GAP }, 6, false)
   let outcome: number | undefined
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const [entry] = await readMeasurementOutcomes(page)
@@ -334,13 +338,13 @@ test('GPU measurement digit follows snapped drag placement before drop', async (
   const canvas = page.locator('#egui-canvas')
   const eguiPanelMargin = 8
   const liveX = eguiPanelMargin + source.x
-  const liveY = eguiPanelMargin + UI_CONSTANTS.LINE_Y + UI_CONSTANTS.LINE_GAP
+  const liveY = eguiPanelMargin + LINE_Y + UI_CONSTANTS.LINE_GAP
   const samples = await sampleCanvasPixels(page, canvas, [{ name: 'liveDigit', x: liveX, y: liveY }])
   await page.mouse.up()
 
-  expect({ outcome, liveDigitBlue: isOutcomeBlue(samples.liveDigit) }).toEqual({
+  expect({ outcome, liveDigitGrabbed: isGrabbedDigit(samples.liveDigit) }).toEqual({
     outcome: 1,
-    liveDigitBlue: true,
+    liveDigitGrabbed: true,
   })
 })
 
@@ -359,9 +363,10 @@ test('GPU display readouts and state vector follow snapped palette gate before d
   }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
   const hSource = getPaletteGateCenter(cssWidth, 0)
+  const LINE_Y = await getCircuitOriginY(page)
   const target = {
     x: UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE,
-    y: UI_CONSTANTS.LINE_Y,
+    y: LINE_Y,
   }
 
   await dragPointer(page, hSource, target, 6, false)
@@ -421,9 +426,10 @@ test('GPU state vector follows insert-snap ordering before drop', async ({ page 
   }
   const cssWidth = box?.width ?? (viewport?.width ?? 1000)
   const xSource = getPaletteGateCenter(cssWidth, 1)
+  const LINE_Y = await getCircuitOriginY(page)
   const insertBeforeFirstColumn = {
     x: UI_CONSTANTS.LINE_LEFT_OFFSET + UI_CONSTANTS.GATE_SIZE - UI_CONSTANTS.SLOT_SPACING / 2,
-    y: UI_CONSTANTS.LINE_Y,
+    y: LINE_Y,
   }
 
   await dragPointer(page, xSource, insertBeforeFirstColumn, 6, false)
@@ -470,7 +476,7 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   // Egui keeps an 8px panel margin inside the canvas; the interaction helpers
   // can be fuzzy because snap distance absorbs it, but visual pixel probes need
   // the actual painted position.
@@ -560,7 +566,7 @@ test('GPU circuit overlays stay anchored in tall scroll-area viewports', async (
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   const LINE_GAP = UI_CONSTANTS.LINE_GAP
   const EGUI_PANEL_MARGIN = 8
   const slotCenter = (column: number) =>
@@ -603,7 +609,7 @@ test('GPU bloch tip is purple at the equator for |+⟩', async ({ page }) => {
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   const EGUI_PANEL_MARGIN = 8
   const blochX = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING * 1
   const wireCenterY = EGUI_PANEL_MARGIN + LINE_Y
@@ -648,7 +654,7 @@ test('Write and measurement digits share the same SDF size', async ({ page }) =>
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   const LINE_GAP = UI_CONSTANTS.LINE_GAP
   const EGUI_PANEL_MARGIN = 8
   const slotCenter = (column: number) =>
@@ -743,7 +749,7 @@ test('GPU measurement collapses |1> deterministically with outcome 1', async ({ 
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
 
   const xSource = getPaletteGateCenter(cssWidth, 1)
   const measureSource = getPaletteGateCenter(cssWidth, 19)

@@ -143,8 +143,10 @@ fn gate_token(kind: GateKind, span: usize, angle: Option<&ParametricAngle>) -> O
                 format!("{}{}", spec.url_token, span)
             }
         }
+        GateKind::Increment | GateKind::Decrement | GateKind::AmplitudeDisplay => {
+            format!("{}{}", spec.url_token, span.clamp(1, 16))
+        }
         GateKind::SampleDisplay => format!("{}{}", spec.url_token, span.clamp(1, 3)),
-        GateKind::AmplitudeDisplay => format!("{}{}", spec.url_token, span.clamp(1, 16)),
         GateKind::DensityMatrixDisplay => {
             let span = span.clamp(1, 8);
             if span == 1 {
@@ -420,6 +422,28 @@ mod tests {
         assert_eq!(
             circuit_to_json(&[gate], &CircuitBlocks::default(), "", qubit_count(33)),
             format!(r#"{{"cols":[[{},"H"]]}}"#, vec!["1"; 32].join(","))
+        );
+    }
+
+    #[test]
+    fn arithmetic_encoding_clamps_span_to_supported_family() {
+        assert_eq!(
+            [GateKind::Increment, GateKind::Decrement]
+                .map(|kind| [0, 1, 16, 32].map(|span| gate_token(kind, span, None))),
+            [
+                [
+                    Some("inc1".into()),
+                    Some("inc1".into()),
+                    Some("inc16".into()),
+                    Some("inc16".into())
+                ],
+                [
+                    Some("dec1".into()),
+                    Some("dec1".into()),
+                    Some("dec16".into()),
+                    Some("dec16".into())
+                ],
+            ]
         );
     }
 }

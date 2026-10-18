@@ -134,6 +134,8 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
                     GateKind::Measurement
                         | GateKind::QftGate
                         | GateKind::QftDaggerGate
+                        | GateKind::Increment
+                        | GateKind::Decrement
                         | GateKind::Swap
                         | GateKind::AmplitudeDisplay
                         | GateKind::BlochDisplay
@@ -1378,5 +1380,53 @@ mod gate_tests {
             })
             .collect();
         assert_eq!(results, vec![(3, None); 9]);
+    }
+
+    #[test]
+    fn external_gpu_accepts_arithmetic_with_all_control_families() {
+        let results = ["inc3", "dec3"]
+            .into_iter()
+            .flat_map(|target| {
+                [
+                    None,
+                    Some("•"),
+                    Some("◦"),
+                    Some("zpar"),
+                    Some("xpar"),
+                    Some("ZDetectControlReset"),
+                ]
+                .map(|control| {
+                    let column = control.map_or_else(
+                        || format!(r#"["{target}"]"#),
+                        |control| format!(r#"["{control}","{target}"]"#),
+                    );
+                    let gates = flagged_gates(&format!(r#"{{"cols":[{column}]}}"#));
+                    unsupported_external_gpu_gate_for_gates(&gates)
+                })
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(results, vec![None; 12]);
+    }
+
+    #[test]
+    fn external_gpu_payload_preserves_arithmetic_tokens_and_controls() {
+        let gates = flagged_gates(r#"{"cols":[["inc1"],["dec16"],["•","inc3"],["◦","dec2"]]}"#);
+        let columns = crate::url_circuit::circuit_columns_to_json(
+            &gates,
+            crate::qubit_count::QubitCount::try_new(16).unwrap(),
+        );
+        let payload = super::qiskit_run_payload_with_display_outputs(
+            16,
+            &columns,
+            super::Shots::DEFAULT,
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+        );
+        assert_eq!(
+            payload,
+            r#"{"qubits":16,"columns":[["inc1"],["dec16"],["•","inc3"],["◦","dec2"]],"shots":1024,"outputs":{"histogram":true}}"#
+        );
     }
 }

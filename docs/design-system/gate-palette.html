@@ -356,7 +356,7 @@
   <h2>§ 04 描画タイプ</h2>
   <div class="card">
     <p>
-      要素本体の上にアイコンを載せる。色は通常時 = <code>cyan-400</code> (#3AA99F)、ドラッグ中 = <code>purple-600</code> (#5E409D)。
+      要素本体の上にアイコンを載せる。通常時の本体色は <code>cyan-400</code> (#3AA99F)。ドラッグ中は <code>drag_fill</code> (purple-600) の本体の上に <code>label</code> / <code>drag_accent</code> で描く。
     </p>
     <h3>本体の形</h3>
     <table class="spec">
@@ -406,12 +406,12 @@
       <tbody>
         <tr><td>H / Y / Z / √X / S / S† / T / T† / Phase (Φ) / RX / RY / RZ / QFT / QFT†</td><td>字形を中央配置</td><td>paper (bg = #FFFCF0)</td></tr>
         <tr><td>X</td><td>太い "+" — CNOT ターゲット記号と統一</td><td>paper</td></tr>
-        <tr><td>Control</td><td>中心に半径 8 px の塗りつぶし円</td><td>cyan-400 (通常時) / purple-600 (ドラッグ中)</td></tr>
-        <tr><td>AntiControl</td><td>中心に半径 5 px、線幅 3 px の空円</td><td>cyan-400 / purple-600</td></tr>
-        <tr><td>Swap</td><td>2 本の対角線、線幅 4 px</td><td>cyan-400 / purple-600</td></tr>
-        <tr><td>Measurement</td><td>上半円弧 + 針 + ピボット円でメーター形状を描く</td><td>purple-600</td></tr>
-        <tr><td>Spacer</td><td>3 個の 6 × 6 px 正方形</td><td>tx (#100F0F)</td></tr>
-        <tr><td>Write0 / Write1</td><td>ket bracket + 中央ディジット 0 / 1</td><td>bracket: tx-2、digit 0: red-600、digit 1: blue-600</td></tr>
+        <tr><td>Control</td><td>中心に半径 8 px の塗りつぶし円</td><td>cyan-400 (通常時) / bg (ドラッグ中、purple-600 本体)</td></tr>
+        <tr><td>AntiControl</td><td>中心に半径 5 px、線幅 3 px の空円</td><td>cyan-400 / bg (ドラッグ中、purple-600 本体)</td></tr>
+        <tr><td>Swap</td><td>2 本の対角線、線幅 4 px</td><td>cyan-400 / bg (ドラッグ中、purple-600 本体)</td></tr>
+        <tr><td>Measurement</td><td>上半円弧 + 針 + ピボット円でメーター形状を描く</td><td>purple-600 / purple-300 (ドラッグ中、purple-600 本体)</td></tr>
+        <tr><td>Spacer</td><td>3 個の 6 × 6 px 正方形</td><td>tx (#100F0F) / ドラッグ中は bg</td></tr>
+        <tr><td>Write0 / Write1</td><td>ket bracket + 中央ディジット 0 / 1</td><td>括弧: tx-2、数字 0: red-600、数字 1: blue-600。ドラッグ中は括弧 purple-300、数字 bg</td></tr>
         <tr><td>BlochDisplay</td><td>横線 + 縦線 + 対角線 + 縦楕円 + 横楕円。中央に半径 3 px の zero-vector dot</td><td>軸: tx-3、中央 dot: tx-3</td></tr>
         <tr><td>DensityMatrixDisplay</td><td>2 × 2 の円セル。対角セルは needle 省略、非対角セルのみ真上 needle</td><td>outline = tx-2、disk = blue-200、disk border = blue-400、needle = tx</td></tr>
       </tbody>
@@ -457,7 +457,10 @@
     <ul>
       <li>パレットアイコン<strong>自身は残り続ける</strong>。同じパレットから何度でもドロップ可能</li>
       <li>カーソル下にプレビューが浮く。回路グリッド上の他要素とは独立した専用オーバーレイとする。</li>
-      <li>本体色を持つゲートのプレビュー本体色は purple-600 (通常時の cyan-400 と区別)。Write0 / Write1 / Measurement / Spacer など本体なし系は字形色や本体なしの見た目を維持する</li>
+      <li>本体は <code>drag_fill</code> (purple-600)、記号は <code>label</code> (<code>bg</code>)。通常時は透明な Write0 / Write1 / Measurement / X 軸検出器 / Y 軸検出器 / Control / AntiControl / Swap / Spacer / 事後選択 / <code>ZDetectControlReset</code> も、同じ大きさで角丸 6 px の本体を追加してワイヤを覆う。</li>
+      <li>Write の括弧、測定・検出器のメーター、事後選択の射影の括弧は <code>drag_accent</code> (purple-300)。数字・軸の文字・事後選択の記号は <code>label</code>。<code>ZDetectControlReset</code> はメーターとケットを <code>drag_accent</code>、数字 0・制御点・縦線を <code>label</code> にする。</li>
+      <li>ブロッホ球は四角い本体を追加せず、球面の色を保って輪郭だけ 2 px の <code>drag_fill</code> にする。確率表示のプレビュー背景は、振幅・密度行列表示と同じ <code>drag_fill</code> にする。サンプル表示は本体を塗らず、タイル全体の外側に角丸 6 px、線幅 2 px の <code>drag_fill</code> 枠を付ける。</li>
+      <li>セルの外でもセルに重なっている間も同じ配色とする。Shift で作る複製でも、ドラッグ中の要素だけを変え、元の要素は通常時の見た目を保つ。</li>
       <li>カーソルは <code>grabbing</code></li>
     </ul>
     <h3 style="margin-top: 16px;">ドロップ</h3>

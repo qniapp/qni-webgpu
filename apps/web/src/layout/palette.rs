@@ -7,8 +7,8 @@ use crate::constants::{
 };
 use crate::gates::{
     default_palette_angle, palette_gate_kind, GateKind, ParametricAngle, PALETTE_DISPLAY_GATES,
-    PALETTE_DISPLAY_INDICES, PALETTE_GATES_ROW2, PALETTE_GATES_ROW2_INDICES, PALETTE_GATE_COUNT,
-    PALETTE_ROW1_COUNT,
+    PALETTE_DISPLAY_INDICES, PALETTE_GATES_ROW1_INDICES, PALETTE_GATES_ROW2,
+    PALETTE_GATES_ROW2_INDICES, PALETTE_GATE_COUNT, PALETTE_ROW1_COUNT,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -314,11 +314,11 @@ impl FullPaletteGrid {
     }
 
     fn local_pos(&self, index: usize) -> Option<egui::Pos2> {
-        if index < PALETTE_ROW1_COUNT {
-            return Some(cell_pos(
-                index % self.row1_columns,
-                index / self.row1_columns,
-            ));
+        if let Some(pos) = PALETTE_GATES_ROW1_INDICES
+            .iter()
+            .position(|candidate| *candidate == index)
+        {
+            return Some(cell_pos(pos % self.row1_columns, pos / self.row1_columns));
         }
         if let Some(pos) = PALETTE_GATES_ROW2_INDICES
             .iter()
@@ -429,7 +429,7 @@ mod tests {
 
     #[test]
     fn full_palette_keeps_circuit_in_place() {
-        assert_eq!(Palette::Full.circuit_shift_y(WIDE), 0.0);
+        assert_eq!(Palette::Full.circuit_shift_y(DESKTOP), 0.0);
     }
 
     #[test]
@@ -448,7 +448,7 @@ mod tests {
 
         assert_eq!(
             palette.circuit_shift_y(WIDE),
-            Palette::Full.panel_height(WIDE)
+            Palette::Full.panel_height(DESKTOP)
         );
     }
 
@@ -595,6 +595,31 @@ mod tests {
     }
 
     #[test]
+    fn desktop_arithmetic_gates_follow_rz() {
+        let layout = Palette::Full.layout(DESKTOP);
+        let positions = [12, 36, 37].map(|index| Palette::Full.local_pos(index, &layout));
+
+        assert_eq!(
+            positions,
+            [12.0, 13.0, 14.0].map(|column| Some(cell_pos(column as usize, 0)))
+        );
+    }
+
+    #[test]
+    fn small_window_arithmetic_gates_wrap_after_rz() {
+        let layout = Palette::Full.layout(SMALL);
+
+        assert_eq!(
+            [12, 36, 37].map(|index| Palette::Full.local_pos(index, &layout)),
+            [
+                Some(cell_pos(4, 1)),
+                Some(cell_pos(5, 1)),
+                Some(cell_pos(6, 1))
+            ]
+        );
+    }
+
+    #[test]
     fn desktop_density_display_sits_in_second_row() {
         let layout = Palette::Full.layout(DESKTOP);
 
@@ -605,43 +630,46 @@ mod tests {
     }
 
     #[test]
-    fn laptop_moves_display_section_into_first_row() {
+    fn laptop_keeps_display_section_in_two_rows() {
         let layout = Palette::Full.layout(LAPTOP);
 
         assert_eq!(
             Palette::Full.local_pos(DENSITY_DISPLAY, &layout).unwrap().y,
-            0.0
+            PALETTE_SIZE + PALETTE_ROW_GAP
         );
     }
 
     #[test]
-    fn laptop_separator_spans_first_row_only() {
+    fn laptop_separator_spans_two_rows() {
         assert_eq!(
             Palette::Full.layout(LAPTOP).separator.unwrap().height(),
-            PALETTE_SIZE
+            2.0 * PALETTE_SIZE + PALETTE_ROW_GAP
         );
     }
 
     #[test]
-    fn laptop_keeps_circuit_in_place() {
-        assert_eq!(Palette::Full.circuit_shift_y(LAPTOP), 0.0);
-    }
-
-    #[test]
-    fn phone_landscape_wraps_into_three_rows() {
+    fn laptop_pushes_circuit_down_one_row() {
         assert_eq!(
-            Palette::Full.circuit_shift_y(PHONE_LANDSCAPE),
+            Palette::Full.circuit_shift_y(LAPTOP),
             -(PALETTE_SIZE + PALETTE_ROW_GAP)
         );
     }
 
     #[test]
-    fn phone_landscape_stacks_display_section_two_wide() {
+    fn phone_landscape_wraps_into_four_rows() {
+        assert_eq!(
+            Palette::Full.circuit_shift_y(PHONE_LANDSCAPE),
+            -2.0 * (PALETTE_SIZE + PALETTE_ROW_GAP)
+        );
+    }
+
+    #[test]
+    fn phone_landscape_stacks_display_section_three_wide() {
         let layout = Palette::Full.layout(PHONE_LANDSCAPE);
 
         assert_eq!(
             Palette::Full.local_pos(DENSITY_DISPLAY, &layout).unwrap().y,
-            2.0 * (PALETTE_SIZE + PALETTE_ROW_GAP)
+            PALETTE_SIZE + PALETTE_ROW_GAP
         );
     }
 
@@ -658,7 +686,7 @@ mod tests {
         let layout = Palette::Full.layout(SMALL);
 
         assert_eq!(
-            Palette::Full.local_pos(7, &layout),
+            Palette::Full.local_pos(8, &layout),
             Some(egui::pos2(0.0, PALETTE_SIZE + PALETTE_ROW_GAP))
         );
     }

@@ -13,9 +13,10 @@ type FullPaletteGrid = {
   rows: number
 }
 
-const ROW1_COUNT = 13
+const ROW1_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 36, 37]
+const ROW1_COUNT = ROW1_INDICES.length
 const ROW2_INDICES = [13, 14, 15, 31, 32, 17, 18, 19, 26, 34, 35, 22, 23, 21, 27, 28, 29, 30]
-const DISPLAY_INDICES = [16, 20, 33, 24, 25, 36]
+const DISPLAY_INDICES = [16, 20, 33, 24, 25, 38]
 const PANEL_MARGIN = 8
 const DISPLAY_COLUMN_CHOICES = [UI_CONSTANTS.PALETTE_DISPLAY_COLUMNS, DISPLAY_INDICES.length, 2]
 const PITCH_X = UI_CONSTANTS.PALETTE_SIZE + UI_CONSTANTS.PALETTE_GAP
@@ -58,8 +59,9 @@ const fullPaletteGridFor = (panelWidth: number): FullPaletteGrid => {
 }
 
 const localPos = (grid: FullPaletteGrid, gateIndex: number): Point => {
-  if (gateIndex >= 0 && gateIndex < ROW1_COUNT) {
-    return { x: (gateIndex % grid.row1Columns) * PITCH_X, y: Math.floor(gateIndex / grid.row1Columns) * PITCH_Y }
+  const row1Pos = ROW1_INDICES.indexOf(gateIndex)
+  if (row1Pos >= 0) {
+    return { x: (row1Pos % grid.row1Columns) * PITCH_X, y: Math.floor(row1Pos / grid.row1Columns) * PITCH_Y }
   }
   const row2Pos = ROW2_INDICES.indexOf(gateIndex)
   if (row2Pos >= 0) {

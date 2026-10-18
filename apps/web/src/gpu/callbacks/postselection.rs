@@ -3,7 +3,7 @@ use std::sync::Arc;
 use eframe::egui;
 use eframe::{egui_wgpu, wgpu};
 
-use super::super::params::{MeasurementDigitParams, SurvivalLabelInstance};
+use super::super::params::{SurvivalLabelInstance, SurvivalLabelParams};
 use super::super::resources::StateVectorResources;
 
 pub(crate) struct PostselectionCallback {
@@ -29,7 +29,7 @@ impl egui_wgpu::CallbackTrait for PostselectionCallback {
         if self.instances.is_empty() {
             return Vec::new();
         }
-        let params = MeasurementDigitParams {
+        let params = SurvivalLabelParams {
             viewport_min: self.viewport_min,
             viewport_size: self.viewport_size,
             zero_color: self.zero_color,

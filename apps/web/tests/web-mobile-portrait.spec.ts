@@ -142,7 +142,7 @@ test('touch drag of the last carousel item creates a comment block', async ({ pa
   const lastPage = carousel.pageCount - 1
   await page.touchscreen.tap(carousel.dots[lastPage].x, carousel.dots[lastPage].y)
   await waitForValue(() => readPage(page), current => current === lastPage, 'last page was not shown')
-  await touchDrag(page, center(carousel.slots[0]), layout.cells[0][0])
+  await touchDrag(page, center(carousel.slots[2]), layout.cells[0][0])
 
   await expect.poll(() => readHashCols(page)).toEqual([['{comment'], ['H'], ['}']])
 })
@@ -180,6 +180,33 @@ test('touch drag of X from the palette onto wire 1 places it there', async ({ pa
   await touchDrag(page, center(carouselOf(layout).slots[1]), layout.cells[0][1])
   await expect.poll(() => readHashCols(page)).toEqual([[1, 'X']])
 })
+
+for (const { name, token, slot } of [
+  { name: 'increment', token: 'inc1', slot: 1 },
+  { name: 'decrement', token: 'dec1', slot: 2 },
+]) {
+  test(`touch drag of ${name} from the fourth palette page places it`, async ({ page }) => {
+    const layout = await openPhone(page, EMPTY)
+    const carousel = carouselOf(layout)
+    await page.touchscreen.tap(carousel.dots[3].x, carousel.dots[3].y)
+    await waitForValue(() => readPage(page), current => current === 3, 'fourth page was not shown')
+    await touchDrag(page, center(carousel.slots[slot]), layout.cells[0][0])
+
+    await expect.poll(() => readHashCols(page)).toEqual([[token]])
+  })
+
+  test(`clicking ${name} in the palette without dragging does not place it`, async ({ page }) => {
+    const layout = await openPhone(page, EMPTY)
+    const carousel = carouselOf(layout)
+    await page.touchscreen.tap(carousel.dots[3].x, carousel.dots[3].y)
+    await waitForValue(() => readPage(page), current => current === 3, 'fourth page was not shown')
+    const item = center(carousel.slots[slot])
+    await page.mouse.click(item.x, item.y)
+    await page.waitForTimeout(200)
+
+    expect(readHashCols(page)).toEqual([])
+  })
+}
 
 test('dropped H updates the state vector through the GPU path', async ({ page }) => {
   const layout = await openPhone(page, EMPTY)
@@ -241,6 +268,13 @@ test('second palette page renders in the carousel', async ({ page }) => {
   await page.touchscreen.tap(next.x, next.y)
   await waitForValue(() => readPage(page), current => current === 1, 'second page was not shown')
   await expect(page).toHaveScreenshot('mobile-palette-page2-390x844.png')
+})
+
+test('fourth palette page renders arithmetic after RZ', async ({ page }) => {
+  const carousel = carouselOf(await openPhone(page, EMPTY))
+  await page.touchscreen.tap(carousel.dots[3].x, carousel.dots[3].y)
+  await waitForValue(() => readPage(page), current => current === 3, 'fourth page was not shown')
+  await expect(page).toHaveScreenshot('mobile-palette-page4-390x844.png')
 })
 
 test.describe('phone landscape', () => {
