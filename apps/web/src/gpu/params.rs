@@ -533,6 +533,7 @@ pub(crate) struct MeasurementDigitParams {
     pub(crate) viewport_size: [f32; 2],
     pub(crate) zero_color: [f32; 4],
     pub(crate) one_color: [f32; 4],
+    pub(crate) grabbed_color: [f32; 4],
 }
 
 #[repr(C)]
@@ -541,6 +542,17 @@ pub(crate) struct MeasurementDigitInstance {
     pub(crate) center: [f32; 2],
     pub(crate) half_extent: f32,
     pub(crate) slot: u32,
+    pub(crate) grabbed: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct SurvivalLabelParams {
+    /// See `BlochOverlayParams::viewport_min` — same NDC story.
+    pub(crate) viewport_min: [f32; 2],
+    pub(crate) viewport_size: [f32; 2],
+    pub(crate) zero_color: [f32; 4],
+    pub(crate) one_color: [f32; 4],
 }
 
 #[repr(C)]

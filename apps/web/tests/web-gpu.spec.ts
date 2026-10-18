@@ -47,6 +47,7 @@ const isBlochTipPurple = ([r, g, b]: CanvasPixel): boolean =>
 // Measurement outcome digits are painted in a darker blue with no green floor,
 // distinct from the brighter blue-300 Bloch south-pole tip above.
 const isOutcomeBlue = ([r, g, b]: CanvasPixel): boolean => b > 130 && r < 140 && g < 190
+const isGrabbedDigit = ([r, g, b]: CanvasPixel): boolean => r > 200 && g > 190 && b > 190
 
 const waitForSeedHook = async (page: Page): Promise<void> => {
   await page.waitForFunction(() => typeof (window as any).__seedCircuits === 'function')
@@ -338,9 +339,9 @@ test('GPU measurement digit follows snapped drag placement before drop', async (
   const samples = await sampleCanvasPixels(page, canvas, [{ name: 'liveDigit', x: liveX, y: liveY }])
   await page.mouse.up()
 
-  expect({ outcome, liveDigitBlue: isOutcomeBlue(samples.liveDigit) }).toEqual({
+  expect({ outcome, liveDigitGrabbed: isGrabbedDigit(samples.liveDigit) }).toEqual({
     outcome: 1,
-    liveDigitBlue: true,
+    liveDigitGrabbed: true,
   })
 })
 

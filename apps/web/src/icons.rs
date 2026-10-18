@@ -19,7 +19,8 @@ pub(crate) use bloch_display::draw_bloch_vector;
 pub(crate) use circuit_block::draw_circuit_block_palette_icon;
 pub(crate) use gate_body::{
     conditional_gate_body_shape, draw_density_palette_icon, draw_drag_gate_body, draw_gate_body,
-    draw_gate_body_filled, draw_gate_glyph, draw_sample_placeholder_tiles,
+    draw_gate_body_filled, draw_gate_glyph, draw_sample_drag_outline,
+    draw_sample_placeholder_tiles,
 };
 pub(crate) use gate_glyphs::draw_sampled_measurement_icon;
 pub(crate) use sdf_icon::set_target_format as set_sdf_target_format;

@@ -7,7 +7,7 @@ use crate::gpu::{
     AmplitudeDisplayCallback, AmplitudeInstance, ProbabilityDisplayCallback, ProbabilityInstance,
     AMPLITUDE_FORCE_ZERO,
 };
-use crate::icons::{draw_bloch_vector, draw_drag_gate_body};
+use crate::icons::{draw_bloch_vector, draw_drag_gate_body, draw_sample_drag_outline};
 use crate::layout::{amplitude_grid_rect, CircuitProjection};
 
 impl QniApp {
@@ -36,16 +36,19 @@ impl QniApp {
         } else {
             gate_rect
         };
+        if gate.kind == GateKind::SampleDisplay {
+            if !live_drag_gpu_overlay_ready {
+                draw_sample_drag_preview(painter, body_rect, gate.span.get(), colors);
+            }
+            draw_sample_drag_outline(painter, body_rect, colors);
+            return;
+        }
         if live_drag_gpu_overlay_ready {
             // The snapped live display preview is rendered by the circuit's
             // single GPU callback. Do not add a second callback here: egui
             // prepares callbacks before painting them, and the callbacks use
             // shared instance buffers, so multiple callbacks in the same frame
             // overwrite each other's geometry.
-            return;
-        }
-        if gate.kind == GateKind::SampleDisplay {
-            draw_sample_drag_preview(painter, body_rect, gate.span.get(), colors);
             return;
         }
         if gate.kind == GateKind::AmplitudeDisplay && gate.span.get() == 1 {

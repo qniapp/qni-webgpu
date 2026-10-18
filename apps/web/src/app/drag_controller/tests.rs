@@ -195,13 +195,13 @@ fn normal_move_offgrid_excludes_the_source_and_escape_restores_its_gpu_plan() {
     );
 }
 
-fn rendered_gate_bodies(
+fn rendered_shapes(
     app: &QniApp,
     ctx: &egui::Context,
     geometry: &CircuitInputGeometry,
     origin: egui::Pos2,
     scroll_x: f32,
-) -> Vec<(egui::Pos2, bool)> {
+) -> Vec<egui::Shape> {
     let rect = egui::Rect::from_min_size(origin, egui::vec2(1280.0, 800.0));
     ctx.begin_pass(egui::RawInput {
         screen_rect: Some(egui::Rect::from_min_size(
@@ -231,14 +231,28 @@ fn rendered_gate_bodies(
             crate::layout::CircuitProjection::horizontal(rect.min - egui::vec2(scroll_x, 0.0)),
             &colors,
             id,
-            false,
+            app.live_drag_gpu_overlay_ready(id),
         );
     }
     ctx.end_pass()
         .shapes
         .into_iter()
-        .filter_map(|clipped| {
-            let (center, fill) = match clipped.shape {
+        .map(|clipped| clipped.shape)
+        .collect()
+}
+
+fn rendered_gate_bodies(
+    app: &QniApp,
+    ctx: &egui::Context,
+    geometry: &CircuitInputGeometry,
+    origin: egui::Pos2,
+    scroll_x: f32,
+) -> Vec<(egui::Pos2, bool)> {
+    let colors = app.colors();
+    rendered_shapes(app, ctx, geometry, origin, scroll_x)
+        .into_iter()
+        .filter_map(|shape| {
+            let (center, fill) = match shape {
                 egui::Shape::Rect(shape)
                     if shape.rect.width() == GATE_SIZE && shape.rect.height() == GATE_SIZE =>
                 {
@@ -1773,4 +1787,387 @@ fn gate_drag_overrides_initial_selection() {
     app.lock_step(CircuitColumnIndex::INITIAL, &ctx);
     start(&mut app, &ctx, &geometry, false);
     assert_eq!(app.state_vector_update().preview_step, None);
+}
+
+#[derive(Clone, Copy)]
+enum HeldAt {
+    Offgrid,
+    Slot,
+}
+
+fn recompute(app: &mut QniApp, ctx: &egui::Context) {
+    let (state_count, visible) = app.test_state_panel_dimensions();
+    app.test_process_gpu_recompute(
+        Some(eframe::wgpu::TextureFormat::Rgba8Unorm),
+        visible,
+        state_count,
+        ctx,
+    );
+}
+
+fn computed_fixture(op: &str) -> (QniApp, egui::Context, CircuitInputGeometry) {
+    let (mut app, ctx, geometry) = fixture(&format!(r#"{{"cols":[["{op}"]]}}"#));
+    recompute(&mut app, &ctx);
+    (app, ctx, geometry)
+}
+
+fn held(op: &str, shift: bool, at: HeldAt) -> (QniApp, egui::Context, CircuitInputGeometry) {
+    let (mut app, ctx, geometry) = computed_fixture(op);
+    start(&mut app, &ctx, &geometry, shift);
+    let target = match at {
+        HeldAt::Offgrid => egui::pos2(geometry.metrics.slot_centers[2], 470.0),
+        HeldAt::Slot => egui::pos2(
+            geometry.metrics.slot_centers[2],
+            geometry.metrics.line_ys[0],
+        ),
+    };
+    DragController::update_gate_drag_preview(&mut app, pointer(target, false), &geometry.metrics);
+    recompute(&mut app, &ctx);
+    (app, ctx, geometry)
+}
+
+fn color_role(colors: &crate::colors::Colors, color: egui::Color32) -> String {
+    [
+        ("label", colors.label),
+        ("drag_fill", colors.drag_fill),
+        ("drag_accent", colors.drag_accent),
+    ]
+    .into_iter()
+    .find(|(_, role)| *role == color)
+    .map_or_else(|| format!("{color:?}"), |(name, _)| name.to_owned())
+}
+
+fn shape_colors(shape: &egui::Shape) -> Vec<egui::Color32> {
+    let colors = match shape {
+        egui::Shape::Rect(rect) => vec![rect.fill, rect.stroke.color],
+        egui::Shape::Circle(circle) => vec![circle.fill, circle.stroke.color],
+        egui::Shape::LineSegment { stroke, .. } => vec![stroke.color],
+        egui::Shape::Path(path) => match path.stroke.color {
+            egui::epaint::ColorMode::Solid(color) => vec![path.fill, color],
+            egui::epaint::ColorMode::UV(_) => vec![path.fill],
+        },
+        egui::Shape::Mesh(mesh) => mesh.vertices.first().map(|v| v.color).into_iter().collect(),
+        egui::Shape::Text(text) => vec![text.fallback_color],
+        _ => Vec::new(),
+    };
+    colors
+        .into_iter()
+        .filter(|color| *color != egui::Color32::TRANSPARENT)
+        .collect()
+}
+
+fn roles_inside(app: &QniApp, shapes: &[egui::Shape], rect: egui::Rect) -> Vec<String> {
+    let colors = app.colors();
+    let mut roles: Vec<String> = shapes
+        .iter()
+        .filter(|shape| rect.expand(2.0).contains_rect(shape.visual_bounding_rect()))
+        .flat_map(shape_colors)
+        .map(|color| color_role(&colors, color))
+        .collect();
+    roles.sort();
+    roles.dedup();
+    roles
+}
+
+fn dragged_rect(app: &QniApp) -> egui::Rect {
+    let drag = app.dragging.expect("a held drag");
+    let gate = app
+        .placed_gates
+        .iter()
+        .find(|gate| gate.id == drag.id)
+        .unwrap();
+    crate::layout::gate_visible_rect(gate, drag.preview_pos)
+}
+
+fn held_roles(op: &str, shift: bool, at: HeldAt) -> Vec<String> {
+    let (app, ctx, geometry) = held(op, shift, at);
+    let shapes = rendered_shapes(&app, &ctx, &geometry, egui::Pos2::ZERO, 0.0);
+    roles_inside(&app, &shapes, dragged_rect(&app))
+}
+
+const ACCENTED: &[&str] = &["drag_accent", "drag_fill", "label"];
+const PLAIN: &[&str] = &["drag_fill", "label"];
+const GRABBED_FRAMELESS: [(&str, &[&str]); 13] = [
+    ("|0>", ACCENTED),
+    ("|1>", ACCENTED),
+    ("Measure", &["drag_accent", "drag_fill"]),
+    ("XDetector", ACCENTED),
+    ("•", PLAIN),
+    ("◦", PLAIN),
+    ("Swap", PLAIN),
+    ("…", PLAIN),
+    ("|0⟩⟨0|", ACCENTED),
+    ("|1⟩⟨1|", ACCENTED),
+    ("|+⟩⟨+|", ACCENTED),
+    ("|-⟩⟨-|", ACCENTED),
+    ("ZDetectControlReset", ACCENTED),
+];
+
+fn grabbed_frameless_roles() -> Vec<(&'static str, Vec<String>)> {
+    GRABBED_FRAMELESS
+        .iter()
+        .map(|&(op, roles)| (op, roles.iter().map(|&role| role.to_owned()).collect()))
+        .collect()
+}
+
+fn held_frameless_roles(shift: bool, at: HeldAt) -> Vec<(&'static str, Vec<String>)> {
+    GRABBED_FRAMELESS
+        .iter()
+        .map(|&(op, _)| (op, held_roles(op, shift, at)))
+        .collect()
+}
+
+#[test]
+fn offgrid_drag_paints_frameless_operations_on_a_grabbed_body() {
+    assert_eq!(
+        held_frameless_roles(false, HeldAt::Offgrid),
+        grabbed_frameless_roles()
+    );
+}
+
+#[test]
+fn snapped_drag_paints_frameless_operations_on_a_grabbed_body() {
+    assert_eq!(
+        held_frameless_roles(false, HeldAt::Slot),
+        grabbed_frameless_roles()
+    );
+}
+
+#[test]
+fn offgrid_shift_copy_paints_frameless_operations_on_a_grabbed_body() {
+    assert_eq!(
+        held_frameless_roles(true, HeldAt::Offgrid),
+        grabbed_frameless_roles()
+    );
+}
+
+#[test]
+fn snapped_shift_copy_paints_frameless_operations_on_a_grabbed_body() {
+    assert_eq!(
+        held_frameless_roles(true, HeldAt::Slot),
+        grabbed_frameless_roles()
+    );
+}
+
+fn source_roles(op: &str, shift: Option<HeldAt>) -> Vec<String> {
+    let (app, ctx, geometry) = match shift {
+        Some(at) => held(op, true, at),
+        None => computed_fixture(op),
+    };
+    let source = &app.placed_gates[0];
+    let rect = crate::layout::gate_visible_rect(source, source.committed_pos());
+    let shapes = rendered_shapes(&app, &ctx, &geometry, egui::Pos2::ZERO, 0.0);
+    roles_inside(&app, &shapes, rect)
+}
+
+const SOURCE_OPS: [&str; 15] = [
+    "|0>",
+    "|1>",
+    "Measure",
+    "XDetector",
+    "ZDetectControlReset",
+    "•",
+    "◦",
+    "Swap",
+    "…",
+    "|0⟩⟨0|",
+    "Bloch",
+    "Probability",
+    "Sample1",
+    "H",
+    "X",
+];
+
+#[test]
+fn shift_copy_held_offgrid_keeps_the_source_look() {
+    assert_eq!(
+        SOURCE_OPS.map(|op| source_roles(op, Some(HeldAt::Offgrid))),
+        SOURCE_OPS.map(|op| source_roles(op, None))
+    );
+}
+
+#[test]
+fn shift_copy_held_on_a_slot_keeps_the_source_look() {
+    assert_eq!(
+        SOURCE_OPS.map(|op| source_roles(op, Some(HeldAt::Slot))),
+        SOURCE_OPS.map(|op| source_roles(op, None))
+    );
+}
+
+fn held_bloch_outlines(shift: bool, at: HeldAt) -> Vec<(String, f32)> {
+    let (app, ctx, geometry) = held("Bloch", shift, at);
+    let rect = dragged_rect(&app);
+    let colors = app.colors();
+    rendered_shapes(&app, &ctx, &geometry, egui::Pos2::ZERO, 0.0)
+        .into_iter()
+        .filter_map(|shape| match shape {
+            egui::Shape::Circle(circle)
+                if circle.center == rect.center()
+                    && circle.radius == GATE_SIZE / 2.0 - 1.0
+                    && circle.stroke.width > 0.0 =>
+            {
+                Some((
+                    color_role(&colors, circle.stroke.color),
+                    circle.stroke.width,
+                ))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn offgrid_bloch_drag_outlines_the_sphere_in_drag_fill() {
+    assert_eq!(
+        held_bloch_outlines(false, HeldAt::Offgrid),
+        vec![("drag_fill".to_owned(), crate::tailwind::STROKE_2)]
+    );
+}
+
+#[test]
+fn offgrid_bloch_shift_copy_outlines_the_sphere_in_drag_fill() {
+    assert_eq!(
+        held_bloch_outlines(true, HeldAt::Offgrid),
+        vec![("drag_fill".to_owned(), crate::tailwind::STROKE_2)]
+    );
+}
+
+#[test]
+fn snapped_bloch_drag_outlines_the_sphere_in_drag_fill() {
+    assert_eq!(
+        held_bloch_outlines(false, HeldAt::Slot),
+        vec![("drag_fill".to_owned(), crate::tailwind::STROKE_2)]
+    );
+}
+
+#[test]
+fn snapped_bloch_shift_copy_outlines_the_sphere_in_drag_fill() {
+    assert_eq!(
+        held_bloch_outlines(true, HeldAt::Slot),
+        vec![("drag_fill".to_owned(), crate::tailwind::STROKE_2)]
+    );
+}
+
+#[test]
+fn held_bloch_has_no_square_drag_body() {
+    let (app, ctx, geometry) = held("Bloch", false, HeldAt::Slot);
+    let colors = app.colors();
+    assert!(
+        !rendered_shapes(&app, &ctx, &geometry, egui::Pos2::ZERO, 0.0)
+            .iter()
+            .any(|shape| matches!(shape, egui::Shape::Rect(rect) if rect.fill == colors.drag_fill))
+    );
+}
+
+const EGUI_DRAWN_OPS: [&str; 29] = [
+    "H",
+    "X",
+    "Y",
+    "Z",
+    "X^½",
+    "S",
+    "S†",
+    "T",
+    "T†",
+    "P",
+    "Rx",
+    "Ry",
+    "Rz",
+    "QFT1",
+    "QFT†1",
+    "Swap",
+    "•",
+    "◦",
+    "zpar",
+    "xpar",
+    "|0>",
+    "|1>",
+    "Measure",
+    "XDetector",
+    "YDetector",
+    "ZDetectControlReset",
+    "Bloch",
+    "Probability",
+    "Sample1",
+];
+
+fn held_ops_with_drag_fill(ops: &[&'static str], at: HeldAt) -> Vec<(&'static str, bool)> {
+    ops.iter()
+        .map(|&op| {
+            (
+                op,
+                held_roles(op, false, at).contains(&"drag_fill".to_owned()),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn every_offgrid_held_operation_shows_drag_fill() {
+    let ops = [&EGUI_DRAWN_OPS[..], &["Density"]].concat();
+    assert_eq!(
+        held_ops_with_drag_fill(&ops, HeldAt::Offgrid),
+        ops.iter().map(|&op| (op, true)).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn every_snapped_held_operation_shows_drag_fill() {
+    assert_eq!(
+        held_ops_with_drag_fill(&EGUI_DRAWN_OPS, HeldAt::Slot),
+        EGUI_DRAWN_OPS.map(|op| (op, true)).to_vec()
+    );
+}
+
+#[test]
+fn snapped_shift_copy_lights_only_the_copied_measurement_digit() {
+    let (app, _, _) = held("Measure", true, HeldAt::Slot);
+    assert_eq!(
+        app.measurement_digit_instances(
+            crate::layout::CircuitProjection::horizontal(egui::Pos2::ZERO),
+            app.dragging.map(|drag| drag.id),
+        )
+        .iter()
+        .map(|instance| instance.grabbed)
+        .collect::<Vec<_>>(),
+        vec![0, 1]
+    );
+}
+
+fn held_rects(op: &str, at: HeldAt) -> Vec<egui::epaint::RectShape> {
+    let (app, ctx, geometry) = held(op, false, at);
+    let body = dragged_rect(&app);
+    rendered_shapes(&app, &ctx, &geometry, egui::Pos2::ZERO, 0.0)
+        .into_iter()
+        .filter_map(|shape| match shape {
+            egui::Shape::Rect(rect) if rect.rect == body => Some(rect),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn snapped_probability_drag_fills_its_background_in_drag_fill() {
+    let fill = crate::colors::Colors::new().drag_fill;
+    assert!(held_rects("Probability", HeldAt::Slot)
+        .iter()
+        .any(|rect| rect.fill == fill));
+}
+
+fn sample_outlined(at: HeldAt) -> bool {
+    let colors = crate::colors::Colors::new();
+    held_rects("Sample1", at).iter().any(|rect| {
+        rect.stroke == egui::Stroke::new(crate::tailwind::STROKE_2, colors.drag_fill)
+            && rect.stroke_kind == egui::StrokeKind::Outside
+    })
+}
+
+#[test]
+fn offgrid_sample_drag_outlines_the_tile_in_drag_fill() {
+    assert!(sample_outlined(HeldAt::Offgrid));
+}
+
+#[test]
+fn snapped_sample_drag_outlines_the_live_tile_in_drag_fill() {
+    assert!(sample_outlined(HeldAt::Slot));
 }

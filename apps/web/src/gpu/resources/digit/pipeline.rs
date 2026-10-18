@@ -50,6 +50,11 @@ pub(super) fn build_pipeline(
                 offset: 12,
                 shader_location: 3,
             },
+            wgpu::VertexAttribute {
+                format: wgpu::VertexFormat::Uint32,
+                offset: 16,
+                shader_location: 4,
+            },
         ],
     };
 
@@ -81,4 +86,20 @@ pub(super) fn build_pipeline(
         multiview_mask: None,
         cache: None,
     })
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    #[test]
+    fn measurement_digit_shader_validates() {
+        let source =
+            super::MEASUREMENT_DIGIT_SHADER.replace("DIGIT_SDF_PX_RANGE_PLACEHOLDER", "4.0");
+        let module = eframe::wgpu::naga::front::wgsl::parse_str(&source).unwrap();
+        assert!(eframe::wgpu::naga::valid::Validator::new(
+            eframe::wgpu::naga::valid::ValidationFlags::all(),
+            eframe::wgpu::naga::valid::Capabilities::empty(),
+        )
+        .validate(&module)
+        .is_ok());
+    }
 }

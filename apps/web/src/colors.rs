@@ -24,6 +24,7 @@ pub(crate) struct Colors {
     pub(crate) line: egui::Color32,
     pub(crate) box_fill: egui::Color32,
     pub(crate) drag_fill: egui::Color32,
+    pub(crate) drag_accent: egui::Color32,
     pub(crate) gate_hover_border: egui::Color32,
     pub(crate) label: egui::Color32,
     pub(crate) text: egui::Color32,
@@ -169,6 +170,7 @@ fn flexoki_light() -> Colors {
         line: flexoki::UI_2,
         box_fill: flexoki::CYAN_400,
         drag_fill: flexoki::PURPLE_600,
+        drag_accent: flexoki::PURPLE_300,
         gate_hover_border: flexoki::PURPLE_400,
         label: flexoki::BG,
         text: flexoki::TX_2,
@@ -255,6 +257,11 @@ mod tests {
     #[test]
     fn carousel_current_dot_uses_flexoki_blue_600() {
         assert_eq!(Colors::new().carousel_dot_current, flexoki::BLUE_600);
+    }
+
+    #[test]
+    fn drag_accent_uses_flexoki_purple_300() {
+        assert_eq!(Colors::new().drag_accent, flexoki::PURPLE_300);
     }
 
     #[test]
