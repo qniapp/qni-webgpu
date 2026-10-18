@@ -696,4 +696,86 @@ mod tests {
 
         assert_eq!(resolved, (1, 3));
     }
+
+    #[test]
+    fn arithmetic_single_wire_handles_can_grow_downward() {
+        assert_eq!(
+            [GateKind::Increment, GateKind::Decrement].map(|kind| {
+                let gate = placed_gate(1, kind, 0, 1);
+                SpanResizeHandles::for_gate_with_availability(
+                    &gate,
+                    std::slice::from_ref(&gate),
+                    16,
+                )
+                .unwrap()
+                .available_edges
+            }),
+            [[false, true], [false, true]]
+        );
+    }
+
+    #[test]
+    fn arithmetic_handles_block_growth_into_occupied_wire() {
+        assert_eq!(
+            [GateKind::Increment, GateKind::Decrement].map(|kind| {
+                let gate = placed_gate(1, kind, 0, 1);
+                let blocker = placed_gate(2, GateKind::H, 1, 1);
+                SpanResizeHandles::for_gate_with_availability(&gate, &[gate.clone(), blocker], 16)
+                    .unwrap()
+                    .available_edges
+            }),
+            [[false, false], [false, false]]
+        );
+    }
+
+    #[test]
+    fn arithmetic_cannot_grow_past_sixteen_wires_in_either_direction() {
+        assert_eq!(
+            [GateKind::Increment, GateKind::Decrement].map(|kind| {
+                let gate = placed_gate(1, kind, 1, 16);
+                let gates = std::slice::from_ref(&gate);
+                (
+                    can_grow_from_top(&gate, gates, 32),
+                    can_grow_from_bottom(&gate, gates, 32),
+                )
+            }),
+            [(false, false), (false, false)]
+        );
+    }
+
+    #[test]
+    fn arithmetic_bottom_resize_clamps_to_remaining_wires() {
+        assert_eq!(
+            [GateKind::Increment, GateKind::Decrement].map(|kind| {
+                let gate = placed_gate(1, kind, 2, 1);
+                resolve_span_resize_candidate(
+                    &gate,
+                    std::slice::from_ref(&gate),
+                    4,
+                    SpanResizeEdge::Bottom,
+                    2,
+                    16,
+                )
+            }),
+            [(2, 2), (2, 2)]
+        );
+    }
+
+    #[test]
+    fn arithmetic_bottom_resize_can_shrink_to_one_wire() {
+        assert_eq!(
+            [GateKind::Increment, GateKind::Decrement].map(|kind| {
+                let gate = placed_gate(1, kind, 0, 3);
+                resolve_span_resize_candidate(
+                    &gate,
+                    std::slice::from_ref(&gate),
+                    16,
+                    SpanResizeEdge::Bottom,
+                    0,
+                    0,
+                )
+            }),
+            [(0, 1), (0, 1)]
+        );
+    }
 }

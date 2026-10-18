@@ -32,7 +32,7 @@ pub(crate) use callbacks::{
     StateVectorComputeCallback, StateVectorResourceBootstrapCallback, StateVectorUpdate,
 };
 pub(crate) use params::{
-    AmplitudeInstance, BlochOverlayInstance, ConditionalGateBodyInstance,
+    AmplitudeInstance, ArithmeticParams, BlochOverlayInstance, ConditionalGateBodyInstance,
     ConditionalGateBodyParams, DensityInstance, ExternalAmplitudeUpload,
     ExternalAmplitudeUploadBatch, ExternalBlochUpload, ExternalBlochUploadBatch,
     ExternalDensityUpload, ExternalDensityUploadBatch, ExternalProbabilityUpload,

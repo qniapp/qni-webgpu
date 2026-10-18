@@ -48,6 +48,10 @@ pub(crate) enum GateKind {
     QftGate,
     /// Inverse QFT.
     QftDaggerGate,
+    /// Adds one modulo 2^span; the top wire is the least-significant bit.
+    Increment,
+    /// Subtracts one modulo 2^span; the top wire is the least-significant bit.
+    Decrement,
 }
 
 mod angle;
@@ -75,7 +79,7 @@ pub(crate) struct GateSpec {
     pub(crate) resizable_span: bool,
 }
 
-const GATE_SPECS: [GateSpec; 36] = [
+const GATE_SPECS: [GateSpec; 38] = [
     GateSpec {
         kind: GateKind::ZParityControl,
         label: "Zpar",
@@ -257,6 +261,18 @@ const GATE_SPECS: [GateSpec; 36] = [
         resizable_span: true,
     },
     GateSpec {
+        kind: GateKind::Increment,
+        label: "+1",
+        url_token: "inc",
+        resizable_span: true,
+    },
+    GateSpec {
+        kind: GateKind::Decrement,
+        label: "−1",
+        url_token: "dec",
+        resizable_span: true,
+    },
+    GateSpec {
         kind: GateKind::PostSelectOff,
         label: "|0⟩⟨0|",
         url_token: "|0⟩⟨0|",
@@ -294,7 +310,7 @@ const GATE_SPECS: [GateSpec; 36] = [
     },
 ];
 
-pub(crate) const PALETTE_GATES_ROW1: [GateKind; 13] = [
+pub(crate) const PALETTE_GATES_ROW1: [GateKind; 15] = [
     GateKind::H,
     GateKind::X,
     GateKind::Y,
@@ -308,6 +324,8 @@ pub(crate) const PALETTE_GATES_ROW1: [GateKind; 13] = [
     GateKind::Rx,
     GateKind::Ry,
     GateKind::Rz,
+    GateKind::Increment,
+    GateKind::Decrement,
 ];
 pub(crate) const PALETTE_GATES_ROW2: [GateKind; 18] = [
     GateKind::Swap,
@@ -339,6 +357,8 @@ pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 5] = [
 pub(crate) const PALETTE_GATE_COUNT: usize =
     PALETTE_GATES_ROW1.len() + PALETTE_GATES_ROW2.len() + PALETTE_DISPLAY_GATES.len();
 pub(crate) const PALETTE_ROW1_COUNT: usize = PALETTE_GATES_ROW1.len();
+pub(crate) const PALETTE_GATES_ROW1_INDICES: [usize; 15] =
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 36, 37];
 pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 18] = [
     13, 14, 15, 31, 32, 17, 18, 19, 26, 34, 35, 22, 23, 21, 27, 28, 29, 30,
 ];
@@ -354,8 +374,11 @@ pub(crate) fn default_palette_angle(kind: GateKind) -> Option<ParametricAngle> {
 }
 
 pub(crate) fn palette_gate_kind(index: usize) -> Option<GateKind> {
-    if index < PALETTE_ROW1_COUNT {
-        return Some(PALETTE_GATES_ROW1[index]);
+    if let Some(pos) = PALETTE_GATES_ROW1_INDICES
+        .iter()
+        .position(|candidate| *candidate == index)
+    {
+        return Some(PALETTE_GATES_ROW1[pos]);
     }
     if let Some(pos) = PALETTE_GATES_ROW2_INDICES
         .iter()
@@ -411,7 +434,10 @@ impl GateKind {
     /// capacity.
     pub(crate) fn max_resizable_span(self, qubit_capacity: usize) -> usize {
         match self {
-            GateKind::ProbabilityDisplay | GateKind::AmplitudeDisplay => qubit_capacity.min(16),
+            GateKind::ProbabilityDisplay
+            | GateKind::AmplitudeDisplay
+            | GateKind::Increment
+            | GateKind::Decrement => qubit_capacity.min(16),
             GateKind::DensityMatrixDisplay => qubit_capacity.min(8),
             GateKind::SampleDisplay => qubit_capacity.min(3),
             _ => qubit_capacity,
@@ -592,5 +618,37 @@ mod tests {
     #[test]
     fn rz_palette_default_angle_is_pi_over_two() {
         assert_eq!(default_palette_angle(GateKind::Rz).unwrap().label(), "π/2");
+    }
+
+    #[test]
+    fn arithmetic_specs_and_palette_ids_are_stable() {
+        assert_eq!(
+            [36, 37].map(|id| palette_gate_kind(id).map(|kind| (
+                kind.label(),
+                kind.spec().url_token,
+                kind.is_resizable_span()
+            ))),
+            [Some(("+1", "inc", true)), Some(("−1", "dec", true))]
+        );
+    }
+
+    #[test]
+    fn arithmetic_palette_entries_follow_rotations_without_widening_palette() {
+        let rz = PALETTE_GATES_ROW1
+            .iter()
+            .position(|kind| *kind == GateKind::Rz)
+            .unwrap();
+        assert_eq!(
+            &PALETTE_GATES_ROW1[rz + 1..rz + 3],
+            &[GateKind::Increment, GateKind::Decrement]
+        );
+    }
+
+    #[test]
+    fn arithmetic_does_not_extend_ifable() {
+        assert_eq!(
+            ["inc1<a", "dec16<a", "inc<a", "dec<a"].map(GateFlag::split_token),
+            [None, None, None, None]
+        );
     }
 }

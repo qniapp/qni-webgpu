@@ -310,6 +310,22 @@ impl GateKind {
                 paragraphs: &["Transforms to/from phase frequency space."],
                 transitions: &[],
             },
+            GateKind::Increment => GateInfo {
+                name: "Increment Gate",
+                paragraphs: &[
+                    "Adds one modulo 2^n to the covered register.",
+                    "The top wire is the least-significant bit. Resize to cover 1–16 wires.",
+                ],
+                transitions: &[],
+            },
+            GateKind::Decrement => GateInfo {
+                name: "Decrement Gate",
+                paragraphs: &[
+                    "Subtracts one modulo 2^n from the covered register.",
+                    "The top wire is the least-significant bit. Resize to cover 1–16 wires.",
+                ],
+                transitions: &[],
+            },
             GateKind::Swap => GateInfo {
                 name: "Swap Gate",
                 paragraphs: &[

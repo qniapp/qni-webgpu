@@ -16,6 +16,8 @@ mod start;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests;
 #[cfg(all(test, not(target_arch = "wasm32")))]
+mod touch_tests;
+#[cfg(all(test, not(target_arch = "wasm32")))]
 mod vertical_tests;
 
 use eframe::egui;
@@ -56,7 +58,7 @@ pub(super) struct CircuitInputGeometry {
     orientation: CircuitOrientation,
     /// Screen rect of the vertical layout's circuit area. Gates and steps
     /// outside it are hidden under the panels, so they take no hits.
-    circuit_clip: Option<egui::Rect>,
+    pub(super) circuit_clip: Option<egui::Rect>,
     palette: PaletteInput,
 }
 

@@ -35,6 +35,7 @@
 //! out to every render-bearing subsystem.
 
 mod amplitude_display;
+mod arithmetic;
 mod bloch_display;
 mod common;
 mod conditional_gate_body;
@@ -64,6 +65,7 @@ pub(crate) struct StateVectorResources {
     pub(crate) common: Common,
     pub(crate) state_status: state_status::StateStatusResources,
     pub(crate) state: StateResources,
+    pub(crate) arithmetic: arithmetic::ArithmeticResources,
     pub(crate) bloch: BlochResources,
     pub(crate) measure: MeasureResources,
     pub(crate) postselection: postselection::PostselectionResources,
@@ -100,6 +102,7 @@ impl StateVectorResources {
     ) -> Self {
         let common = Common::build(device);
         let state_status = state_status::StateStatusResources::build(device, &common);
+        let arithmetic = arithmetic::ArithmeticResources::build(device, &common);
         let measure = MeasureResources::build(device, &common);
         let postselection =
             postselection::PostselectionResources::build(device, queue, target_format, &common);
@@ -117,6 +120,7 @@ impl StateVectorResources {
             common,
             state_status,
             state,
+            arithmetic,
             bloch,
             measure,
             postselection,

@@ -101,7 +101,139 @@ fn validate_circuit_json(circuit_json: &str) -> Result<(), &'static str> {
     Ok(())
 }
 
+// The last rendered geometry lets the synchronous canvas touchstart listener
+// capture controls before a new app frame (and before native scrolling starts).
+#[cfg(any(target_arch = "wasm32", test))]
+#[derive(Clone)]
+struct EmbedTouchTargets {
+    projection: crate::layout::CircuitProjection,
+    circuit_clip: Option<eframe::egui::Rect>,
+    draggables: Vec<eframe::egui::Rect>,
+    handles: Vec<crate::span_resize::SpanResizeHandles>,
+    controls: Vec<eframe::egui::Rect>,
+}
+
 impl super::QniApp {
+    #[cfg(any(target_arch = "wasm32", test))]
+    pub(crate) fn embed_captures_touch(
+        ctx: &eframe::egui::Context,
+        pos: eframe::egui::Pos2,
+    ) -> bool {
+        ctx.data(|data| {
+            data.get_temp::<EmbedTouchTargets>(eframe::egui::Id::new("embed-touch-targets"))
+                .is_some_and(|targets| {
+                    let local = targets.projection.to_local(pos);
+                    targets.controls.iter().any(|rect| rect.contains(pos))
+                        || (targets.circuit_clip.is_none_or(|clip| clip.contains(pos))
+                            && (targets.draggables.iter().any(|rect| rect.contains(local))
+                                || targets
+                                    .handles
+                                    .iter()
+                                    .any(|handles| handles.edge_at(local).is_some())))
+                })
+        })
+    }
+
+    #[cfg(any(target_arch = "wasm32", test))]
+    pub(crate) fn publish_embed_touch_targets(
+        &self,
+        ctx: &eframe::egui::Context,
+        content_rect: eframe::egui::Rect,
+        screen_rect: eframe::egui::Rect,
+        state_layout: &crate::render::StatePanelLayout,
+    ) {
+        use crate::constants::{PALETTE_ROW_Y, PALETTE_SIZE};
+        use crate::layout::{gate_visible_rect, palette_start_x};
+        use crate::span_resize::SpanResizeHandles;
+        use eframe::egui;
+
+        let geometry =
+            super::drag_controller::CircuitInputGeometry::for_app(self, content_rect, screen_rect);
+        let mut targets = EmbedTouchTargets {
+            projection: self.circuit_projection(content_rect, self.circuit_scroll_time),
+            circuit_clip: geometry.circuit_clip,
+            draggables: Vec::new(),
+            handles: Vec::new(),
+            controls: Vec::new(),
+        };
+        if !self.library.active_locked() {
+            for gate in &self.placed_gates {
+                targets
+                    .draggables
+                    .push(gate_visible_rect(gate, gate.committed_pos()));
+                if let Some(handles) = SpanResizeHandles::for_gate_with_availability(
+                    gate,
+                    &self.placed_gates,
+                    self.wire_capacity().get(),
+                ) {
+                    targets.handles.push(handles);
+                }
+            }
+            let layout = self.palette.layout(screen_rect.width());
+            let origin = screen_rect.min
+                + egui::vec2(palette_start_x(screen_rect.width(), &layout), PALETTE_ROW_Y);
+            for index in 0..self.palette.len() {
+                if let Some(pos) = self.palette.local_pos(index, &layout) {
+                    targets.controls.push(egui::Rect::from_min_size(
+                        origin + pos.to_vec2(),
+                        egui::Vec2::splat(PALETTE_SIZE),
+                    ));
+                }
+            }
+        }
+        if self.circuit_block_editing_allowed() {
+            use super::{CircuitBlockEdge, CircuitBlockLabelSlot};
+            use crate::render::{
+                circuit_block_handle_hit_rect, circuit_block_label_rect, circuit_block_label_width,
+                circuit_block_rect,
+            };
+
+            for block in self.circuit_blocks.iter() {
+                if let Some(body) = circuit_block_rect(block, &geometry.metrics) {
+                    let width = circuit_block_label_width(ctx, block.label());
+                    for slot in [CircuitBlockLabelSlot::Top, CircuitBlockLabelSlot::Bottom] {
+                        targets
+                            .draggables
+                            .push(circuit_block_label_rect(body, slot, width));
+                    }
+                    for edge in [CircuitBlockEdge::Left, CircuitBlockEdge::Right] {
+                        targets
+                            .draggables
+                            .push(circuit_block_handle_hit_rect(body, edge));
+                    }
+                }
+            }
+        }
+        if self.state_panel_visible() {
+            let rect = state_layout.state_rect.translate(self.state_panel.offset);
+            targets.controls.push(rect);
+            for corner in [
+                super::ResizeCorner::TopLeft,
+                super::ResizeCorner::TopRight,
+                super::ResizeCorner::BottomLeft,
+                super::ResizeCorner::BottomRight,
+            ] {
+                targets.controls.push(Self::resize_handle_hit_rect(
+                    state_layout,
+                    self.state_panel.offset,
+                    corner,
+                ));
+            }
+            if self.state_panel.aspect_popover_open {
+                let dims = Self::dims_hit_rect(ctx, state_layout, self.state_panel.offset);
+                let (popover, _) = Self::aspect_popover_layout(
+                    rect,
+                    dims,
+                    crate::shared::amplitude_qubits(self.state_count())
+                        .clamp(1, crate::constants::MAX_QUBITS),
+                    screen_rect,
+                );
+                targets.controls.push(popover);
+            }
+        }
+        ctx.data_mut(|data| data.insert_temp(egui::Id::new("embed-touch-targets"), targets));
+    }
+
     /// Canvas CSS pixels, independent of the previous frame and scroll position.
     /// Reserve the next editable wire so dragging does not move the host page.
     pub(crate) fn preferred_height(&self, width: f32) -> f32 {
@@ -190,6 +322,81 @@ pub(super) fn write_document_title(_circuit_title: &str) {}
 mod tests {
     use super::*;
     use crate::app::CircuitColumnIndex;
+
+    fn block_touch_points(palette: &[&str]) -> (eframe::egui::Context, [eframe::egui::Pos2; 2]) {
+        use crate::app::{CircuitBlockEdge, CircuitBlockLabelSlot, QniApp};
+        use crate::render::{
+            circuit_block_handle_hit_rect, circuit_block_label_rect, circuit_block_label_width,
+            circuit_block_rect,
+        };
+        use eframe::egui;
+
+        let ctx = egui::Context::default();
+        let startup = EmbedStartup::parse(
+            r#"{"cols":[["{comment"],["H","X"],["}"]]}"#,
+            false,
+            Some(palette),
+            None,
+        )
+        .unwrap();
+        let app = QniApp::new_with_startup(
+            &eframe::CreationContext::_new_kittest(ctx.clone()),
+            Some(startup),
+        );
+        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(390.0, 640.0));
+        ctx.begin_pass(egui::RawInput {
+            screen_rect: Some(rect),
+            ..Default::default()
+        });
+        let state = app.state_panel_layout(rect, app.state_count());
+        app.publish_embed_touch_targets(&ctx, rect, rect, &state);
+        let metrics = app.circuit_layout_metrics(rect);
+        let block = app.circuit_blocks.get(0).unwrap();
+        let body = circuit_block_rect(block, &metrics).unwrap();
+        let label = circuit_block_label_rect(
+            body,
+            CircuitBlockLabelSlot::Top,
+            circuit_block_label_width(&ctx, block.label()),
+        );
+        let handle = circuit_block_handle_hit_rect(body, CircuitBlockEdge::Left);
+        let projection = app.circuit_projection(rect, 0.0);
+        let points = [
+            projection.to_screen(label.center()),
+            projection.to_screen(handle.center()),
+        ];
+        let _ = ctx.end_pass();
+        (ctx, points)
+    }
+
+    #[test]
+    fn editable_block_label_captures_touchstart() {
+        let (ctx, points) = block_touch_points(&["H", "{}"]);
+        assert!(super::super::QniApp::embed_captures_touch(&ctx, points[0]));
+    }
+
+    #[test]
+    fn editable_block_resize_handle_captures_touchstart() {
+        let (ctx, points) = block_touch_points(&["H", "{}"]);
+        assert!(super::super::QniApp::embed_captures_touch(&ctx, points[1]));
+    }
+
+    #[test]
+    fn readonly_block_label_does_not_capture_touchstart() {
+        let (ctx, points) = block_touch_points(&["H"]);
+        assert!(!super::super::QniApp::embed_captures_touch(&ctx, points[0]));
+    }
+
+    #[test]
+    fn block_outside_circuit_clip_does_not_capture_touchstart() {
+        let (ctx, points) = block_touch_points(&["H", "{}"]);
+        ctx.data_mut(|data| {
+            let id = eframe::egui::Id::new("embed-touch-targets");
+            let mut targets = data.get_temp::<EmbedTouchTargets>(id).unwrap();
+            targets.circuit_clip = Some(eframe::egui::Rect::NOTHING);
+            data.insert_temp(id, targets);
+        });
+        assert!(!super::super::QniApp::embed_captures_touch(&ctx, points[0]));
+    }
 
     fn parse_full(json: &str) -> Result<EmbedStartup, String> {
         EmbedStartup::parse::<&str>(json, true, None, None)
