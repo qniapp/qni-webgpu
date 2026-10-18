@@ -184,13 +184,7 @@ impl QniApp {
         self.circuit_blocks = circuit.blocks;
         self.circuit_title = circuit.title;
         self.write_document_title();
-        if !self
-            .exec_mode
-            .qubit_capacity()
-            .contains(self.required_qubit_count())
-        {
-            self.exec_mode = ExecMode::Gpu;
-        }
+        self.exec_mode = ExecMode::for_circuit(self.exec_mode, self.required_qubit_count().get());
         if self.exec_mode != previous_exec_mode {
             self.write_exec_mode_to_url();
         }

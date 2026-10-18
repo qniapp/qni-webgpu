@@ -63,7 +63,7 @@
     </div>
 
     <div class="sb-legend" aria-hidden="true">
-      <span class="item">青い上下罫線の帯 = 回路ブロック（上下に同じラベル）</span>
+      <span class="item">青い上下罫線の帯 = コメントブロック（上下に同じラベル）</span>
       <span class="item">Probability = 確率表示ブロック（縦長の箱）</span>
       <span class="item"><span class="glyph"><h-gate></h-gate></span>アダマール</span>
       <span class="item"><span class="glyph"><control-gate></control-gate></span>制御</span>
@@ -86,7 +86,7 @@
   <h2>§ 02 回路の読み方</h2>
   <div class="card">
     <table class="spec">
-      <thead><tr><th>回路ブロック</th><th>操作</th><th>意味</th></tr></thead>
+      <thead><tr><th>コメントブロック</th><th>操作</th><th>意味</th></tr></thead>
       <tbody>
         <tr><td><code>two Bell pairs</code></td><td>H と CNOT</td><td>上の組 Alice¹（q0・q1）と下の組 Alice²（q2・q3）にベルペアを作る。</td></tr>
         <tr><td><code>swap partners</code></td><td>Swap(q1↔q3)</td><td>ペアの相手を入れ替える。</td></tr>
@@ -141,7 +141,7 @@
     </p>
     <ul>
       <li>確率表示ブロックの ID を <code>Chance</code> → <code>Probability</code> に書き換える。</li>
-      <li>注釈用のカスタムゲート（<code>Alice^1</code> / <code>Alice^2</code> / <code>disagree</code> といった恒等行列のラベル）を回路ブロックのラベルに置き換え、ブロックの間に区切りの空列を入れる。</li>
+      <li>注釈用のカスタムゲート（<code>Alice^1</code> / <code>Alice^2</code> / <code>disagree</code> といった恒等行列のラベル）をコメントブロックのラベルに置き換え、ブロックの間に区切りの空列を入れる。</li>
       <li>測定後の条件付き確率表示の代わりに、測定前に各組の Probability2 と全体の Probability4 を置く。</li>
     </ul>
     <p>

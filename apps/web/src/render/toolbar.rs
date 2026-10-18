@@ -54,7 +54,9 @@ impl QniApp {
                             self.show_gpu_execute_cluster(ui, colors, ctx);
                         }
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            self.show_exec_mode_toggle(ui, colors);
+                            if !cfg!(feature = "pages") {
+                                self.show_exec_mode_toggle(ui, colors);
+                            }
                             if self.mode.uses_browser_state() {
                                 tutorial_link(ui, colors, compact);
                             }
