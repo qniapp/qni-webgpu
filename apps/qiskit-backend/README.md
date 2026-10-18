@@ -14,6 +14,27 @@ Production deployment must start the server with `--runner qiskit-gpu --allowed-
 
 All runners return bounded histogram output and optional Amplitude / Bloch / Probability / Density Matrix display payloads only. The API accepts 1–32 qubits, rejects full statevector / full probability requests, and currently limits exact Amplitude display extraction to <=16 qubits. Bloch display extraction uses per-axis expectation values when uncontrolled, and controlled Bloch display requests carry `control_mask` / `control_value` for conditional extraction; target plus controls must stay within 8 saved bits. Probability display extraction uses bounded subsystem probability vectors for the requested display span, and controlled Probability display requests carry `control_mask` / `control_value` for conditional extraction; `span + non-display control count` must stay within 16 saved bits. Density Matrix display extraction uses bounded subsystem density matrices for Quirk-compatible span 1–8 displays, and controlled Density Matrix display requests carry `control_mask` / `control_value` for conditional extraction; `span + non-display control count` must stay within 8 saved bits. The web state-vector panel, when refreshed for <=16-qubit GPU-mode runs, is recomputed locally in WebGPU after a successful run rather than transferred from this backend.
 
+## 事後選択
+
+4 種類の事後選択 (`|0⟩⟨0|` / `|1⟩⟨1|` / `|+⟩⟨+|` / `|-⟩⟨-|`) と制御・反制御に対応する。
+棄却条件を補助量子ビット `postselection_aux` に書き込み、専用の古典ビット `postselect_<n>` へ測定した後に補助量子ビットをリセットする。
+結果 0 の試行だけを残すことで、制御部分空間への射影を `C` として `I - C + CP` を実現する。
+X 基底では対象の前後に `H` を置く。対象そのものは測定せず、制御が不成立の分岐のコヒーレンスを保つ。
+
+- `histogram` はすべての事後選択を通過した試行だけを数え、事後選択用の古典ビットを除く。`shots` は試行した回数のままで、ヒストグラムの合計は 0 の場合もある。
+- 表示はその列までの成功条件を Aer の `if_test` で確認して保存する。後の事後選択は以前の表示に影響しない。ユニタリゲートと事後選択だけの回路では、残った試行の表示値は位相も含めて厳密な条件付き状態になる。
+- 保存に到達した試行がなければ `defined: false` を返す。確率は全要素 `-1`、振幅・ブロッホベクトル・密度行列は 0 とし、密度行列の `unity` は `1e-12` とする。
+
+制限は次のとおり。
+
+- 補助量子ビットを 1 つ追加するため、Aer は `qubits + 1` 量子ビットを計算し、状態ベクトルのメモリ使用量は約 2 倍になる。API の量子ビット数は入力回路の数であり、補助量子ビットを含まない。
+- 有限の試行数では低確率の成功を取り逃がし、可能な結果を未定義とする場合がある。
+- Aer は標本抽出を行うため、WebGPU の受理確率 `1e-12` 以下をゼロとする閾値を厳密には再現しない。
+- WebGPU は種を固定した 1 回の試行、Aer は試行ごとの測定を扱う。事後選択より前に測定があると、外部実行ではその集団を選別する。
+- 生存率と全状態は返さない。画面の列ごとの増減率と `kept: N%` はローカル WebGPU の計算値である。
+
+詳細は[事後選択の仕様](../../docs/postselection.md#外部-qiskit-実行)を参照する。
+
 ## Run
 
 ```bash

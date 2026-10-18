@@ -100,6 +100,10 @@ fn supported_external_controlled_target(kind: GateKind) -> bool {
             | GateKind::Write1
             | GateKind::XDetector
             | GateKind::YDetector
+            | GateKind::PostSelectOff
+            | GateKind::PostSelectOn
+            | GateKind::PostSelectAntiX
+            | GateKind::PostSelectX
     )
 }
 
@@ -123,12 +127,6 @@ fn unsupported_external_gpu_gate_for_gates(placed_gates: &[PlacedGate]) -> Optio
             gate.kind.spec().url_token,
             flag.token_suffix()
         ));
-    }
-    if let Some(gate) = placed_gates
-        .iter()
-        .find(|gate| gate.kind.is_postselection())
-    {
-        return Some(gate.kind.spec().url_token.to_owned());
     }
     let max_column = placed_gates
         .iter()
@@ -704,6 +702,28 @@ mod gate_tests {
     }
 
     #[test]
+    fn external_gpu_payload_preserves_exact_postselection_tokens() {
+        let gates = flagged_gates(r#"{"cols":[["|0⟩⟨0|"],["|1⟩⟨1|"],["|+⟩⟨+|"],["|-⟩⟨-|"]]}"#);
+        let columns = crate::url_circuit::circuit_columns_to_json(
+            &gates,
+            crate::qubit_count::QubitCount::try_new(1).unwrap(),
+        );
+        let payload = super::qiskit_run_payload_with_display_outputs(
+            1,
+            &columns,
+            super::Shots::DEFAULT,
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+        );
+        assert_eq!(
+            payload,
+            r#"{"qubits":1,"columns":[["|0⟩⟨0|"],["|1⟩⟨1|"],["|+⟩⟨+|"],["|-⟩⟨-|"]],"shots":1024,"outputs":{"histogram":true}}"#
+        );
+    }
+
+    #[test]
     fn external_gpu_accepts_x_detector() {
         let gates = flagged_gates(r#"{"cols":[["XDetector"]]}"#);
         assert_eq!(unsupported_external_gpu_gate_for_gates(&gates), None);
@@ -728,7 +748,7 @@ mod gate_tests {
     }
 
     #[test]
-    fn external_gpu_rejects_uncontrolled_postselection() {
+    fn external_gpu_accepts_uncontrolled_postselection() {
         let tokens = ["|0⟩⟨0|", "|1⟩⟨1|", "|+⟩⟨+|", "|-⟩⟨-|"];
         let rejected = tokens.map(|token| {
             let gates = vec![PlacedGate::new(
@@ -741,11 +761,11 @@ mod gate_tests {
             )];
             unsupported_external_gpu_gate_for_gates(&gates)
         });
-        assert_eq!(rejected, tokens.map(|token| Some(token.to_owned())));
+        assert_eq!(rejected, tokens.map(|_| None));
     }
 
     #[test]
-    fn external_gpu_rejects_controlled_postselection() {
+    fn external_gpu_accepts_controlled_postselection() {
         let tokens = ["|0⟩⟨0|", "|1⟩⟨1|", "|+⟩⟨+|", "|-⟩⟨-|"];
         let rejected = tokens.map(|token| {
             let mut gates = vec![PlacedGate::new(
@@ -766,11 +786,11 @@ mod gate_tests {
             ));
             unsupported_external_gpu_gate_for_gates(&gates)
         });
-        assert_eq!(rejected, tokens.map(|token| Some(token.to_owned())));
+        assert_eq!(rejected, tokens.map(|_| None));
     }
 
     #[test]
-    fn external_gpu_rejects_anti_controlled_postselection() {
+    fn external_gpu_accepts_anti_controlled_postselection() {
         let tokens = ["|0⟩⟨0|", "|1⟩⟨1|", "|+⟩⟨+|", "|-⟩⟨-|"];
         let rejected = tokens.map(|token| {
             let mut gates = vec![PlacedGate::new(
@@ -791,7 +811,7 @@ mod gate_tests {
             ));
             unsupported_external_gpu_gate_for_gates(&gates)
         });
-        assert_eq!(rejected, tokens.map(|token| Some(token.to_owned())));
+        assert_eq!(rejected, tokens.map(|_| None));
     }
 
     #[test]
