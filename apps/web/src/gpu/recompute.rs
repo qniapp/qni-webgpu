@@ -33,6 +33,7 @@ pub(super) fn recompute_state_vector(
     resources: &mut StateVectorResources,
     sim_ops: &[SimulationOp],
     state_count: usize,
+    measurement_seed: u32,
 ) -> bool {
     resources.state_count = state_count;
     if state_count == 0 {
@@ -65,7 +66,8 @@ pub(super) fn recompute_state_vector(
         return false;
     }
 
-    let packed = PackedRecomputeParams::from_ops(sim_ops, state_count, pair_count);
+    let packed =
+        PackedRecomputeParams::from_ops(sim_ops, state_count, pair_count, measurement_seed);
     packed.upload(queue, resources);
 
     let encoded = encode_batched_recompute(

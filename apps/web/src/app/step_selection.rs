@@ -62,6 +62,7 @@ impl QniApp {
             sim_ops: self.gpu_plan.sim_ops_for_callback(),
             state_count: self.state_count(),
             plan_revision: self.gpu_plan.revision(),
+            measurement_seed: self.measurement_seed,
             preview_step: if self.dragging.is_some() {
                 None
             } else {

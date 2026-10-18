@@ -33,4 +33,6 @@ pub(crate) use circuit_blocks::{
     circuit_block_boundary_x, circuit_block_label_width, circuit_block_rect,
     CIRCUIT_BLOCK_LABEL_GAP_X,
 };
+#[cfg(any(target_arch = "wasm32", test))]
+pub(crate) use circuit_blocks::{circuit_block_handle_hit_rect, circuit_block_label_rect};
 pub(crate) use circuit_gates::CircuitGpuBatch;

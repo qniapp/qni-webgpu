@@ -125,7 +125,10 @@ pub(crate) fn circuit_block_handle_rect(body: egui::Rect, edge: CircuitBlockEdge
     )
 }
 
-fn circuit_block_handle_hit_rect(body: egui::Rect, edge: CircuitBlockEdge) -> egui::Rect {
+pub(crate) fn circuit_block_handle_hit_rect(
+    body: egui::Rect,
+    edge: CircuitBlockEdge,
+) -> egui::Rect {
     circuit_block_handle_rect(body, edge).expand2(CIRCUIT_BLOCK_HANDLE_HIT_PAD)
 }
 

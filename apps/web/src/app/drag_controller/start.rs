@@ -329,12 +329,14 @@ fn start_intent(
         };
     }
 
-    // No gate / palette under the cursor. If we're inside a step slot,
-    // lock the breakpoint to that column. The vertical layout pans the
-    // circuit from empty space instead and selects the step on release
-    // only when the pointer did not move.
+    // No gate / palette under the cursor. Vertical layouts and touch
+    // embeds pan from empty space, selecting the step on release only
+    // when the pointer did not move. Desktop horizontal clicks lock the
+    // breakpoint immediately.
     let step = step_at_cursor(cursor, &geometry.metrics);
-    if geometry.is_vertical() {
+    if geometry.is_vertical()
+        || (!app.mode.uses_browser_state() && ctx.input(|input| input.any_touches()))
+    {
         return DragStartIntent::Pan(step);
     }
     step.map(DragStartIntent::BreakpointStep)
