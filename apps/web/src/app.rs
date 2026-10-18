@@ -9,7 +9,7 @@ mod drag_controller;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod edit_toolbar_tests;
 mod embed;
-mod exec_mode;
+pub(crate) mod exec_mode;
 mod external_gpu;
 mod fps_hud;
 mod gate_input;
@@ -61,6 +61,8 @@ pub(crate) struct QniApp {
     pub(crate) picker_drag_suppressed_until_release: bool,
     pub(crate) picker_submenu_toggle_suppressed_until_release: bool,
     pub(crate) picker_drag_animation_epoch: u64,
+    pub(crate) toolbar_more: crate::render::toolbar::MoreState,
+    pub(crate) toolbar_more_overlay_rect: Option<egui::Rect>,
     pub(crate) picker_overlay_rect: Option<egui::Rect>,
     gate_ids: GateIdAllocator,
     pub(crate) placed_gates: Vec<PlacedGate>,
@@ -339,6 +341,8 @@ impl QniApp {
             picker_drag_suppressed_until_release: false,
             picker_submenu_toggle_suppressed_until_release: false,
             picker_drag_animation_epoch: 0,
+            toolbar_more: Default::default(),
+            toolbar_more_overlay_rect: None,
             picker_overlay_rect: None,
             gate_ids,
             placed_gates: initial_gates,

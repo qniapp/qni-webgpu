@@ -1,0 +1,48 @@
+---
+source: src/render/toolbar.rs
+expression: output.shapes
+---
+[
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Circle(
+            CircleShape {
+                center: [6.8 16.0],
+                radius: 1.5,
+                fill: #6F_6E_69_FF,
+                stroke: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+            },
+        ),
+    },
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Circle(
+            CircleShape {
+                center: [12.0 16.0],
+                radius: 1.5,
+                fill: #6F_6E_69_FF,
+                stroke: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+            },
+        ),
+    },
+    ClippedShape {
+        clip_rect: [[0.0 0.0] - [10000.0 10000.0]],
+        shape: Circle(
+            CircleShape {
+                center: [17.2 16.0],
+                radius: 1.5,
+                fill: #6F_6E_69_FF,
+                stroke: Stroke {
+                    width: 0.0,
+                    color: #00_00_00_00,
+                },
+            },
+        ),
+    },
+]

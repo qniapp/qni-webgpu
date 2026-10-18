@@ -12,6 +12,32 @@ struct PillParts {
     running: bool,
 }
 
+pub(super) fn gpu_status_width(ui: &egui::Ui, status: &ExternalGpuStatus, compact: bool) -> f32 {
+    let Some(parts) = pill_parts(status, &Colors::new()) else {
+        return 0.0;
+    };
+    if compact {
+        return crate::tailwind::SPACING_2;
+    }
+    let measure = |text: String, font| {
+        ui.painter()
+            .layout_no_wrap(text, font, parts.color)
+            .size()
+            .x
+    };
+    let proportional = egui::FontId::proportional(crate::tailwind::TEXT_SM);
+    let mut width = 2.0 * crate::tailwind::SPACING_2
+        + 6.0
+        + crate::tailwind::SPACING_2
+        + measure(parts.label.to_owned(), proportional.clone());
+    if let Some(detail) = parts.detail {
+        width += 2.0 * crate::tailwind::SPACING_2
+            + measure("·".to_owned(), proportional)
+            + measure(detail, egui::FontId::monospace(crate::tailwind::TEXT_SM));
+    }
+    width
+}
+
 pub fn gpu_status_pill(
     ui: &mut egui::Ui,
     status: &ExternalGpuStatus,
@@ -45,6 +71,7 @@ pub fn gpu_status_pill(
         ))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
                 ui.spacing_mut().item_spacing = egui::vec2(crate::tailwind::SPACING_2, 0.0);
                 paint_dot(ui, parts.color, parts.running);
                 ui.label(

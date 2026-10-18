@@ -24,7 +24,8 @@ mod state_panel_chrome;
 mod state_panel_draw;
 mod state_panel_layout;
 mod state_panel_popup;
-mod toolbar;
+pub(crate) mod toolbar;
+mod toolbar_chrome;
 
 pub(crate) use state_panel_layout::{vertical_default_aspect_index, StatePanelLayout};
 

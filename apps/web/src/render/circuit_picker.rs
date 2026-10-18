@@ -24,16 +24,24 @@ const EXAMPLE_CIRCUITS_LABEL: &str = "EXAMPLE CIRCUITS";
 const MY_CIRCUITS_LABEL: &str = "MY CIRCUITS";
 
 impl QniApp {
+    pub(crate) fn close_picker_popover(&mut self) {
+        self.picker.close();
+        self.picker_overlay_rect = None;
+        chrome::clear_picker_geometry();
+    }
+
     pub(crate) fn show_circuit_picker(
         &mut self,
         ui: &mut egui::Ui,
         colors: &Colors,
         ctx: &egui::Context,
+        compact: bool,
     ) {
         self.update_picker_drag_suppression(ctx);
         self.handle_picker_keyboard(ctx);
-        let trigger = self.show_picker_trigger(ui, colors);
+        let trigger = self.show_picker_trigger(ui, colors, compact);
         if trigger.clicked() {
+            self.toolbar_more.open = false;
             if self.picker.is_open() {
                 self.picker.close();
             } else {
@@ -55,12 +63,33 @@ impl QniApp {
         } else {
             self.picker_overlay_rect = None;
         }
+        if !self.picker.is_open() {
+            chrome::clear_picker_geometry();
+        }
     }
 
-    fn show_picker_trigger(&self, ui: &mut egui::Ui, colors: &Colors) -> egui::Response {
+    pub(crate) fn picker_trigger_width(
+        &self,
+        ui: &egui::Ui,
+        colors: &Colors,
+        compact: bool,
+    ) -> f32 {
+        TRIGGER_PAD_LEFT
+            + self.picker_trigger_galley(ui, colors, compact).size().x
+            + TRIGGER_NAME_CHEVRON_GAP
+            + TRIGGER_CHEVRON_W
+            + TRIGGER_PAD_RIGHT
+    }
+
+    fn picker_trigger_galley(
+        &self,
+        ui: &egui::Ui,
+        colors: &Colors,
+        compact: bool,
+    ) -> std::sync::Arc<egui::Galley> {
         let font = egui::FontId::new(crate::tailwind::TEXT_SM, egui::FontFamily::Proportional);
         let name = self.active_circuit_name();
-        let galley = egui::WidgetText::from(
+        egui::WidgetText::from(
             egui::RichText::new(name.to_owned())
                 .font(font.clone())
                 .color(colors.text_strong),
@@ -68,13 +97,23 @@ impl QniApp {
         .into_galley(
             ui,
             Some(egui::TextWrapMode::Truncate),
-            if self.orientation.is_vertical() {
+            if compact {
                 crate::tailwind::SPACING_6
             } else {
                 TRIGGER_NAME_MAX_WIDTH
             },
             font,
-        );
+        )
+    }
+
+    fn show_picker_trigger(
+        &self,
+        ui: &mut egui::Ui,
+        colors: &Colors,
+        compact: bool,
+    ) -> egui::Response {
+        let name = self.active_circuit_name();
+        let galley = self.picker_trigger_galley(ui, colors, compact);
         let trigger_w = TRIGGER_PAD_LEFT
             + galley.size().x
             + TRIGGER_NAME_CHEVRON_GAP
@@ -82,6 +121,11 @@ impl QniApp {
             + TRIGGER_PAD_RIGHT;
         let trigger_size = egui::vec2(trigger_w, TRIGGER_HEIGHT);
         let (rect, mut response) = ui.allocate_exact_size(trigger_size, egui::Sense::click());
+        super::toolbar::publish_toolbar_button_debug_json(
+            "Circuit picker",
+            rect,
+            response.hovered(),
+        );
         let hovered = response.hovered() || self.picker.is_open();
         let hover_t = ui
             .ctx()
@@ -111,7 +155,7 @@ impl QniApp {
             rect.center().y,
         );
         paint_chevron(ui.painter(), chev_center, open_t, colors.toolbar_icon);
-        if self.orientation.is_vertical() || name.chars().count() > 40 {
+        if compact || name.chars().count() > 40 {
             response = response.on_hover_text(name.to_owned());
         }
         response

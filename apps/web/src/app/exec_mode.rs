@@ -4,6 +4,8 @@ use super::QniApp;
 use crate::colors::{with_alpha, Colors};
 use crate::qubit_count::QubitCapacity;
 
+const TRACK_PADDING: f32 = crate::tailwind::SPACING_0_5;
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(crate) enum ExecMode {
     #[default]
@@ -75,7 +77,13 @@ pub(crate) fn exec_mode_after_key(
 }
 
 impl QniApp {
-    pub(crate) fn show_exec_mode_toggle(&mut self, ui: &mut egui::Ui, colors: &Colors) {
+    pub(crate) fn show_toolbar_exec_mode_toggle(
+        &mut self,
+        ui: &mut egui::Ui,
+        colors: &Colors,
+        compact: bool,
+        width: Option<f32>,
+    ) {
         if !self.mode.uses_browser_state() {
             return;
         }
@@ -85,7 +93,8 @@ impl QniApp {
             mode: &mut self.exec_mode,
             keyboard_focus: &mut self.exec_mode_keyboard_focus,
             local_available,
-            compact: self.orientation.is_vertical(),
+            compact,
+            width,
             colors,
         });
         if self.exec_mode != previous_mode {
@@ -101,7 +110,7 @@ impl QniApp {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn take_exec_mode_focus_request() -> bool {
+pub(crate) fn take_exec_mode_focus_request() -> bool {
     let Some(window) = web_sys::window() else {
         return false;
     };
@@ -117,8 +126,53 @@ fn take_exec_mode_focus_request() -> bool {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn take_exec_mode_focus_request() -> bool {
+pub(crate) fn take_exec_mode_focus_request() -> bool {
     false
+}
+
+pub(crate) fn exec_mode_toggle_width(ui: &egui::Ui, colors: &Colors, compact: bool) -> f32 {
+    toggle_layout(ui, colors, compact, None).4.x
+}
+
+fn toggle_layout(
+    ui: &egui::Ui,
+    colors: &Colors,
+    compact: bool,
+    width: Option<f32>,
+) -> (
+    std::sync::Arc<egui::Galley>,
+    std::sync::Arc<egui::Galley>,
+    egui::Vec2,
+    egui::Vec2,
+    egui::Vec2,
+) {
+    let font = egui::FontId::monospace(crate::tailwind::TEXT_SM);
+    let local = ui
+        .painter()
+        .layout_no_wrap("Local".to_owned(), font.clone(), colors.text);
+    let gpu = ui
+        .painter()
+        .layout_no_wrap("GPU".to_owned(), font.clone(), colors.text);
+    let segment_padding_x = if compact {
+        crate::tailwind::SPACING_2
+    } else {
+        crate::tailwind::SPACING_3
+    };
+    let segment_padding = egui::vec2(segment_padding_x, crate::tailwind::SPACING_1); // Per-side padding matches the mock.
+    let mut local_size = local.size() + segment_padding * 2.0;
+    let mut gpu_size = gpu.size() + segment_padding * 2.0;
+    if let Some(width) = width {
+        local_size.x = (width - 2.0 * TRACK_PADDING) / 2.0;
+        gpu_size.x = local_size.x;
+    }
+    let segment_height = local_size.y.max(gpu_size.y);
+    local_size.y = segment_height;
+    gpu_size.y = segment_height;
+    let track_size = egui::vec2(
+        local_size.x + gpu_size.x + TRACK_PADDING * 2.0,
+        segment_height + TRACK_PADDING * 2.0,
+    );
+    (local, gpu, local_size, gpu_size, track_size)
 }
 
 struct ExecModeToggle<'a> {
@@ -126,42 +180,24 @@ struct ExecModeToggle<'a> {
     keyboard_focus: &'a mut bool,
     local_available: bool,
     compact: bool,
+    width: Option<f32>,
     colors: &'a Colors,
 }
 
 impl egui::Widget for ExecModeToggle<'_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         let id = ui.make_persistent_id("exec_mode_toggle");
-        let font = egui::FontId::monospace(crate::tailwind::TEXT_SM);
-        let local = ui
-            .painter()
-            .layout_no_wrap("Local".to_owned(), font.clone(), self.colors.text);
-        let gpu = ui
-            .painter()
-            .layout_no_wrap("GPU".to_owned(), font.clone(), self.colors.text);
-        let segment_padding_x = if self.compact {
-            crate::tailwind::SPACING_2
-        } else {
-            crate::tailwind::SPACING_3
-        };
-        let segment_padding = egui::vec2(segment_padding_x, crate::tailwind::SPACING_1); // Per-side padding matches the mock.
-        let local_size = local.size() + segment_padding * 2.0;
-        let gpu_size = gpu.size() + segment_padding * 2.0;
-        let segment_height = local_size.y.max(gpu_size.y);
-        let track_padding = 2.0; // mock .seg padding = 2px.
-        let track_size = egui::vec2(
-            local_size.x + gpu_size.x + track_padding * 2.0,
-            segment_height + track_padding * 2.0,
-        );
+        let (local, gpu, local_size, gpu_size, track_size) =
+            toggle_layout(ui, self.colors, self.compact, self.width);
         let (track_rect, mut response) = ui.allocate_exact_size(track_size, egui::Sense::hover());
         let local_rect = egui::Rect::from_min_size(
-            track_rect.min + egui::vec2(track_padding, track_padding),
-            egui::vec2(local_size.x, segment_height),
+            track_rect.min + egui::Vec2::splat(TRACK_PADDING),
+            local_size,
         );
-        let gpu_rect = egui::Rect::from_min_size(
-            egui::pos2(local_rect.right(), local_rect.top()),
-            egui::vec2(gpu_size.x, segment_height),
-        );
+        let gpu_rect =
+            egui::Rect::from_min_size(egui::pos2(local_rect.right(), local_rect.top()), gpu_size);
+        crate::render::toolbar::publish_toolbar_button_debug_json("Exec Local", local_rect, false);
+        crate::render::toolbar::publish_toolbar_button_debug_json("Exec GPU", gpu_rect, false);
         let mut local_response = ui.interact(
             local_rect,
             id.with("local_opt"),
@@ -172,10 +208,6 @@ impl egui::Widget for ExecModeToggle<'_> {
             },
         );
         let mut gpu_response = ui.interact(gpu_rect, id.with("gpu_opt"), egui::Sense::click());
-        let tab_focus_requested = take_exec_mode_focus_request();
-        if tab_focus_requested {
-            *self.keyboard_focus = true;
-        }
         if local_response.clicked() && self.local_available {
             *self.keyboard_focus = true;
             if *self.mode != ExecMode::Local {
@@ -257,6 +289,7 @@ impl egui::Widget for ExecModeToggle<'_> {
                 .input(|input| input.pointer.hover_pos())
                 .is_some_and(|pos| local_rect.contains(pos))
         {
+            ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::NotAllowed);
             response = response.on_hover_text_at_pointer(
                 "Local is available up to 16 qubits. Remove qubits to switch back.",
             );

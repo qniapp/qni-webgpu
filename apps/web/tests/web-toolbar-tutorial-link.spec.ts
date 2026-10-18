@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { waitForStartupReady } from './support/web-spec-helpers'
+import { rectangle, waitForRectangle } from '../test-support/toolbar-reachability'
 
 const TUTORIAL_URL = 'https://qniapp.github.io/qni-tutorial-webgpu/'
 const TOOLTIP = 'Open tutorial in a new tab'
@@ -12,8 +13,7 @@ type TutorialGeometry = {
 }
 
 const tutorialGeometry = async (page: Page): Promise<TutorialGeometry> => {
-  await page.waitForFunction(() => typeof (window as any).__qniToolbarTutorialGeometryJson === 'string')
-  return page.evaluate(() => JSON.parse((window as any).__qniToolbarTutorialGeometryJson))
+  return waitForRectangle(page, 'ToolbarTutorial')
 }
 
 for (const { mode, width, height } of [
@@ -54,17 +54,18 @@ for (const mode of ['local', 'gpu']) {
 }
 
 for (const status of ['running', 'completed', 'failed']) {
-  test(`portrait GPU ${status} indicator does not overlap Tutorial`, async ({ page }) => {
+  test(`portrait GPU ${status} indicator keeps right controls horizontally separated`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/?mode=gpu#' + encodeURIComponent(JSON.stringify({ title: 'Test', cols: [] })))
     await waitForStartupReady(page)
     await page.evaluate((status) => {
       (window as any).__setExternalGpuStatus(JSON.stringify({ status, durationMs: 1400 }))
     }, status)
-    await page.waitForFunction(() => typeof (window as any).__qniToolbarGpuStatusGeometryJson === 'string')
-    const tutorial = await tutorialGeometry(page)
-    const indicator = await page.evaluate(() => JSON.parse((window as any).__qniToolbarGpuStatusGeometryJson))
-    expect(tutorial.left).toBeGreaterThanOrEqual(indicator.right)
+    const indicator = await waitForRectangle(page, 'ToolbarGpuStatus')
+    const tutorial = await rectangle(page, 'ToolbarTutorial')
+    const local = await rectangle(page, 'ToolbarExecLocal')
+    const rightEdge = tutorial?.left ?? (local ? local.left - 2 : (await waitForRectangle(page, 'ToolbarMore')).left)
+    expect(rightEdge).toBeGreaterThanOrEqual(indicator.right + 8 - 0.5)
   })
 }
 

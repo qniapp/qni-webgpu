@@ -28,6 +28,7 @@ declare global {
     __eguiReadDensityMatrixCell?: (gateId: number, row: number, col: number) => Promise<number[]>
     __eguiReadMeasurementOutcomes?: () => Promise<number[]>
     __eguiReadPostselectionRates?: () => Promise<number[]>
+    __qniToolbarFocusTarget?: 'toggle' | 'more' | 'none'
     __qniExecModeFocusRequested?: boolean
     __qniQiskitBackendUrl?: string
     __qniLastQiskitRequest?: unknown
@@ -320,6 +321,8 @@ const run = async (): Promise<void> => {
       if ((statusEl && !statusEl.hidden) || event.key !== 'Tab' || event.shiftKey || event.defaultPrevented) {
         return
       }
+      // Rust routes this request from the current measured toolbar stage.
+      if (window.__qniToolbarFocusTarget === 'none') return
       window.__qniExecModeFocusRequested = true
       canvas?.focus()
       event.preventDefault()
