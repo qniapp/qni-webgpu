@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import {
   chromium,
   dragPointer,
+  getCircuitOriginY,
   getDragPreviewAboveStatePanelProbe,
   getPaletteGateCenter,
   getPlainChromiumLaunchOptions,
@@ -47,7 +48,7 @@ test('H on q0 and q1 yields uniform superposition', async ({ page }) => {
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   const LINE_GAP = UI_CONSTANTS.LINE_GAP
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
@@ -86,7 +87,7 @@ test('CNOT with control on q1 yields bell state', async ({ page }) => {
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   const LINE_GAP = UI_CONSTANTS.LINE_GAP
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
@@ -131,7 +132,7 @@ test('anti-control with a zero control wire applies the target gate', async ({ p
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   const LINE_GAP = UI_CONSTANTS.LINE_GAP
 
   const antiControlSource = getPaletteGateCenter(cssWidth, 15)
@@ -169,7 +170,7 @@ test('anti-control does not apply when the control wire is one', async ({ page }
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   const LINE_GAP = UI_CONSTANTS.LINE_GAP
 
   const antiControlSource = getPaletteGateCenter(cssWidth, 15)
@@ -210,7 +211,7 @@ test('Control lets QFT run when the control wire is one', async ({ page }) => {
   )
 
   await waitForStartupReady(page, { waitForStateVector: true })
-  await page.mouse.click(226, 224)
+  await page.mouse.click(226, await getCircuitOriginY(page) - 32)
   await page.mouse.move(1000, 450)
 
   // q0=LSB: |1> on wire0 fixes bit0=1; QFT2 on wires 1,2 spreads bits 1,2
@@ -244,7 +245,7 @@ test('Control does not affect gates in other columns', async ({ page }) => {
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
   const LINE_GAP = UI_CONSTANTS.LINE_GAP
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
@@ -288,7 +289,7 @@ test('|0> resets a flipped qubit back to |0>', async ({ page }) => {
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
 
   const write0Source = getPaletteGateCenter(cssWidth, 17)
   const xSource = getPaletteGateCenter(cssWidth, 1)
@@ -323,7 +324,7 @@ test('|1> flips |0> to |1>', async ({ page }) => {
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
 
   const write1Source = getPaletteGateCenter(cssWidth, 18)
   const targetX = LINE_LEFT_OFFSET + GATE_SIZE
@@ -354,7 +355,7 @@ test('|0> after H leaves the superposition unchanged (qni-faithful no-op)', asyn
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const write0Source = getPaletteGateCenter(cssWidth, 17)
@@ -392,7 +393,7 @@ test('Bloch display does not alter the state vector', async ({ page }) => {
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const blochSource = getPaletteGateCenter(cssWidth, 16)
@@ -430,7 +431,7 @@ test('Measurement after X collapses the qubit to |1>', async ({ page }) => {
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
 
   const xSource = getPaletteGateCenter(cssWidth, 1)
   const measureSource = getPaletteGateCenter(cssWidth, 19)
@@ -468,7 +469,7 @@ test('Spacer is a NOP and does not alter the state vector', async ({ page }) => 
   const QUBIT_LABEL_WIDTH = 3 * 14
   const QUBIT_LABEL_GAP = 0.5 * REM
   const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = UI_CONSTANTS.LINE_Y
+  const LINE_Y = await getCircuitOriginY(page)
 
   const hSource = getPaletteGateCenter(cssWidth, 0)
   const spacerSource = getPaletteGateCenter(cssWidth, 21)
