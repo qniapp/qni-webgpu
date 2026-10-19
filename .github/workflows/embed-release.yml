@@ -157,7 +157,7 @@ jobs:
           NODE
 
       - name: Attest release files
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: ${{ env.STAGING }}/*
 
