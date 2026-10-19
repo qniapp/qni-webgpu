@@ -66,6 +66,15 @@ const fullPaletteGridFor = (panelWidth: number): FullPaletteGrid => {
   return best ?? fullPaletteGrid(1, DISPLAY_GRID_CHOICES[2].columns, DISPLAY_GRID_CHOICES[2].rows)
 }
 
+// Spacer and the comment block follow the displays, moving to the next row
+// together when they would otherwise be split across rows.
+const instructionStartSlot = (columns: number): number => {
+  const displays = DISPLAY_INDICES.length
+  return displays % columns + INSTRUCTION_INDICES.length > columns
+    ? Math.ceil(displays / columns) * columns
+    : displays
+}
+
 const localPos = (grid: FullPaletteGrid, gateIndex: number): Point => {
   const row1Pos = ROW1_INDICES.indexOf(gateIndex)
   if (row1Pos >= 0) {
@@ -78,7 +87,7 @@ const localPos = (grid: FullPaletteGrid, gateIndex: number): Point => {
   }
   const instructionPos = INSTRUCTION_INDICES.indexOf(gateIndex)
   const slot = instructionPos >= 0
-    ? grid.displayColumns * grid.displayRows - INSTRUCTION_INDICES.length + instructionPos
+    ? instructionStartSlot(grid.displayColumns) + instructionPos
     : DISPLAY_INDICES.indexOf(gateIndex)
   if (slot >= 0) {
     return {

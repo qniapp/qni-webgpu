@@ -143,7 +143,7 @@ test('Display section Density slot preserves its palette hover index', async ({ 
   await expect.poll(async () => (await hoverSnapshot(page)).hoveredPaletteIndex).toBe(25)
 })
 
-test('right section bottom-right slot reports the comment block palette hover index', async ({ page }) => {
+test('right section slot after Spacer reports the comment block palette hover index', async ({ page }) => {
   await page.goto('/')
 
   await waitForStartupReady(page, { waitForStateVector: true })

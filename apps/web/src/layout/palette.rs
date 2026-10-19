@@ -60,7 +60,7 @@ pub(crate) enum PaletteItem {
 pub(crate) const CIRCUIT_BLOCK_PALETTE_TOKEN: &str = "{}";
 
 /// Flat index of the comment block in the full palette: after every gate,
-/// in the last right-section slot (bottom-right in the desktop 4 × 2 layout).
+/// in the right-section slot right after Spacer.
 pub(crate) const PALETTE_CIRCUIT_BLOCK_INDEX: usize = PALETTE_GATE_COUNT;
 
 /// Which items the palette offers. Indices are stable per palette: the full
@@ -280,11 +280,19 @@ impl FullPaletteGrid {
     }
 
     fn right_rows(&self) -> usize {
-        (PALETTE_RIGHT_GATES.len() + 1).div_ceil(self.right_columns)
+        (self.spacer_slot() + 2).div_ceil(self.right_columns)
     }
 
-    fn right_cells(&self) -> usize {
-        self.right_rows() * self.right_columns
+    /// Right-section slot of Spacer, with the comment block right after it:
+    /// directly after the displays, or at the start of the next row when the
+    /// pair would otherwise be split across rows.
+    fn spacer_slot(&self) -> usize {
+        let displays = PALETTE_RIGHT_GATES.len() - 1;
+        if displays % self.right_columns + 2 > self.right_columns {
+            displays.next_multiple_of(self.right_columns)
+        } else {
+            displays
+        }
     }
 
     /// Entry counts of the gate rows from top to bottom.
@@ -334,9 +342,9 @@ impl FullPaletteGrid {
             ));
         }
         let slot = if index == PALETTE_CIRCUIT_BLOCK_INDEX {
-            self.right_cells() - 1
+            self.spacer_slot() + 1
         } else if palette_gate_kind(index) == Some(GateKind::Spacer) {
-            self.right_cells() - 2
+            self.spacer_slot()
         } else {
             PALETTE_RIGHT_INDICES
                 .iter()
@@ -644,7 +652,7 @@ mod tests {
     }
 
     #[test]
-    fn every_right_grid_keeps_displays_first_and_spacer_comment_last() {
+    fn every_right_grid_packs_spacer_and_comment_right_after_displays() {
         let positions = [4, 3, 2].map(|columns| {
             let grid = FullPaletteGrid::new(17, columns);
             [16, 20, 33, 24, 25, 21, PALETTE_CIRCUIT_BLOCK_INDEX]
@@ -652,11 +660,23 @@ mod tests {
         });
         assert_eq!(
             positions,
-            [4, 3, 2].map(|columns| {
-                let cells = 7_usize.div_ceil(columns) * columns;
-                [0, 1, 2, 3, 4, cells - 2, cells - 1]
-                    .map(|slot| cell_pos(slot % columns, slot / columns))
-            })
+            [
+                (4, [0, 1, 2, 3, 4, 5, 6]),
+                (3, [0, 1, 2, 3, 4, 6, 7]),
+                (2, [0, 1, 2, 3, 4, 6, 7]),
+            ]
+            .map(|(columns, slots)| slots.map(|slot| cell_pos(slot % columns, slot / columns)))
+        );
+    }
+
+    #[test]
+    fn desktop_spacer_is_directly_right_of_density() {
+        let layout = Palette::Full.layout(DESKTOP);
+        let density = Palette::Full.local_pos(25, &layout).unwrap();
+
+        assert_eq!(
+            Palette::Full.local_pos(21, &layout),
+            Some(density + egui::vec2(PALETTE_SIZE + PALETTE_GAP, 0.0))
         );
     }
 
@@ -904,7 +924,7 @@ mod tests {
     }
 
     #[test]
-    fn desktop_circuit_block_sits_in_the_right_sections_bottom_right_slot() {
+    fn desktop_circuit_block_sits_in_the_right_sections_third_bottom_slot() {
         let layout = Palette::Full.layout(DESKTOP);
 
         assert_eq!(
@@ -912,7 +932,7 @@ mod tests {
             Some(egui::pos2(
                 layout.separator.unwrap().max.x
                     + PALETTE_SECTION_GAP
-                    + 3.0 * (PALETTE_SIZE + PALETTE_GAP),
+                    + 2.0 * (PALETTE_SIZE + PALETTE_GAP),
                 PALETTE_SIZE + PALETTE_ROW_GAP,
             ))
         );
@@ -930,6 +950,17 @@ mod tests {
             Palette::Full.hit_test(local, &layout),
             Some(PALETTE_CIRCUIT_BLOCK_INDEX)
         );
+    }
+
+    #[test]
+    fn desktop_slot_after_the_circuit_block_is_empty() {
+        let layout = Palette::Full.layout(DESKTOP);
+        let local = Palette::Full
+            .local_pos(PALETTE_CIRCUIT_BLOCK_INDEX, &layout)
+            .unwrap()
+            + egui::vec2(PALETTE_SIZE + PALETTE_GAP + 20.0, 20.0);
+
+        assert_eq!(Palette::Full.hit_test(local, &layout), None);
     }
 
     #[test]

@@ -359,11 +359,11 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - 描画は GPU 完結: `BLOCH_OVERLAY_SHADER` (vertex+fragment) が `bloch_output_buffer` を直接 sample してアロー線・先端ドットを描く (`BlochOverlayCallback`)。`MEASUREMENT_DIGIT_SHADER` も同様に `measurement_aux_buffer.z` (outcome) を sample し、起動時に rasterize した Geist Mono Regular の `0` / `1` atlas から outcome 桁を描画する。本番経路で GPU → CPU リードバックは発生しない。
 - `read_bloch_vectors()` / `read_measurement_outcomes()` (wasm_bindgen) は **テスト専用の async on-demand readback**: 呼ばれた時に staging buffer + map_async で `[gateId, x, y, z, …]` / `[gateId, outcome, …]` を返す。本番のレンダーには影響しない。Playwright は `readBlochVectors` / `readMeasurementOutcomes` ヘルパー経由で await して使う。
 - Spacer ゲートは qni `packages/elements/icon/spacer-gate.svg` を踏襲した装飾専用 NOP。viewbox 上の (9,21)–(15,27)、(21,21)–(27,27)、(33,21)–(39,27) に塗りつぶし矩形 3 つで `…` を描く。色は `text-neutral-900` (#171717)。`simulation_plan::linearize_ops` では Swap と同じく状態変更 op を出さない。
-- パレットは広い画面では 2 段。1 段目は単量子ビットのユニタリ (H, X, Y, Z, √X, S, S†, T, T†, P, Rx, Ry, Rz) と算術ゲート (+1 / −1)、2 段目は特殊ゲート (SWAP, •, ◦, Zpar, Xpar, |0⟩, |1⟩, Measurement, Z Detect-Control-Reset, X 軸検出器, Y 軸検出器, QFT, QFT†, 事後選択 |0⟩ / |1⟩ / |+⟩ / |−⟩)。右側は「表示と、見た目のための指示（注釈や空きマス）」の欄とし、1 行目にブロッホ球・確率・サンプル・振幅の表示ブロック、2 行目に密度行列表示ブロック・空きセル・Spacer・コメントブロックを置く。両段とも左寄せで揃える（qni の `flex flex-row` レイアウトに合わせる）。
+- パレットは広い画面では 2 段。1 段目は単量子ビットのユニタリ (H, X, Y, Z, √X, S, S†, T, T†, P, Rx, Ry, Rz) と算術ゲート (+1 / −1)、2 段目は特殊ゲート (SWAP, •, ◦, Zpar, Xpar, |0⟩, |1⟩, Measurement, Z Detect-Control-Reset, X 軸検出器, Y 軸検出器, QFT, QFT†, 事後選択 |0⟩ / |1⟩ / |+⟩ / |−⟩)。右側は「表示と、見た目のための指示（注釈や空きマス）」の欄とし、1 行目にブロッホ球・確率・サンプル・振幅の表示ブロック、2 行目に密度行列表示ブロック・Spacer・コメントブロック・空きセルを置く。両段とも左寄せで揃える（qni の `flex flex-row` レイアウトに合わせる）。
 - 横レイアウトでは、描画領域 (キャンバスから左右 8px ずつの余白を除いた領域) の左右に 16px を残して収まる配置のうち、全体の高さが最も低いものを使う (`apps/web/src/layout/palette.rs` の `full_palette_layout`)。
   - 左側の 1 段目と 2 段目を、1 行 N 個以下の最少の行数にそれぞれ均等に折り返す。N は 2 段目の個数 (17) から 1 まで減らす。
   - 右側の計 7 項目には、4 列 × 2 行、3 列 × 3 行、2 列 × 4 行を候補とする。同じ高さなら、この候補順、次に左側の行を広く取れる順で選ぶ。1 行だけの候補は使わない。この欄と区切り線は、欄と同じ行数ぶんのゲートの右に置き、それより下の行は欄の下まで伸ばしてよい。
-  - どの候補でも、表示ブロックは左上から読み順に詰め、Spacer とコメントブロックは右下の隣り合う 2 セルに置く。残りのセルは空け、操作対象にしない。
+  - どの候補でも、表示ブロックは左上から読み順に詰め、そのすぐ後に Spacer とコメントブロックを隣り合わせで続ける。2 つが行をまたぐときだけ次の行の先頭から置く (3 列 × 3 行と 2 列 × 4 行では密度行列の右が空く)。残りのセルは空け、操作対象にしない。
   - 例: キャンバス幅 1090px 以上は 15 / 17 個の 2 行と 4 列 × 2 行。1000px は 15 / 9 / 8 個の 3 行と 4 列 × 2 行、960px は同じ左側の 3 行と 3 列 × 3 行になり、回路と状態パネルを 48px 下げる。844px (iPhone の横向き) と 800px は 8 / 7 / 9 / 8 個の 4 行と 4 列 × 2 行。640px は同じ左側の 4 行と 2 列 × 4 行、600px は 8 / 7 / 6 / 6 / 5 個の 5 行と 2 列 × 4 行。
 - 縦レイアウトのカルーセルは、左側の 1 段目、2 段目、ブロッホ球・確率・サンプル・振幅・密度行列の表示ブロック、Spacer、コメントブロックの順。全 39 項目を 4 項目ずつ 10 ページに分け、9 ページ目はブロッホ球・確率・サンプル・振幅、10 ページ目は密度行列・Spacer・コメントブロックとする。
 - パレットが 2 行より高くなったぶんだけ回路を下げる (`Palette::circuit_shift_y`)。

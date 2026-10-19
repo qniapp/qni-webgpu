@@ -259,7 +259,7 @@
       各ゲートのアイコン形状を再現。
       パレットは <strong>操作ゲート領域 (左、15 個 + 17 個)</strong> + <strong><a href="vertical-divider.html">2 px ui-2 垂直ディバイダ</a> (2 行高)</strong> + <strong>表示と指示の領域 (右、4 列 × 2 行)</strong> に分割。
       アイコンにホバーすると <code>purple-400</code> 外枠 (外側 4 px / 角丸 10 px) + <code>paper</code> 内枠 (外側 2 px / 角丸 8 px) の枠が出る。
-      右の領域は 8 マスのうち 7 マスを使う。表示ブロック 5 個を左上から読む順に並べ、見た目のための指示 2 個 (Spacer とコメントブロック) を右下の角に詰める。残る 1 マス (2 行目の 2 列目) は空けたままにし、2 つのまとまりの切れ目として使う。
+      右の領域は 8 マスのうち 7 マスを使う。表示ブロック 5 個を左上から読む順に並べ、見た目のための指示 2 個 (Spacer とコメントブロック) を間を空けずに続ける。残る 1 マス (右下の角) は空けたままにする。
     </p>
     <div class="gp-stage">
       <div class="gp-palette gp-palette--split">
@@ -304,16 +304,16 @@
         </div>
         <!-- 2 行高の垂直ディバイダ -->
         <div class="gp-sep vertical-divider" aria-hidden="true"></div>
-        <!-- 表示と指示の領域 (4 × 2 グリッド; 表示 5 個 + 空き 1 マス + Spacer + コメントブロック) -->
+        <!-- 表示と指示の領域 (4 × 2 グリッド; 表示 5 個 + Spacer + コメントブロック + 空き 1 マス) -->
         <div class="gp-section gp-grid">
           <div class="gp-gate" data-tip="Bloch · ブロッホ球表示ブロック"><bloch-display icon no-popover></bloch-display><span class="tip">ブロッホ球表示ブロック</span></div>
           <div class="gp-gate" data-tip="Probability · 確率表示ブロック"><probability-display icon height="40" probs="30,75,55,20" no-popup></probability-display><span class="tip">確率表示ブロック (resizable)</span></div>
           <div class="gp-gate gp-stub" data-tip="サンプル表示ブロック (resizable)"><span aria-hidden="true">01</span><span class="tip">サンプル表示ブロック (resizable)</span></div>
           <div class="gp-gate" data-tip="Amps · 振幅表示ブロック"><amplitude-display icon no-popup></amplitude-display><span class="tip">振幅表示ブロック (span 1〜16)</span></div>
           <div class="gp-gate" data-tip="Density · 密度行列表示ブロック"><density-matrix-display icon span="1" state="icon" no-popup></density-matrix-display><span class="tip">密度行列表示ブロック (span 1〜8)</span></div>
-          <div class="gp-empty" aria-hidden="true"></div>
           <div class="gp-gate" data-tip="Spacer · 回路の空きマス"><spacer-gate></spacer-gate><span class="tip">Spacer · 回路の空きマス</span></div>
           <div class="gp-gate gp-cb" data-tip="コメントブロック"><i class="rule"></i><span class="word">block</span><span class="tip">コメントブロック</span></div>
+          <div class="gp-empty" aria-hidden="true"></div>
         </div>
       </div>
     </div>
@@ -336,13 +336,13 @@
         <tr><th>縦の間隔</th><td><code>8 px</code></td></tr>
         <tr><th>領域間隔</th><td><code>8 px</code> — ゲート領域と垂直ディバイダ、垂直ディバイダと表示と指示の領域の隙間 (左右両側)</td></tr>
         <tr><th>ディバイダ</th><td><code>2.0 px</code> · fill = Flexoki <code>ui-2</code>、パレット内容の全高 (= 2 行高) を縦に走る。詳細は <a href="vertical-divider.html">垂直ディバイダ仕様</a></td></tr>
-        <tr><th>表示と指示の領域</th><td><code>4 × 2</code> グリッド。8 マスのうち 7 マスを使い、2 行目の 2 列目を空ける (配置は § 03)</td></tr>
+        <tr><th>表示と指示の領域</th><td><code>4 × 2</code> グリッド。8 マスのうち 7 マスを使い、右下の角を空ける (配置は § 03)</td></tr>
         <tr><th>余白</th><td>水平 <code>16 px</code> / 垂直 <code>20 px</code></td></tr>
         <tr><th>角丸</th><td><code>12 px</code></td></tr>
         <tr><th>背景</th><td>Flexoki <code>bg</code> = #FFFCF0 (paper)</td></tr>
         <tr><th>影</th><td><code>tx</code> @ 25% alpha · offset (0, 6) · blur 16 · spread 0</td></tr>
         <tr><th>位置</th><td>画面上部中央、toolbar との間に <code>24 px</code> の余白を置いて常駐</td></tr>
-        <tr><th>狭い画面</th><td>横レイアウトで収まらないときは、操作ゲートの行を折り返し、右の領域を <code>4 × 2</code> / <code>3 × 3</code> / <code>2 × 4</code> から選ぶ。どの形でも表示ブロックは左上から、Spacer とコメントブロックは右下の角に詰める。選び方は <a href="../web.md">docs/web.md</a> を参照</td></tr>
+        <tr><th>狭い画面</th><td>横レイアウトで収まらないときは、操作ゲートの行を折り返し、右の領域を <code>4 × 2</code> / <code>3 × 3</code> / <code>2 × 4</code> から選ぶ。どの形でも表示ブロックは左上から並べ、Spacer とコメントブロックを隣り合わせで続ける。選び方は <a href="../web.md">docs/web.md</a> を参照</td></tr>
         <tr><th>パレット要素総数</th><td>操作ゲート領域 32 個 (1 行目 = 15、2 行目 = 17) + 表示と指示の領域 7 個 = 計 39 個</td></tr>
         <tr><th>操作ゲート領域幅</th><td>max(1 行目, 2 行目) = <code>17 × 40 + 16 × 8 = 808 px</code></td></tr>
         <tr><th>表示と指示の領域幅</th><td><code>4 × 40 + 3 × 8 = 184 px</code></td></tr>
@@ -406,8 +406,8 @@
     <p>
       右の領域には「表示と、見た目のための指示（注釈や空きマス）」を置く。どちらも量子状態を変えない。
       表示ブロック 5 個を 1 行目の左から読む順に並べ、2 行目の 1 列目で終える。
-      見た目のための指示 2 個は 2 行目の右端に並べ、コメントブロックを右下の角、Spacer をその左隣に置く。
-      間の 1 マス (2 行目の 2 列目) は空けておき、表示と指示の切れ目にする。空きマスには何も描かず、押しても何も選ばれない。
+      見た目のための指示 2 個は間を空けずに続け、Spacer を 2 行目の 2 列目、コメントブロックをその右隣に置く。
+      残る 1 マス (右下の角) は空けておく。空きマスには何も描かず、押しても何も選ばれない。
     </p>
     <div class="gp-map">
       <span class="display">Bloch</span>
@@ -415,9 +415,9 @@
       <span class="display">Sample</span>
       <span class="display">Amps</span>
       <span class="display">Density</span>
-      <span class="empty">空き</span>
       <span class="instruction">Spacer</span>
       <span class="instruction">block</span>
+      <span class="empty">空き</span>
     </div>
     <p class="note" style="margin-top: 8px;">青枠 = 表示ブロック、紫枠 = 見た目のための指示、破線 = 空きマス (配置図用の色分けで、パレット上には枠を描かない)。</p>
     <h4 style="margin-top: 16px;">表示ブロック (5 個)</h4>
@@ -430,14 +430,14 @@
     </div>
     <h4 style="margin-top: 16px;">見た目のための指示 (2 個)</h4>
     <div class="gate-zoo">
-      <div class="item"><div class="gp-gate"><spacer-gate></spacer-gate></div><div class="label"><span class="name">Spacer</span><span>回路の空きマス (2 行目 3 列目)。配置後は何も作用しない</span></div></div>
-      <div class="item"><div class="gp-gate gp-cb"><i class="rule"></i><span class="word">block</span></div><div class="label"><span class="name">block</span><span>コメントブロック (2 行目 4 列目)。連続した列を囲んで注釈を付ける</span></div></div>
+      <div class="item"><div class="gp-gate"><spacer-gate></spacer-gate></div><div class="label"><span class="name">Spacer</span><span>回路の空きマス (2 行目 2 列目)。配置後は何も作用しない</span></div></div>
+      <div class="item"><div class="gp-gate gp-cb"><i class="rule"></i><span class="word">block</span></div><div class="label"><span class="name">block</span><span>コメントブロック (2 行目 3 列目)。連続した列を囲んで注釈を付ける</span></div></div>
     </div>
 
     <p class="note" style="margin-top: 16px;">
       <strong>グルーピング</strong>: 操作ゲート領域 = 回路への作用、表示と指示の領域 = 状態を変えない要素 (可視化と、回路の見た目の調整)。
       <strong>Spacer</strong> は配置すると回路上の<strong>空きマス (作用なし)</strong> になり、コメントブロックと同じく回路の見た目だけを整えるので、コメントブロックの隣に置く。
-      狭い画面で右の領域を <code>3 × 3</code> や <code>2 × 4</code> に組み替えても、表示ブロックは左上から、Spacer とコメントブロックは右下の角に詰める。全要素がホバー枠・ツールチップ・ドラッグに対応する。
+      狭い画面で右の領域を <code>3 × 3</code> や <code>2 × 4</code> に組み替えても、表示ブロックは左上から並べ、Spacer とコメントブロックを隣り合わせで続ける (2 つが行をまたぐときは次の行の先頭へ送る)。全要素がホバー枠・ツールチップ・ドラッグに対応する。
     </p>
   </div>
 </section>
@@ -611,7 +611,7 @@
       <li><strong>非表示制御</strong> — 特定の gate を非表示にする設定なし。</li>
       <li><strong>複数ゲート同時ドラッグ</strong> — 複数ゲートをまとめてドラッグする UI なし。</li>
       <li><strong>カスタムゲート</strong> — ユーザ定義のゲートをパレットに追加する仕組みなし。</li>
-      <li><strong>表示と指示の領域の拡張</strong> — 空きは 2 行目の 2 列目の 1 マスだけ。表示ブロックか見た目のための指示をさらに 2 個以上足す場合は、4 × 2 を超えるレイアウト方針が必要。</li>
+      <li><strong>表示と指示の領域の拡張</strong> — 空きは右下の角の 1 マスだけ。表示ブロックか見た目のための指示をさらに 2 個以上足す場合は、4 × 2 を超えるレイアウト方針が必要。</li>
       <li><strong>パラメータ付きゲートの値入力</strong> — Phase / Rx / Ry / Rz は配置後に値を編集する UI が必要だが、パレット側からは設定できない。</li>
     </ul>
   </div>

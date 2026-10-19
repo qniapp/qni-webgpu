@@ -15,7 +15,7 @@ for (const { name, index, x, y, row } of [
   { name: 'YDetector', index: 35, x: 111, y: 196, row: 3 },
   { name: 'QFT', index: 22, x: 159, y: 196, row: 3 },
   { name: 'QFT†', index: 23, x: 207, y: 196, row: 3 },
-  { name: 'Spacer', index: 21, x: 889, y: 148, row: 2 },
+  { name: 'Spacer', index: 21, x: 841, y: 148, row: 2 },
   { name: 'postselect0', index: 27, x: 255, y: 196, row: 3 },
   { name: 'postselect1', index: 28, x: 303, y: 196, row: 3 },
   { name: 'postselect-plus', index: 29, x: 351, y: 196, row: 3 },
@@ -40,7 +40,7 @@ for (const [cssWidth, x] of [[1001, 64], [1025, 76]]) {
 
 test('semantic drag helper locates Spacer immediately left of the comment block', () => {
   assert.deepEqual(buildDragOperation({ cssWidth: 1000, gate: 'spacer', wire: 'q0', slot: 1 }).from,
-    { x: 889, y: 148 })
+    { x: 841, y: 148 })
 })
 
 test('palette helper keeps gate 7 at the end of the first wrapped row at 800 px', () => {
@@ -59,14 +59,14 @@ test('semantic drag helper moves the drop target below a four-row palette at 844
   assert.equal(buildDragOperation({ cssWidth: 844, gate: 'H', wire: 'q0', slot: 0 }).to.y, UI_CONSTANTS.LINE_Y + 96)
 })
 
-test('palette helper locates the comment block in the right section last slot', () => {
-  assert.deepEqual(getPaletteGateCenter(1000, 38), { x: 937, y: 148 })
+test('palette helper locates the comment block right after Spacer in the right section', () => {
+  assert.deepEqual(getPaletteGateCenter(1000, 38), { x: 889, y: 148 })
 })
 
 // 表示と、見た目のための指示（注釈や空きマス）は右側に置く。
 for (const [index, x, y] of [
   [16, 981, 100], [20, 1029, 100], [33, 1077, 100], [24, 1125, 100],
-  [25, 981, 148], [21, 1077, 148], [38, 1125, 148],
+  [25, 981, 148], [21, 1029, 148], [38, 1077, 148],
 ]) {
   test(`wide palette places right-side item ${index} at its concrete position`, () => {
     assert.deepEqual(getPaletteGateCenter(1280, index), { x, y })
@@ -76,6 +76,11 @@ for (const [index, x, y] of [
 test('Spacer is immediately left of the comment block', () => {
   const comment = getPaletteGateCenter(1280, 38)
   assert.deepEqual(getPaletteGateCenter(1280, 21), { x: comment.x - 48, y: comment.y })
+})
+
+test('Spacer is immediately right of Density without an empty slot between them', () => {
+  const density = getPaletteGateCenter(1280, 25)
+  assert.deepEqual(getPaletteGateCenter(1280, 21), { x: density.x + 48, y: density.y })
 })
 
 for (const [cssWidth, contentWidth, contentHeight, panelWidth, panelHeight] of [
@@ -99,7 +104,7 @@ test('wide palette keeps the first gates and arithmetic positions unchanged', ()
 
 // 表示と、見た目のための指示（注釈や空きマス）の各形状を確認する。
 for (const [cssWidth, positions] of [
-  [480, [[317, 100], [365, 100], [413, 100], [317, 148], [365, 148], [365, 196], [413, 196]]],
+  [480, [[317, 100], [365, 100], [413, 100], [317, 148], [365, 148], [317, 196], [365, 196]]],
   [640, [[517, 100], [565, 100], [517, 148], [565, 148], [517, 196], [517, 244], [565, 244]]],
 ] as const) {
   test(`right-side items use the expected grid at ${cssWidth} px`, () => {
