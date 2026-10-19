@@ -224,7 +224,8 @@ GitHub Actions では、`web-build` が開発用の Trunk 成果物とリリー�
 各ジョブは `scripts/serve-static.ts` による SPA フォールバック付きの静的サーバで開発用の成果物を配信し、`test:pw-legacy` の代わりに `playwright test --shard` で全テストを分割して実行する。
 並行して `web-check` が Rust の検査、リリース用の Trunk ビルド、BDD テストを実行する。
 `web-preflight` は他の Web ジョブに依存せず独立して実行する。
-`web` は `web-preflight`、`web-build`、`web-check`、`web-playwright` のすべての成功を必須とし、いずれかが失敗・キャンセル・スキップされた場合は失敗する。
+`web-kani` も独立して [Kani の形式検証](formal-verification.md#ci-での実行)と故障検出を実行する。
+`web` は `web-preflight`、`web-build`、`web-check`、`web-kani`、`web-playwright` のすべての成功を必須とし、いずれかが失敗・キャンセル・スキップされた場合は失敗する。
 `web-playwright-report` による HTML レポートの統合結果には依存しない。
 
 ### 起動の固まりとテストの不安定さ
