@@ -27,7 +27,7 @@ const open = async (page: Page, hash: string): Promise<Layout> => {
   ) as Promise<Layout>
 }
 
-const hoveredPaletteIndex = async (page: Page, at: Point, expected: number): Promise<number | null> => {
+const hoveredPaletteIndex = async (page: Page, at: Point, expected: number | null): Promise<number | null> => {
   await page.mouse.move(at.x, at.y)
   return pollForValue(
     async () => JSON.parse(await page.evaluate(() => String(Reflect.get(window, '__qniHoverSnapshotJson') ?? 'null')))?.hoveredPaletteIndex ?? null,
@@ -44,6 +44,9 @@ const paletteCenter = (width: number, index: number): Point => {
 for (const viewport of [
   { width: 1280, height: 800 },
   { width: 1000, height: 800 },
+  { width: 960, height: 800 },
+  { width: 640, height: 600 },
+  { width: 600, height: 580 },
   { width: 900, height: 800 },
   { width: 840, height: 800 },
   { width: 800, height: 800 },
@@ -58,6 +61,25 @@ for (const viewport of [
         hovered.push(await hoveredPaletteIndex(page, paletteCenter(viewport.width, index), index))
       }
       expect(hovered).toEqual(Array.from({ length: PALETTE_ENTRY_COUNT }, (_, index) => index))
+    })
+
+    test('Spacer is directly left of the comment block in the right section', async ({ page }) => {
+      await open(page, EMPTY)
+      const comment = paletteCenter(viewport.width, 38)
+      const spacer = { x: comment.x - UI_CONSTANTS.PALETTE_SIZE - UI_CONSTANTS.PALETTE_GAP, y: comment.y }
+      expect(await hoveredPaletteIndex(page, spacer, 21)).toBe(21)
+    })
+
+    test('the empty slot after Density is not a palette item', async ({ page }) => {
+      await open(page, EMPTY)
+      const density = paletteCenter(viewport.width, 25)
+      await waitForValue(
+        () => hoveredPaletteIndex(page, density, 25),
+        index => index === 25,
+        'Density was not hovered before probing the empty slot',
+      )
+      const gap = { x: density.x + UI_CONSTANTS.PALETTE_SIZE + UI_CONSTANTS.PALETTE_GAP, y: density.y }
+      expect(await hoveredPaletteIndex(page, gap, null)).toBeNull()
     })
 
     test('a palette gate drops onto the first wire below the palette', async ({ page }) => {
@@ -111,10 +133,19 @@ for (const width of [1000, 1024]) {
   })
 }
 
+test.describe('1280x800 screenshot', () => {
+  test.use({ viewport: { width: 1280, height: 800 } })
+
+  test('wide palette keeps its size with visual instructions in the right section', async ({ page }) => {
+    await open(page, BELL)
+    await expect(page).toHaveScreenshot('palette-1280x800.png')
+  })
+})
+
 test.describe('1000x800 screenshot', () => {
   test.use({ viewport: { width: 1000, height: 800 } })
 
-  test('palette fits in three rows with the Display section beside the top gate rows', async ({ page }) => {
+  test('palette fits in three rows with displays and visual instructions beside the top gate rows', async ({ page }) => {
     await open(page, BELL)
     await expect(page).toHaveScreenshot('palette-1000x800.png')
   })

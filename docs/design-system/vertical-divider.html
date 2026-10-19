@@ -159,7 +159,7 @@
   <p class="eyebrow">qni-webgpu · design system · primitive spec</p>
   <h1 class="page-title">垂直ディバイダ</h1>
   <p class="page-lede">
-    ゲートパレット内で、左側の操作ゲート群と右側の表示ブロック群を分ける 2 px の縦区切り線。
+    ゲートパレット内で、左側の操作ゲート群と右側の「表示と、見た目のための指示（注釈や空きマス）」の欄を分ける 2 px の縦区切り線。
     線そのものは操作対象ではなく、セクションのまとまりだけを示す。幅は 2 px、色は Flexoki <code>ui-2</code> とする。
   </p>
 </div>
@@ -168,8 +168,8 @@
   <h2>§ 01 見た目</h2>
   <div class="card">
     <p>
-      ディバイダはパレット面の上に、2 行のアイコン高と同じ高さで置く。
-      左右にはそれぞれ 8 px の余白を取り、操作ゲート群 / 表示ブロック群のどちらにも属さない中立な境界として読む。
+      ディバイダはパレット面の上に、右側の領域の行数に合わせた高さで置く (広い画面では 2 行)。
+      左右にはそれぞれ 8 px の余白を取り、左側の操作ゲート群と右側の要素群のどちらにも属さない中立な境界として読む。
     </p>
     <div class="vd-stage" role="group" aria-label="ゲートパレット内の垂直ディバイダ例">
       <div class="vd-palette">
@@ -279,7 +279,7 @@
     <table class="spec">
       <tbody>
         <tr><th>寸法</th><td><code>2 px</code> 幅、左右に <code>8 px</code> の section gap を置く。</td></tr>
-        <tr><th>配置計算</th><td>Gates section と Display section の間で、パレット content 全高に揃える。</td></tr>
+        <tr><th>配置計算</th><td>左側の操作ゲート群と右側の領域の間で、右側の領域の高さに揃える。</td></tr>
         <tr><th>描画</th><td>Flexoki <code>ui-2</code> で矩形を塗る。</td></tr>
         <tr><th>仕様内 CSS</th><td><code>docs/design-system/design-system.css</code> — <code>.vertical-divider</code></td></tr>
       </tbody>

@@ -327,7 +327,7 @@ pub(crate) const PALETTE_GATES_ROW1: [GateKind; 15] = [
     GateKind::Increment,
     GateKind::Decrement,
 ];
-pub(crate) const PALETTE_GATES_ROW2: [GateKind; 18] = [
+pub(crate) const PALETTE_GATES_ROW2: [GateKind; 17] = [
     GateKind::Swap,
     GateKind::Control,
     GateKind::AntiControl,
@@ -341,28 +341,29 @@ pub(crate) const PALETTE_GATES_ROW2: [GateKind; 18] = [
     GateKind::YDetector,
     GateKind::QftGate,
     GateKind::QftDaggerGate,
-    GateKind::Spacer,
     GateKind::PostSelectOff,
     GateKind::PostSelectOn,
     GateKind::PostSelectAntiX,
     GateKind::PostSelectX,
 ];
-pub(crate) const PALETTE_DISPLAY_GATES: [GateKind; 5] = [
+// 右側: 表示と、見た目のための指示（注釈や空きマス）
+pub(crate) const PALETTE_RIGHT_GATES: [GateKind; 6] = [
     GateKind::BlochDisplay,
     GateKind::ProbabilityDisplay,
     GateKind::SampleDisplay,
     GateKind::AmplitudeDisplay,
     GateKind::DensityMatrixDisplay,
+    GateKind::Spacer,
 ];
 pub(crate) const PALETTE_GATE_COUNT: usize =
-    PALETTE_GATES_ROW1.len() + PALETTE_GATES_ROW2.len() + PALETTE_DISPLAY_GATES.len();
+    PALETTE_GATES_ROW1.len() + PALETTE_GATES_ROW2.len() + PALETTE_RIGHT_GATES.len();
 pub(crate) const PALETTE_ROW1_COUNT: usize = PALETTE_GATES_ROW1.len();
 pub(crate) const PALETTE_GATES_ROW1_INDICES: [usize; 15] =
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 36, 37];
-pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 18] = [
-    13, 14, 15, 31, 32, 17, 18, 19, 26, 34, 35, 22, 23, 21, 27, 28, 29, 30,
+pub(crate) const PALETTE_GATES_ROW2_INDICES: [usize; 17] = [
+    13, 14, 15, 31, 32, 17, 18, 19, 26, 34, 35, 22, 23, 27, 28, 29, 30,
 ];
-pub(crate) const PALETTE_DISPLAY_INDICES: [usize; 5] = [16, 20, 33, 24, 25];
+pub(crate) const PALETTE_RIGHT_INDICES: [usize; 6] = [16, 20, 33, 24, 25, 21];
 
 pub(crate) fn default_palette_angle(kind: GateKind) -> Option<ParametricAngle> {
     match kind {
@@ -386,10 +387,10 @@ pub(crate) fn palette_gate_kind(index: usize) -> Option<GateKind> {
     {
         return Some(PALETTE_GATES_ROW2[pos]);
     }
-    PALETTE_DISPLAY_INDICES
+    PALETTE_RIGHT_INDICES
         .iter()
         .position(|candidate| *candidate == index)
-        .map(|pos| PALETTE_DISPLAY_GATES[pos])
+        .map(|pos| PALETTE_RIGHT_GATES[pos])
 }
 
 impl GateKind {
@@ -449,6 +450,16 @@ impl GateKind {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spacer_keeps_stable_palette_id() {
+        assert_eq!(palette_gate_kind(21), Some(GateKind::Spacer));
+    }
+
+    #[test]
+    fn second_palette_gate_row_excludes_spacer() {
+        assert!(!PALETTE_GATES_ROW2.contains(&GateKind::Spacer));
+    }
 
     #[test]
     fn postselection_url_round_trip_preserves_exact_projector_tokens() {

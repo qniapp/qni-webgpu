@@ -6,17 +6,17 @@ use crate::constants::{
     PALETTE_SEPARATOR_WIDTH, PALETTE_SIZE,
 };
 use crate::gates::{
-    default_palette_angle, palette_gate_kind, GateKind, ParametricAngle, PALETTE_DISPLAY_GATES,
-    PALETTE_DISPLAY_INDICES, PALETTE_GATES_ROW1_INDICES, PALETTE_GATES_ROW2,
-    PALETTE_GATES_ROW2_INDICES, PALETTE_GATE_COUNT, PALETTE_ROW1_COUNT,
+    default_palette_angle, palette_gate_kind, GateKind, ParametricAngle,
+    PALETTE_GATES_ROW1_INDICES, PALETTE_GATES_ROW2, PALETTE_GATES_ROW2_INDICES, PALETTE_GATE_COUNT,
+    PALETTE_RIGHT_GATES, PALETTE_RIGHT_INDICES, PALETTE_ROW1_COUNT,
 };
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct PaletteLayout {
     pub(crate) total_width: f32,
     pub(crate) total_height: f32,
-    /// Gates / Display divider, relative to the palette origin. Only the
-    /// full palette has the Display section.
+    /// Divider relative to the palette origin; only present in the full palette.
+    /// 右側: 表示と、見た目のための指示（注釈や空きマス）
     pub(crate) separator: Option<egui::Rect>,
     grid: PaletteGrid,
 }
@@ -32,13 +32,14 @@ enum PaletteGrid {
 
 /// The full palette: the first and second gate rows, each wrapped into
 /// balanced rows of at most `row1_columns` / `row2_columns` entries, and the
-/// Display section `display_columns` wide beside the top gate rows.
+/// right section `right_columns` wide beside the top gate rows.
+/// 右側: 表示と、見た目のための指示（注釈や空きマス）
 #[derive(Clone, Copy, Debug)]
 struct FullPaletteGrid {
     row1_columns: usize,
     row2_columns: usize,
-    display_columns: usize,
-    display_x: f32,
+    right_columns: usize,
+    right_x: f32,
 }
 
 /// A palette gate as it drops into the circuit.
@@ -59,7 +60,7 @@ pub(crate) enum PaletteItem {
 pub(crate) const CIRCUIT_BLOCK_PALETTE_TOKEN: &str = "{}";
 
 /// Flat index of the comment block in the full palette: after every gate,
-/// in the last Display slot (bottom-right in the desktop 3 × 2 layout).
+/// in the last right-section slot (bottom-right in the desktop 4 × 2 layout).
 pub(crate) const PALETTE_CIRCUIT_BLOCK_INDEX: usize = PALETTE_GATE_COUNT;
 
 /// Which items the palette offers. Indices are stable per palette: the full
@@ -238,40 +239,39 @@ fn palette_row_width(count: usize) -> f32 {
     }
 }
 
-/// Display section widths a full palette tries for each gate-row width:
-/// the 3 × 2 block, one row beside the first gate row, then 2 × 3.
-const DISPLAY_COLUMN_CHOICES: [usize; 3] =
-    [PALETTE_DISPLAY_COLUMNS, PALETTE_DISPLAY_GATES.len() + 1, 2];
+/// Right-section grids in tie-breaking order: 4 × 2, 3 × 3, then 2 × 4.
+const RIGHT_COLUMN_CHOICES: [usize; 3] = [PALETTE_DISPLAY_COLUMNS, 3, 2];
 
-/// The first full-palette layout that fits `canvas_width`, trying gate rows
-/// from one row each down to a single column and, for each, every
-/// `DISPLAY_COLUMN_CHOICES` entry.
+/// Choose the shortest fitting layout. Equal heights prefer the earlier
+/// right grid, then the widest left gate rows (descending column limit).
 fn full_palette_layout(canvas_width: f32) -> PaletteLayout {
     let available = palette_content_width(canvas_width);
-    let mut candidates = (1..=PALETTE_GATES_ROW2.len()).rev().flat_map(|limit| {
-        DISPLAY_COLUMN_CHOICES
-            .map(|display_columns| FullPaletteGrid::new(limit, display_columns).layout())
+    let candidates = RIGHT_COLUMN_CHOICES.into_iter().flat_map(|right_columns| {
+        (1..=PALETTE_GATES_ROW2.len())
+            .rev()
+            .map(move |limit| FullPaletteGrid::new(limit, right_columns).layout())
     });
-    let narrowest = FullPaletteGrid::new(1, DISPLAY_COLUMN_CHOICES[2]).layout();
+    let narrowest = FullPaletteGrid::new(1, RIGHT_COLUMN_CHOICES[2]).layout();
     candidates
-        .find(|layout| layout.total_width <= available)
+        .filter(|layout| layout.total_width <= available)
+        .min_by(|a, b| a.total_height.total_cmp(&b.total_height))
         .unwrap_or(narrowest)
 }
 
 impl FullPaletteGrid {
-    fn new(limit: usize, display_columns: usize) -> Self {
+    fn new(limit: usize, right_columns: usize) -> Self {
         let mut grid = Self {
             row1_columns: balanced_columns(PALETTE_ROW1_COUNT, limit),
             row2_columns: balanced_columns(PALETTE_GATES_ROW2.len(), limit),
-            display_columns,
-            display_x: 0.0,
+            right_columns,
+            right_x: 0.0,
         };
         let beside_width = grid
             .gate_row_counts()
-            .take(grid.display_rows())
+            .take(grid.right_rows())
             .map(palette_row_width)
             .fold(0.0, f32::max);
-        grid.display_x = beside_width + 2.0 * PALETTE_SECTION_GAP + PALETTE_SEPARATOR_WIDTH;
+        grid.right_x = beside_width + 2.0 * PALETTE_SECTION_GAP + PALETTE_SEPARATOR_WIDTH;
         grid
     }
 
@@ -279,8 +279,12 @@ impl FullPaletteGrid {
         PALETTE_ROW1_COUNT.div_ceil(self.row1_columns)
     }
 
-    fn display_rows(&self) -> usize {
-        (PALETTE_DISPLAY_GATES.len() + 1).div_ceil(self.display_columns)
+    fn right_rows(&self) -> usize {
+        (PALETTE_RIGHT_GATES.len() + 1).div_ceil(self.right_columns)
+    }
+
+    fn right_cells(&self) -> usize {
+        self.right_rows() * self.right_columns
     }
 
     /// Entry counts of the gate rows from top to bottom.
@@ -293,21 +297,21 @@ impl FullPaletteGrid {
     }
 
     fn layout(self) -> PaletteLayout {
-        let display_rows = self.display_rows();
-        let display_height = palette_column_height(display_rows);
+        let right_rows = self.right_rows();
+        let right_height = palette_column_height(right_rows);
         let gates_width = self
             .gate_row_counts()
             .map(palette_row_width)
             .fold(0.0, f32::max);
         PaletteLayout {
-            total_width: gates_width.max(self.display_x + palette_row_width(self.display_columns)),
-            total_height: palette_column_height(self.gate_row_counts().count().max(display_rows)),
+            total_width: gates_width.max(self.right_x + palette_row_width(self.right_columns)),
+            total_height: palette_column_height(self.gate_row_counts().count().max(right_rows)),
             separator: Some(egui::Rect::from_min_size(
                 egui::pos2(
-                    self.display_x - PALETTE_SECTION_GAP - PALETTE_SEPARATOR_WIDTH,
+                    self.right_x - PALETTE_SECTION_GAP - PALETTE_SEPARATOR_WIDTH,
                     0.0,
                 ),
-                egui::vec2(PALETTE_SEPARATOR_WIDTH, display_height),
+                egui::vec2(PALETTE_SEPARATOR_WIDTH, right_height),
             )),
             grid: PaletteGrid::Full(self),
         }
@@ -330,15 +334,17 @@ impl FullPaletteGrid {
             ));
         }
         let slot = if index == PALETTE_CIRCUIT_BLOCK_INDEX {
-            PALETTE_DISPLAY_GATES.len()
+            self.right_cells() - 1
+        } else if palette_gate_kind(index) == Some(GateKind::Spacer) {
+            self.right_cells() - 2
         } else {
-            PALETTE_DISPLAY_INDICES
+            PALETTE_RIGHT_INDICES
                 .iter()
                 .position(|candidate| *candidate == index)?
         };
         Some(
-            cell_pos(slot % self.display_columns, slot / self.display_columns)
-                + egui::vec2(self.display_x, 0.0),
+            cell_pos(slot % self.right_columns, slot / self.right_columns)
+                + egui::vec2(self.right_x, 0.0),
         )
     }
 }
@@ -595,6 +601,119 @@ mod tests {
     }
 
     #[test]
+    fn desktop_dimensions_remain_unchanged() {
+        let layout = Palette::Full.layout(DESKTOP);
+        assert_eq!(
+            (
+                layout.total_width,
+                layout.total_height,
+                layout.total_width + 2.0 * PALETTE_PADDING_X,
+                Palette::Full.panel_height(DESKTOP)
+            ),
+            (1010.0, 88.0, 1042.0, 128.0)
+        );
+    }
+
+    #[test]
+    fn laptop_dimensions_use_the_minimum_height_right_grid() {
+        let layout = Palette::Full.layout(LAPTOP);
+        assert_eq!(
+            (
+                layout.total_width,
+                layout.total_height,
+                layout.total_width + 2.0 * PALETTE_PADDING_X,
+                Palette::Full.panel_height(LAPTOP)
+            ),
+            (914.0, 136.0, 946.0, 176.0)
+        );
+    }
+
+    #[test]
+    fn spacer_is_directly_left_of_comment_in_every_right_grid() {
+        let misplaced = sweep()
+            .filter(|&width| {
+                let layout = Palette::Full.layout(width);
+                let spacer = Palette::Full.local_pos(21, &layout).unwrap();
+                let comment = Palette::Full
+                    .local_pos(PALETTE_CIRCUIT_BLOCK_INDEX, &layout)
+                    .unwrap();
+                spacer + egui::vec2(PALETTE_SIZE + PALETTE_GAP, 0.0) != comment
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(misplaced, Vec::<f32>::new());
+    }
+
+    #[test]
+    fn every_right_grid_keeps_displays_first_and_spacer_comment_last() {
+        let positions = [4, 3, 2].map(|columns| {
+            let grid = FullPaletteGrid::new(17, columns);
+            [16, 20, 33, 24, 25, 21, PALETTE_CIRCUIT_BLOCK_INDEX]
+                .map(|index| grid.local_pos(index).unwrap() - egui::vec2(grid.right_x, 0.0))
+        });
+        assert_eq!(
+            positions,
+            [4, 3, 2].map(|columns| {
+                let cells = 7_usize.div_ceil(columns) * columns;
+                [0, 1, 2, 3, 4, cells - 2, cells - 1]
+                    .map(|slot| cell_pos(slot % columns, slot / columns))
+            })
+        );
+    }
+
+    #[test]
+    fn nine_hundred_fifty_six_pixel_canvas_uses_three_by_three_right_grid() {
+        let layout = Palette::Full.layout(940.0);
+        let PaletteGrid::Full(grid) = layout.grid else {
+            panic!("expected full palette");
+        };
+        assert_eq!((grid.right_columns, grid.right_rows()), (3, 3));
+    }
+
+    #[test]
+    fn six_hundred_forty_pixel_canvas_uses_two_by_four_right_grid() {
+        let layout = Palette::Full.layout(624.0);
+        let PaletteGrid::Full(grid) = layout.grid else {
+            panic!("expected full palette");
+        };
+        assert_eq!((grid.right_columns, grid.right_rows()), (2, 4));
+    }
+
+    #[test]
+    fn comment_keeps_stable_id() {
+        assert_eq!(PALETTE_CIRCUIT_BLOCK_INDEX, 38);
+    }
+
+    #[test]
+    fn fitting_layout_has_minimum_height() {
+        let nonminimal = sweep()
+            .filter(|&width| {
+                let available = palette_content_width(width);
+                let chosen = Palette::Full.layout(width);
+                (1..=17).any(|limit| {
+                    [4, 3, 2].into_iter().any(|columns| {
+                        let candidate = FullPaletteGrid::new(limit, columns).layout();
+                        candidate.total_width <= available
+                            && candidate.total_height < chosen.total_height
+                    })
+                })
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(nonminimal, Vec::<f32>::new());
+    }
+
+    #[test]
+    fn equal_height_prefers_first_right_grid_then_widest_left_rows() {
+        let layout = Palette::Full.layout(PHONE_LANDSCAPE);
+        let PaletteGrid::Full(grid) = layout.grid else {
+            panic!("expected full palette");
+        };
+        assert_eq!(
+            (grid.right_columns, grid.row1_columns, grid.row2_columns),
+            (4, 8, 9)
+        );
+    }
+
+    #[test]
     fn desktop_arithmetic_gates_follow_rz() {
         let layout = Palette::Full.layout(DESKTOP);
         let positions = [12, 36, 37].map(|index| Palette::Full.local_pos(index, &layout));
@@ -664,7 +783,7 @@ mod tests {
     }
 
     #[test]
-    fn phone_landscape_stacks_display_section_three_wide() {
+    fn phone_landscape_prefers_four_wide_right_grid() {
         let layout = Palette::Full.layout(PHONE_LANDSCAPE);
 
         assert_eq!(
@@ -785,7 +904,7 @@ mod tests {
     }
 
     #[test]
-    fn desktop_circuit_block_sits_in_the_display_sections_bottom_right_slot() {
+    fn desktop_circuit_block_sits_in_the_right_sections_bottom_right_slot() {
         let layout = Palette::Full.layout(DESKTOP);
 
         assert_eq!(
@@ -793,7 +912,7 @@ mod tests {
             Some(egui::pos2(
                 layout.separator.unwrap().max.x
                     + PALETTE_SECTION_GAP
-                    + 2.0 * (PALETTE_SIZE + PALETTE_GAP),
+                    + 3.0 * (PALETTE_SIZE + PALETTE_GAP),
                 PALETTE_SIZE + PALETTE_ROW_GAP,
             ))
         );

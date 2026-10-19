@@ -5,9 +5,7 @@ use crate::constants::{
     CAROUSEL_DOT_TOP_GAP, CAROUSEL_GATES_PER_PAGE, CAROUSEL_GATE_GAP, CAROUSEL_GATE_SIZE,
     CAROUSEL_PADDING_BOTTOM, CAROUSEL_PADDING_TOP, VERTICAL_SCREEN_INSET,
 };
-use crate::gates::{
-    PALETTE_DISPLAY_INDICES, PALETTE_GATES_ROW1_INDICES, PALETTE_GATES_ROW2_INDICES,
-};
+use crate::gates::{PALETTE_GATES_ROW1_INDICES, PALETTE_GATES_ROW2_INDICES, PALETTE_RIGHT_INDICES};
 
 use super::palette::PALETTE_CIRCUIT_BLOCK_INDEX;
 use super::Palette;
@@ -185,13 +183,14 @@ impl PaletteCarousel {
 impl Palette {
     /// Palette entry index at carousel position `position`. The full
     /// palette follows its desktop reading order: the first gate row, the
-    /// second gate row, then the display blocks and comment block.
+    /// second gate row, then the right section.
+    /// 右側: 表示と、見た目のための指示（注釈や空きマス）
     pub(crate) fn carousel_entry(&self, position: usize) -> Option<usize> {
         match self {
             Self::Full => PALETTE_GATES_ROW1_INDICES
                 .into_iter()
                 .chain(PALETTE_GATES_ROW2_INDICES)
-                .chain(PALETTE_DISPLAY_INDICES)
+                .chain(PALETTE_RIGHT_INDICES)
                 .chain(std::iter::once(PALETTE_CIRCUIT_BLOCK_INDEX))
                 .nth(position),
             Self::Restricted(entries) => (position < entries.len()).then_some(position),
@@ -268,38 +267,38 @@ mod tests {
     }
 
     #[test]
-    fn eighth_page_is_spacer_and_postselections() {
+    fn eighth_page_is_postselections() {
         assert_eq!(
             page_kinds(7),
             vec![
-                GateKind::Spacer,
                 GateKind::PostSelectOff,
                 GateKind::PostSelectOn,
-                GateKind::PostSelectAntiX
+                GateKind::PostSelectAntiX,
+                GateKind::PostSelectX
             ]
         );
     }
 
     #[test]
-    fn ninth_page_ends_postselections_and_starts_displays() {
+    fn ninth_page_is_first_four_displays() {
         assert_eq!(
             page_kinds(8),
             vec![
-                GateKind::PostSelectX,
                 GateKind::BlochDisplay,
                 GateKind::ProbabilityDisplay,
-                GateKind::SampleDisplay
+                GateKind::SampleDisplay,
+                GateKind::AmplitudeDisplay
             ]
         );
     }
 
     #[test]
-    fn tenth_page_ends_with_amplitude_density_and_comment() {
+    fn tenth_page_is_density_spacer_and_comment() {
         assert_eq!(
             (0..CAROUSEL_GATES_PER_PAGE)
                 .map(|slot| Palette::Full.carousel_entry(9 * CAROUSEL_GATES_PER_PAGE + slot))
                 .collect::<Vec<_>>(),
-            vec![Some(24), Some(25), Some(PALETTE_CIRCUIT_BLOCK_INDEX), None]
+            vec![Some(25), Some(21), Some(PALETTE_CIRCUIT_BLOCK_INDEX), None]
         );
     }
 

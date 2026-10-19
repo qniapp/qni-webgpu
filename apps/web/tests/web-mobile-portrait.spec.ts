@@ -147,6 +147,21 @@ test('touch drag of the last carousel item creates a comment block', async ({ pa
   await expect.poll(() => readHashCols(page)).toEqual([['{comment'], ['H'], ['}']])
 })
 
+for (const { name, slot, token } of [
+  { name: 'Density', slot: 0, token: 'Density' },
+  { name: 'Spacer', slot: 1, token: '…' },
+]) {
+  test(`touch drag of ${name} from the last carousel page places it`, async ({ page }) => {
+    const layout = await openPhone(page, EMPTY)
+    const carousel = carouselOf(layout)
+    const lastPage = carousel.pageCount - 1
+    await page.touchscreen.tap(carousel.dots[lastPage].x, carousel.dots[lastPage].y)
+    await waitForValue(() => readPage(page), current => current === lastPage, 'last page was not shown')
+    await touchDrag(page, center(carousel.slots[slot]), layout.cells[0][0])
+    await expect.poll(() => readHashCols(page)).toEqual([[token]])
+  })
+}
+
 test('portrait comment label opens the upright editor and commits text', async ({ page }) => {
   await openPhone(page, `#${encodeURIComponent('{"cols":[["{comment"],["H"],["}"]]}')}`)
   const geometry = await waitForValue(
@@ -276,6 +291,18 @@ test('fourth palette page renders arithmetic after RZ', async ({ page }) => {
   await waitForValue(() => readPage(page), current => current === 3, 'fourth page was not shown')
   await expect(page).toHaveScreenshot('mobile-palette-page4-390x844.png')
 })
+
+for (const { pageIndex, name } of [
+  { pageIndex: 8, name: 'displays' },
+  { pageIndex: 9, name: 'density-spacer-comment' },
+]) {
+  test(`carousel page ${pageIndex + 1} renders ${name}`, async ({ page }) => {
+    const carousel = carouselOf(await openPhone(page, EMPTY))
+    await page.touchscreen.tap(carousel.dots[pageIndex].x, carousel.dots[pageIndex].y)
+    await waitForValue(() => readPage(page), current => current === pageIndex, 'requested page was not shown')
+    await expect(page).toHaveScreenshot(`mobile-palette-page${pageIndex + 1}-390x844.png`)
+  })
+}
 
 test.describe('phone landscape', () => {
   test.use({ viewport: { width: PHONE.height, height: PHONE.width } })
