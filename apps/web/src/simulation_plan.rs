@@ -6,6 +6,7 @@
 
 #[cfg(test)]
 mod arith_tests;
+mod arithmetic_field;
 mod capacity;
 mod column_analysis;
 mod flag_sources;
