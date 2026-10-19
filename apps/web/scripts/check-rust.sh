@@ -19,6 +19,7 @@ cargo fmt --manifest-path "$APP_DIR/Cargo.toml" --check
 cargo clippy --locked --manifest-path "$APP_DIR/Cargo.toml" --target wasm32-unknown-unknown --tests -- -D warnings
 cargo test --locked --manifest-path "$APP_DIR/Cargo.toml" --target wasm32-unknown-unknown --no-run
 RUSTFLAGS="-D warnings" cargo test --locked --manifest-path "$APP_DIR/Cargo.toml" --lib
+cargo test --locked --manifest-path "$APP_DIR/Cargo.toml" --test arithmetic_codegen
 (
   cd "$APP_DIR"
   cargo insta pending-snapshots

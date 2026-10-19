@@ -14,7 +14,9 @@ impl ArithmeticResources {
     pub(super) fn build(device: &wgpu::Device, common: &Common) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("arithmetic"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/arithmetic.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(
+                include_str!(concat!(env!("OUT_DIR"), "/arithmetic.wgsl")).into(),
+            ),
         });
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("arithmetic_layout"),

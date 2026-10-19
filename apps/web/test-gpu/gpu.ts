@@ -30,7 +30,7 @@ export async function openGpu() {
     void adapter
     if (fatal) throw fatal
   }
-  return { device, assertHealthy }
+  return { device, assertHealthy, adapterInfo: adapter.info, selector }
 }
 export async function scoped<T>(device: GPUDevice, work: () => Promise<T>): Promise<T> {
   for (const kind of ['validation', 'out-of-memory', 'internal'] as GPUErrorFilter[])
