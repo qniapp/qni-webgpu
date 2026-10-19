@@ -14,7 +14,7 @@ cargo install --locked kani-verifier --version 0.68.0
 cargo kani setup
 ```
 
-Kani の準備に時間がかかるため、当面は CI に追加しない。検証は次の 1 コマンドで行う。
+ローカルでも CI でも、検証は次の 1 コマンドで行う。
 
 ```bash
 bash apps/web/scripts/verify-kani.sh
@@ -24,6 +24,16 @@ bash apps/web/scripts/verify-kani.sh
 実ソースの 2 ハーネスの成功と、4 件の故障版の期待した失敗を確認した場合だけ終了コードが 0 になる。
 故障版は一時コピーだけを書き換え、対象のハーネスだけを実行する。終了時に一時ファイルを削除する。
 `KANI_LOG_DIR` を指定すると、正常版と故障版のログをそのディレクトリに保存できる。
+
+## CI での実行
+
+[CI ワークフロー](../.github/workflows/ci.yml) の `web-kani` ジョブが、master への push と、master または feat/embed-restart-button 宛てのプルリクエストで同じスクリプトを実行する。
+実ソースの 2 件の証明と 4 件の故障検出を省略せず、失敗・中断した場合は集約ジョブ `web` も成功しない。
+GPU は不要で、他の Web 検証と並列に動作する。ジョブの制限時間は導入処理を含めて 15 分である。
+
+[公式の CI 導入手順](https://model-checking.github.io/kani/install-github-ci.html) に従い、`model-checking/kani-github-action@v1.1` を使う。
+Action に `v0.68.0` タグはなく、v1.0 以降は Action と Kani の版が独立しているため、リリースタグ `v1.1` と `kani-version: '0.68.0'` を指定する。
+`command: bash` と `args: apps/web/scripts/verify-kani.sh` で検証対象をスクリプトに一元化し、スクリプト側でも Kani の版を確認する。
 
 ## 検証する性質と実コードとの対応
 
