@@ -14,16 +14,13 @@ struct ArithmeticParams {
 @group(0) @binding(1) var<storage, read_write> state_out: array<vec2<f32>>;
 @group(0) @binding(2) var<uniform> params: ArithmeticParams;
 
+// GENERATED_ARITHMETIC_INDEX
+
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let i = gid.x;
     if (i >= params.state_count) { return; }
-    var source = i;
-    if ((i & params.control_mask) == params.control_value) {
-        let field = (i >> params.target_shift) & params.target_mask;
-        let previous = (field - params.amount) & params.target_mask;
-        let mask = params.target_mask << params.target_shift;
-        source = (i & ~mask) | (previous << params.target_shift);
-    }
+    let source = source_index(i, params.target_shift, params.target_mask,
+        params.amount, params.control_mask, params.control_value);
     state_out[i] = state_in[source];
 }

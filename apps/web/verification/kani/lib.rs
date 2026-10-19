@@ -93,3 +93,96 @@ mod arithmetic_verification {
         );
     }
 }
+
+#[path = "../../src/gpu/arithmetic_index.rs"]
+mod arithmetic_index;
+
+#[cfg(kani)]
+mod index_verification {
+    use super::arithmetic_index::source_index;
+
+    fn parameters() -> (u32, u32, u32, u32, u32) {
+        let width: u32 = kani::any();
+        kani::assume(width >= 1 && width <= 16);
+        let shift: u32 = kani::any();
+        kani::assume(shift <= 32 - width);
+        let mask = (1u32 << width) - 1;
+        let controls: u32 = kani::any();
+        let value: u32 = kani::any();
+        kani::assume(value & !controls == 0);
+        kani::assume(controls & (mask << shift) == 0);
+        let increment: bool = kani::any();
+        (
+            shift,
+            mask,
+            if increment { 1 } else { u32::MAX },
+            controls,
+            value,
+        )
+    }
+
+    #[kani::proof]
+    fn arithmetic_permutation() {
+        let (shift, mask, amount, controls, value) = parameters();
+        let i: u32 = kani::any();
+        let j: u32 = kani::any();
+        kani::assume(i != j);
+        kani::assert(
+            source_index(i, shift, mask, amount, controls, value)
+                != source_index(j, shift, mask, amount, controls, value),
+            "arithmetic source lookup is injective",
+        );
+    }
+
+    #[kani::proof]
+    fn arithmetic_outside_bits() {
+        let (shift, mask, amount, controls, value) = parameters();
+        let i: u32 = kani::any();
+        let source = source_index(i, shift, mask, amount, controls, value);
+        kani::assert(
+            (source ^ i) & !(mask << shift) == 0,
+            "arithmetic preserves outside bits",
+        );
+    }
+
+    #[kani::proof]
+    fn arithmetic_inverse() {
+        let (shift, mask, amount, controls, value) = parameters();
+        let i: u32 = kani::any();
+        let source = source_index(i, shift, mask, amount, controls, value);
+        kani::assert(
+            source_index(
+                source,
+                shift,
+                mask,
+                0u32.wrapping_sub(amount),
+                controls,
+                value,
+            ) == i,
+            "arithmetic opposite amounts are inverse",
+        );
+    }
+
+    #[kani::proof]
+    fn arithmetic_direction() {
+        let (shift, mask, amount, controls, value) = parameters();
+        let i: u32 = kani::any();
+        kani::assume(i & controls == value);
+        let source = source_index(i, shift, mask, amount, controls, value);
+        kani::assert(
+            ((source >> shift).wrapping_add(amount) & mask) == ((i >> shift) & mask),
+            "arithmetic source plus amount equals destination field",
+        );
+    }
+
+    #[kani::proof]
+    fn arithmetic_disabled_controls() {
+        let (shift, mask, amount, controls, value) = parameters();
+        let i: u32 = kani::any();
+        kani::assume(i & controls != value);
+        kani::assert(
+            source_index(i, shift, mask, amount, controls, value) == i,
+            "arithmetic disabled controls preserve index",
+        );
+    }
+}

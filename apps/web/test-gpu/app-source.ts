@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { arithmeticShaderPath } from '../scripts/arithmetic-shader-path'
 import { bindingNames, bindingTypes, constants, fingerprints, kernels, type Kernel } from './kernels'
 const src = join(__dirname, '../src')
 const stripComments = (code: string) => code.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')
@@ -8,7 +9,7 @@ const drift = (message: string): never => {
   throw Error(`host contract drift: ${message}`)
 }
 export function wgsl(kernel: Kernel) {
-  const path = join(src, 'gpu/shaders', `${kernel}.wgsl`)
+  const path = kernel === 'arithmetic' ? arithmeticShaderPath() : join(src, 'gpu/shaders', `${kernel}.wgsl`)
   return { path, code: readFileSync(path, 'utf8') }
 }
 type Field = { name: string; offset: number; words: number; type: string }
