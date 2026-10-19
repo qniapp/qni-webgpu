@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 
+use super::arithmetic_field::ArithmeticField;
 use super::{FlagSource, FlagSources, PhaseGroupKey, SimulationColumnAnalysis, SimulationOp};
 use crate::app::{GateId, PlacedGate};
 use crate::gates::{
@@ -283,27 +284,25 @@ pub(crate) fn linearize_ops(
         // serialization, including controls hidden inside another span.
         register_gates.sort_by_key(|a| (a.wire, a.id));
         for gate in &register_gates {
-            let gate_controls = register_external_controls(gate, qubits, controls);
             if matches!(gate.kind, GateKind::Increment | GateKind::Decrement) {
                 let span = gate
                     .span
                     .clamped_for(gate.kind, n - gate.wire.as_usize())
                     .get();
+                let field = ArithmeticField::new(gate.wire.as_usize() as u32, span as u32);
+                let gate_controls = field.external_controls(controls);
                 ops.push(SimulationOp::Arithmetic(crate::gpu::ArithmeticParams {
                     state_count,
-                    target_shift: gate.wire.as_usize() as u32,
-                    target_mask: (1u32 << span) - 1,
-                    amount: if gate.kind == GateKind::Increment {
-                        1
-                    } else {
-                        u32::MAX
-                    },
+                    target_shift: field.shift(),
+                    target_mask: field.mask(),
+                    amount: ArithmeticField::amount(gate.kind == GateKind::Increment),
                     control_mask: gate_controls.mask(),
                     control_value: gate_controls.value(),
                     _pad: [0; 2],
                 }));
                 continue;
             }
+            let gate_controls = register_external_controls(gate, qubits, controls);
             let dagger = gate.kind == GateKind::QftDaggerGate;
             ops.extend(linearize_qft(
                 gate,

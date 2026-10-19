@@ -1,5 +1,6 @@
 // Out-of-place inverse lookup for a modular basis permutation.
 // Controls must be external to the target field (enforced by the plan).
+// main の変更時は apps/web/verification/kani/lib.rs の転記と apps/web/scripts/verify-kani.sh を更新する。
 struct ArithmeticParams {
     state_count: u32,
     target_shift: u32,
