@@ -44,7 +44,7 @@ impl QniApp {
 
         let palette_origin = rect.min + egui::vec2(palette_start_x, PALETTE_ROW_Y);
         if let Some(separator) = layout.separator {
-            // section separator between operation gates and displays.
+            // 右側: 表示と、見た目のための指示（注釈や空きマス）
             painter.rect_filled(
                 separator.translate(palette_origin.to_vec2()),
                 egui::CornerRadius::ZERO,
