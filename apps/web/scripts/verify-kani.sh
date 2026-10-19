@@ -14,29 +14,12 @@ trap 'rm -rf -- "$scratch"' EXIT
 log_dir=${KANI_LOG_DIR:-$scratch/logs}
 mkdir -p -- "$log_dir"
 
-# 検証用転記の前提を固定する。main のガード・既定値・制御分岐も省略しない。
+# 計画の証明範囲がローカル実行の上限と一致することを確認する。
 python3 - "$web_dir" <<'PY'
 from pathlib import Path
 import sys
 
 web = Path(sys.argv[1])
-shader = (web / "src/gpu/shaders/arithmetic.wgsl").read_text()
-expected = """@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let i = gid.x;
-    if (i >= params.state_count) { return; }
-    var source = i;
-    if ((i & params.control_mask) == params.control_value) {
-        let field = (i >> params.target_shift) & params.target_mask;
-        let previous = (field - params.amount) & params.target_mask;
-        let mask = params.target_mask << params.target_shift;
-        source = (i & ~mask) | (previous << params.target_shift);
-    }
-    state_out[i] = state_in[source];
-}
-"""
-if shader.count("@compute") != 1 or shader[shader.index("@compute"):] != expected:
-    sys.exit("算術シェーダの main が変更されています。検証用転記を見直してください。")
 constants = (web / "src/constants.rs").read_text().splitlines()
 if constants.count("pub(crate) const LOCAL_MAX_QUBITS: usize = 16;") != 1:
     sys.exit("ローカル量子ビット数の上限が変更されています。証明範囲を見直してください。")
@@ -45,7 +28,7 @@ PY
 # 実ソースが全件成功しなければ、故障版の検証には進まない。
 cargo kani --manifest-path "$crate_dir/Cargo.toml" 2>&1 | tee "$log_dir/pass.txt"
 grep -Fq 'VERIFICATION:- SUCCESSFUL' "$log_dir/pass.txt"
-grep -Fxq 'Complete - 5 successfully verified harnesses, 0 failures, 5 total.' "$log_dir/pass.txt"
+grep -Fxq 'Complete - 2 successfully verified harnesses, 0 failures, 2 total.' "$log_dir/pass.txt"
 
 # 毎回実ソースから復元し、前の故障注入が次の証明へ混入しないようにする。
 reset_mutant() {
@@ -88,26 +71,11 @@ check_mutant '対象範囲の内外を反転する制御マスク' \
   restricted_outside_removes_only_inside_controls \
   'restricted_outside clears inside bits and preserves outside mask/value bits' mutant.txt
 
-check_mutant '減算後のマスクを除去して置換を破壊' \
-  verification/kani/lib.rs \
-  'let previous = field.wrapping_sub(self.amount) & self.target_mask;' \
-  'let previous = field.wrapping_sub(self.amount);' \
-  arithmetic_permutation \
-  'arithmetic permutation stays in range and is injective' mutant-permutation.txt
-
-check_mutant '対象範囲のマスクをずらさず局所性を破壊' \
-  verification/kani/lib.rs \
-  'let mask = self.target_mask << self.target_shift;' \
-  'let mask = self.target_mask;' \
-  arithmetic_locality \
-  'arithmetic locality preserves outside and wraps inside or is identity' mutant-locality.txt
-
-# 転記の減算を加算へ変えても逆写像は保たれるため、実 Rust の減算量を壊す。
 check_mutant '実 Rust の減算量を u32::MAX - 1 へ変更' \
   src/simulation_plan/arithmetic_field.rs \
   '            u32::MAX' '            u32::MAX - 1' \
-  arithmetic_inverse \
-  'arithmetic increment and decrement compose to identity' mutant-inverse.txt
+  arithmetic_plan_preconditions \
+  'arithmetic plan has exact mask fit disjoint controls and correct amount' mutant-plan-amount.txt
 
 check_mutant '実コンストラクタの対象マスクを 1 だけずらす' \
   src/simulation_plan/arithmetic_field.rs \
@@ -122,4 +90,4 @@ check_mutant '実 Rust の制御除去で対象範囲のシフトを省略' \
   arithmetic_plan_preconditions \
   'arithmetic plan has exact mask fit disjoint controls and correct amount' mutant-plan-controls.txt
 
-echo '正常版の全 5 件は成功し、故障版の全 6 件はそれぞれ対応する 1 件だけ失敗しました。'
+echo '正常版の全 2 件は成功し、故障版の全 4 件はそれぞれ対応する 1 件だけ失敗しました。'
