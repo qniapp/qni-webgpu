@@ -173,6 +173,23 @@ test('GPU mode Sample shows unlit grey tiles before Qiskit results', async ({ pa
   expect(pixelRgbDistance(pixel.tile, SAMPLE_UNLIT_FILL)).toBeLessThan(8)
 })
 
+// At the default 1000px width the state panel covers the lower Sample8 tiles.
+test.describe('GPU mode Sample8 at 1280x800', () => {
+  test.use({ viewport: { width: 1280, height: 800 } })
+
+  test('GPU mode Sample8 shows an unlit grey bottom tile before Qiskit results', async ({ page }) => {
+    await page.goto(`/#${circuitHash([['H', 'H', 'H', 'H', 'H', 'H', 'H', 'H'], ['Sample8']])}`)
+    await waitForStartupReady(page, { waitForStateVector: true })
+    await switchToGpuMode(page)
+
+    const pixel = await sampleCanvasPixels(page, page.locator('#egui-canvas'), [
+      { name: 'tile', x: amplitudeFirstCellCenterX(1), y: await getCircuitOriginY(page) + 7 * UI_CONSTANTS.LINE_GAP },
+    ])
+
+    expect(pixelRgbDistance(pixel.tile, SAMPLE_UNLIT_FILL)).toBeLessThan(8)
+  })
+})
+
 test('GPU mode Sample keeps the gap between tiles transparent', async ({ page }) => {
   await page.goto(`/#${circuitHash([['H', 'H'], ['Sample2']])}`)
   await waitForStartupReady(page, { waitForStateVector: true })

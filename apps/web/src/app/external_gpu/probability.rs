@@ -242,6 +242,15 @@ mod tests {
     }
 
     #[test]
+    fn serializes_sample8_request_from_url() {
+        let gates = crate::url_circuit::parse_circuit_json(r#"{"cols":[["Sample8"]]}"#).gates;
+        assert_eq!(
+            probability_requests_json(&requests(&gates, qubit_count(8))),
+            r#"[{"gate_id":1,"column":0,"span":8,"base_bit":0,"control_mask":0,"control_value":0}]"#
+        );
+    }
+
+    #[test]
     fn serializes_probability_output_request() {
         let requests = requests(
             &[PlacedGate::new(

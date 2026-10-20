@@ -1,7 +1,7 @@
 //! Circuit JSON encoder (`PlacedGate` → `{"cols":[...]}`).
 
 use crate::app::{CircuitBlocks, PlacedGate};
-use crate::gates::{GateKind, ParametricAngle};
+use crate::gates::{GateKind, ParametricAngle, SAMPLE_MAX_SPAN};
 use crate::qubit_count::QubitCount;
 
 use super::EMPTY_CIRCUIT_JSON;
@@ -146,7 +146,7 @@ fn gate_token(kind: GateKind, span: usize, angle: Option<&ParametricAngle>) -> O
         GateKind::Increment | GateKind::Decrement | GateKind::AmplitudeDisplay => {
             format!("{}{}", spec.url_token, span.clamp(1, 16))
         }
-        GateKind::SampleDisplay => format!("{}{}", spec.url_token, span.clamp(1, 3)),
+        GateKind::SampleDisplay => format!("{}{}", spec.url_token, span.clamp(1, SAMPLE_MAX_SPAN)),
         GateKind::DensityMatrixDisplay => {
             let span = span.clamp(1, 8);
             if span == 1 {

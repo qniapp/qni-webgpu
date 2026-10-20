@@ -363,7 +363,7 @@ impl GateKind {
                 name: "Sample Display",
                 paragraphs: &[
                     "Shows one sampled bit string without changing or collapsing the state.",
-                    "Use controls to see conditional samples. Resize to cover one to three wires.",
+                    "Use controls to see conditional samples. Resize to cover one to eight wires.",
                     "Available in local WebGPU mode only; the external Qiskit API does not support sampling displays.",
                 ],
                 transitions: &[],

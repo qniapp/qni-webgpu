@@ -31,7 +31,7 @@ const PROBABILITY_RENDER_MODE_SAMPLE: u32 = 0u;
 const PROBABILITY_RENDER_MODE_PLACEHOLDER: u32 = 1u;
 const SAMPLE_RENDER_MODE: u32 = 2u;
 const SAMPLE_PREVIEW_MODE: u32 = 3u;
-const SAMPLE_MAX_SPAN: u32 = 3u;
+const SAMPLE_MAX_SPAN: u32 = 8u;
 const SAMPLE_INVALID: u32 = 0xFFFFFFFFu;
 const SAMPLE_WIRE_PITCH: f32 = 56.0;
 const SAMPLE_GLOW_PAD: f32 = 8.0;
@@ -70,6 +70,7 @@ struct VsOut {
   @location(5) @interpolate(flat) render_mode: u32,
   @location(6) @interpolate(flat) rect_min: vec2<f32>,
   @location(7) @interpolate(flat) seed: u32,
+  @location(8) @interpolate(flat) sample_outcome: u32,
 };
 
 @vertex
@@ -91,6 +92,12 @@ fn vs_main(input: VsIn) -> VsOut {
   out.render_mode = input.render_mode;
   out.rect_min = input.rect_min;
   out.seed = input.seed;
+  // Sampling scans all 2^span outcomes, so do it once per vertex rather than
+  // once per fragment. The preview state shows every tile unlit.
+  out.sample_outcome = SAMPLE_INVALID;
+  if (input.render_mode == SAMPLE_RENDER_MODE) {
+    out.sample_outcome = sampled_outcome(input.slot, input.span, input.seed);
+  }
   return out;
 }
 
@@ -310,10 +317,7 @@ fn sample_layer(base: vec4<f32>, top: vec4<f32>, alpha: f32) -> vec4<f32> {
 // an unlit tile is flat grey. The preview state and an unsampleable state show
 // every tile unlit.
 fn sample_color(input: VsOut, local_y: f32) -> vec4<f32> {
-  var outcome = SAMPLE_INVALID;
-  if (input.render_mode != SAMPLE_PREVIEW_MODE) {
-    outcome = sampled_outcome(input.slot, input.span, input.seed);
-  }
+  let outcome = input.sample_outcome;
   let half_tile = sample_half_tile(input);
   let x = input.local.x - input.rect_size.x * 0.5;
 

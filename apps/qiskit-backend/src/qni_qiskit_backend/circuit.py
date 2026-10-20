@@ -12,7 +12,8 @@ EMPTY_TOKENS = {None, 1, "1", ""}
 AMPLITUDE_DISPLAY_RE = re.compile(r"^Amps(?:[1-9]|1[0-6])$")
 PROBABILITY_DISPLAY_RE = re.compile(r"^Probability(?:[1-9]|1[0-6])?$")
 DENSITY_DISPLAY_RE = re.compile(r"^Density(?:[1-8])?$")
-SAMPLE_DISPLAY_RE = re.compile(r"^Sample[1-3]$")
+SAMPLE_DISPLAY_MAX_SPAN = 8
+SAMPLE_DISPLAY_RE = re.compile(r"^Sample([1-9][0-9]?)$")
 DISPLAY_TOKENS = {"Bloch"}
 POSTSELECTION_TOKENS = {"|0⟩⟨0|", "|1⟩⟨1|", "|+⟩⟨+|", "|-⟩⟨-|"}
 
@@ -444,13 +445,18 @@ def group_same_angle_phases(
     return folded
 
 
+def is_sample_display(token: str) -> bool:
+    match = SAMPLE_DISPLAY_RE.fullmatch(token)
+    return match is not None and int(match.group(1)) <= SAMPLE_DISPLAY_MAX_SPAN
+
+
 def is_readonly_display_token(token: str) -> bool:
     return (
         token in DISPLAY_TOKENS
         or bool(AMPLITUDE_DISPLAY_RE.fullmatch(token))
         or bool(PROBABILITY_DISPLAY_RE.fullmatch(token))
         or bool(DENSITY_DISPLAY_RE.fullmatch(token))
-        or bool(SAMPLE_DISPLAY_RE.fullmatch(token))
+        or is_sample_display(token)
     )
 
 
