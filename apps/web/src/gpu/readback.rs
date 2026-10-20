@@ -561,8 +561,11 @@ pub(crate) async fn read_density_matrix_cell_impl(
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 pub async fn read_sample_display_outcome(gate_id: u32, span: u32) -> Result<u32, JsValue> {
-    if !(1..=3).contains(&span) {
-        return Err(JsValue::from_str("Sample span must be 1..3"));
+    use crate::gates::SAMPLE_MAX_SPAN;
+    if !(1..=SAMPLE_MAX_SPAN).contains(&(span as usize)) {
+        return Err(JsValue::from_str(&format!(
+            "Sample span must be 1..{SAMPLE_MAX_SPAN}"
+        )));
     }
     if !SAMPLE_DISPLAY_SPANS.with(|cell| cell.borrow().contains(&(gate_id, span))) {
         return Err(JsValue::from_str(

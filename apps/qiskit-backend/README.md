@@ -16,7 +16,7 @@ All runners return bounded histogram output and optional Amplitude / Bloch / Pro
 
 ## 対応ゲート
 
-単一量子ビットゲート、制御・反制御、パリティ制御 (`zpar` / `xpar`)、書き込み、Swap、QFT / QFT†、インクリメント・デクリメント (`inc1`〜`inc16` / `dec1`〜`dec16`)、測定、X 軸検出器・Y 軸検出器、Z Detect-Control-Reset、事後選択、測定変数・条件付きゲートに対応する。安全に変換できない制御付き書き込みなどの制限は引き続き適用する。サンプル表示ブロック (`Sample1` / `Sample2` / `Sample3`) は状態を変えず、確率表示と同じ条件付き周辺確率を `probability` で返す。Web 側の共通 GPU シェーダがブロックの ID を種として 1 回抽出するため、バックエンドで試行ごとの標本は生成しない。測定・検出器・条件分岐後の確率は試行平均であり、WebGPU の単一分岐とは異なり得る。
+単一量子ビットゲート、制御・反制御、パリティ制御 (`zpar` / `xpar`)、書き込み、Swap、QFT / QFT†、インクリメント・デクリメント (`inc1`〜`inc16` / `dec1`〜`dec16`)、測定、X 軸検出器・Y 軸検出器、Z Detect-Control-Reset、事後選択、測定変数・条件付きゲートに対応する。安全に変換できない制御付き書き込みなどの制限は引き続き適用する。サンプル表示ブロック (`Sample1`〜`Sample8`) は状態を変えず、確率表示と同じ条件付き周辺確率を `probability` で返す。Web 側の共通 GPU シェーダがブロックの ID を種として 1 回抽出するため、バックエンドで試行ごとの標本は生成しない。測定・検出器・条件分岐後の確率は試行平均であり、WebGPU の単一分岐とは異なり得る。
 
 パリティ制御は `xpar` への H と、ほかのパリティ量子ビットから一番上の集約先への CX で集約する。集約先を通常制御と組み合わせ、表示値の保存後に逆変換するため、パリティ制御用の補助量子ビットは不要である。列内の処理順序や重なりの扱いは[パリティ制御の仕様](../../docs/sample-parity.md#外部-gpu-実行-qiskit)、対応範囲は[外部 GPU API 互換方針](../../docs/implementation/external-gpu-api-compatibility.md#ゲート対応)を参照する。
 
