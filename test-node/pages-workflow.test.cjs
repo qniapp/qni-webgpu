@@ -19,7 +19,7 @@ const contracts = [
   ['builds the standalone release at its repository subpath from the app directory', /trunk build --release --public-url \/qni-webgpu\/\n\s+working-directory: apps\/web/],
   ['enables the local-only Pages build', /TRUNK_BUILD_FEATURES=pages trunk build --release --public-url \/qni-webgpu\//],
   ['configures Pages', /uses: actions\/configure-pages@v6/],
-  ['uploads the standalone dist', /uses: actions\/upload-pages-artifact@v4\n\s+with:\n\s+path: apps\/web\/dist/],
+  ['uploads the standalone dist', /uses: actions\/upload-pages-artifact@v5\n\s+with:\n\s+path: apps\/web\/dist/],
   ['waits for build before deploying', /\n  deploy:\n\s+needs: build/],
   ['exposes the github-pages environment URL', /environment:\n\s+name: github-pages\n\s+url: \$\{\{ steps\.deployment\.outputs\.page_url \}\}/],
   ['deploys the Pages artifact', /id: deployment\n\s+uses: actions\/deploy-pages@v5/],
