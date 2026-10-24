@@ -310,6 +310,10 @@ const GATE_SPECS: [GateSpec; 38] = [
     },
 ];
 
+/// Widest Sample display (`Sample1`..`Sample8`). The probability render shader
+/// and the Qiskit backend declare the same limit; tests below keep them in sync.
+pub(crate) const SAMPLE_MAX_SPAN: usize = 8;
+
 pub(crate) const PALETTE_GATES_ROW1: [GateKind; 15] = [
     GateKind::H,
     GateKind::X,
@@ -440,7 +444,7 @@ impl GateKind {
             | GateKind::Increment
             | GateKind::Decrement => qubit_capacity.min(16),
             GateKind::DensityMatrixDisplay => qubit_capacity.min(8),
-            GateKind::SampleDisplay => qubit_capacity.min(3),
+            GateKind::SampleDisplay => qubit_capacity.min(SAMPLE_MAX_SPAN),
             _ => qubit_capacity,
         }
         .max(1)
@@ -515,8 +519,23 @@ mod tests {
     }
 
     #[test]
-    fn sample_span_is_limited_to_three_wires() {
-        assert_eq!(GateKind::SampleDisplay.max_resizable_span(16), 3);
+    fn sample_span_is_limited_to_eight_wires() {
+        assert_eq!(GateKind::SampleDisplay.max_resizable_span(16), 8);
+    }
+
+    #[test]
+    fn sample_max_span_matches_shader() {
+        let declaration = format!("const SAMPLE_MAX_SPAN: u32 = {SAMPLE_MAX_SPAN}u;");
+        assert!(include_str!("gpu/shaders/probability_render.wgsl").contains(&declaration));
+    }
+
+    #[test]
+    fn sample_max_span_matches_qiskit_backend() {
+        let declaration = format!("SAMPLE_DISPLAY_MAX_SPAN = {SAMPLE_MAX_SPAN}\n");
+        assert!(
+            include_str!("../../qiskit-backend/src/qni_qiskit_backend/circuit.py")
+                .contains(&declaration)
+        );
     }
 
     #[test]

@@ -28,7 +28,7 @@ const contracts = [
   ['frozen dependencies', /pnpm install --frozen-lockfile\n\s+working-directory: apps\/web/],
   ['build module', /node apps\/web\/scripts\/embed-release.mjs build --output "\$STAGING" --source-commit "\$GITHUB_SHA"/],
   ['draft creation targets full SHA', /gh api --method POST .*\/releases[\s\S]*?-f target_commitish="\$GITHUB_SHA"/],
-  ['provenance for every staged file', /uses: actions\/attest-build-provenance@v3\n\s+with:\n\s+subject-path: \$\{\{ env.STAGING \}\}\/\*/],
+  ['provenance for every staged file', /uses: actions\/attest-build-provenance@v4\n\s+with:\n\s+subject-path: \$\{\{ env.STAGING \}\}\/\*/],
   ['publishes as prerelease', /gh api --method PATCH .*\/releases\/\$RELEASE_ID" -F draft=false -F prerelease=true/],
   ['no destructive operations or pre-created tags', /^(?![\s\S]*(?:--clobber|gh release delete|gh api[^\n]*DELETE|git (?:tag|push)|cleanup))[\s\S]*$/],
   ['notes source link', /https:\/\/github.com\/\$\{GITHUB_REPOSITORY\}\/commit\/\$\{GITHUB_SHA\}/],
@@ -40,7 +40,7 @@ for (const [name, pattern] of contracts) {
 
 test('embed release orders guard, build, attestation, draft, upload, verification, publish', () => {
   const source = workflow()
-  const markers = ['- name: Check tag and release absence', '- name: Build release', 'actions/attest-build-provenance@v3', 'gh api --method POST', 'https://uploads.github.com/', '- name: Verify uploaded assets', 'gh api --method PATCH']
+  const markers = ['- name: Check tag and release absence', '- name: Build release', 'actions/attest-build-provenance@v4', 'gh api --method POST', 'https://uploads.github.com/', '- name: Verify uploaded assets', 'gh api --method PATCH']
   const positions = markers.map(marker => source.indexOf(marker))
   assert.equal(positions.every((position, index) => position >= 0 && (index === 0 || position > positions[index - 1])), true)
 })

@@ -77,4 +77,28 @@ test('dense Probability rendering avoids fragment-row scans', async () => {
   assert.equal(/var row = row_lo;[\s\S]*?row = row \+ 1u;/.test(renderShader), false)
 })
 
+const shaderFunction = (shader: string, name: string): string => {
+  const start = shader.indexOf(`fn ${name}(`)
+  if (start < 0) throw new Error(`missing WGSL function ${name}`)
+  return shader.slice(start, shader.indexOf('\n}\n', start))
+}
+
+test('Sample draws its bit string once per vertex', async () => {
+  const renderShader = await readRenderShader()
+
+  assert.match(shaderFunction(renderShader, 'vs_main'), /out\.sample_outcome = sampled_outcome\(input\.slot, input\.span, input\.seed\)/)
+})
+
+test('Sample tile fragments do not rescan the outcome distribution', async () => {
+  const renderShader = await readRenderShader()
+
+  assert.equal(shaderFunction(renderShader, 'sample_color').includes('sampled_outcome('), false)
+})
+
+test('Probability render storage is visible to the vertex stage for Sample', async () => {
+  const resources = await fs.readFile(resourcesPath, 'utf8')
+
+  assert.match(resources, /binding: 0,\s*visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,\s*ty: wgpu::BindingType::Buffer \{\s*ty: wgpu::BufferBindingType::Storage \{ read_only: true \}/)
+})
+
 export {}

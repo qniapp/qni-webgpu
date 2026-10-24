@@ -2,7 +2,7 @@
 
 use crate::app::{CircuitBlocks, CircuitColumnIndex, GateId, GateIdAllocator, PlacedGate};
 use crate::gates::GateSpan;
-use crate::gates::{GateFlag, GateKind, ParametricAngle};
+use crate::gates::{GateFlag, GateKind, ParametricAngle, SAMPLE_MAX_SPAN};
 use crate::layout::gate_width_cols;
 
 use super::parser::{parse_circuit_document, CircuitDocument};
@@ -438,7 +438,7 @@ fn base_token_to_gate(token: &str) -> Option<(GateKind, usize, Option<Parametric
     }
     if let Some(rest) = token.strip_prefix("Sample") {
         let span: usize = rest.parse().ok()?;
-        if !(1..=3).contains(&span) {
+        if !(1..=SAMPLE_MAX_SPAN).contains(&span) {
             return None;
         }
         return Some((GateKind::SampleDisplay, span, None));
@@ -731,11 +731,26 @@ mod tests {
     }
 
     #[test]
-    fn sample_spans_outside_one_to_three_are_rejected() {
-        assert!(
-            parse_circuit_json(r#"{"cols":[["Sample0"],["Sample4"],["Sample"]]}"#)
-                .gates
-                .is_empty()
+    fn sample_spans_outside_one_to_eight_are_rejected() {
+        assert!(parse_circuit_json(
+            r#"{"cols":[["Sample0"],["Sample9"],["Sample16"],["Sample"]]}"#
+        )
+        .gates
+        .is_empty());
+    }
+
+    #[test]
+    fn sample_span_eight_round_trips() {
+        let json = r#"{"cols":[["Sample4"],["Sample8"]]}"#;
+        let circuit = parse_circuit_json(json);
+        assert_eq!(
+            crate::url_circuit::circuit_to_json(
+                &circuit.gates,
+                &circuit.blocks,
+                "",
+                qubit_count(8)
+            ),
+            json
         );
     }
 

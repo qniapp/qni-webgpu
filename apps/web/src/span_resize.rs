@@ -482,17 +482,35 @@ mod tests {
     }
 
     #[test]
-    fn sample_span_three_bottom_handle_cannot_grow() {
-        let gate = placed_gate(1, GateKind::SampleDisplay, 0, 3);
+    fn sample_span_eight_bottom_handle_cannot_grow() {
+        let gate = placed_gate(1, GateKind::SampleDisplay, 0, 8);
 
-        assert!(!can_grow_from_bottom(&gate, std::slice::from_ref(&gate), 5));
+        assert!(!can_grow_from_bottom(
+            &gate,
+            std::slice::from_ref(&gate),
+            10
+        ));
     }
 
     #[test]
-    fn sample_span_three_top_handle_cannot_grow() {
-        let gate = placed_gate(1, GateKind::SampleDisplay, 2, 3);
+    fn sample_span_eight_top_handle_cannot_grow() {
+        let gate = placed_gate(1, GateKind::SampleDisplay, 2, 8);
 
-        assert!(!can_grow_from_top(&gate, std::slice::from_ref(&gate), 5));
+        assert!(!can_grow_from_top(&gate, std::slice::from_ref(&gate), 10));
+    }
+
+    #[test]
+    fn sample_span_seven_bottom_handle_can_grow() {
+        let gate = placed_gate(1, GateKind::SampleDisplay, 0, 7);
+
+        assert!(can_grow_from_bottom(&gate, std::slice::from_ref(&gate), 10));
+    }
+
+    #[test]
+    fn sample_span_seven_top_handle_can_grow() {
+        let gate = placed_gate(1, GateKind::SampleDisplay, 2, 7);
+
+        assert!(can_grow_from_top(&gate, std::slice::from_ref(&gate), 10));
     }
 
     #[test]

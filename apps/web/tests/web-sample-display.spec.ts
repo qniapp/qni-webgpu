@@ -82,6 +82,63 @@ for (const span of [1, 2, 3]) {
   })
 }
 
+const SAMPLE8_BITS = [1, 0, 1, 0, 1, 1, 0, 1]
+// One control fanning out to seven targets keeps Sample8 in column 2.
+const GHZ8_SAMPLE8: Column[] = [['H'], ['•', 'X', 'X', 'X', 'X', 'X', 'X', 'X'], ['Sample8']]
+
+for (const outcome of [0, 0b10110101, 255]) {
+  test(`Sample8 samples basis state ${outcome}`, async ({ page }) => {
+    await openCircuit(page, [
+      Array.from({ length: 8 }, (_, wire) => `|${(outcome >> wire) & 1}>`),
+      ['Sample8'],
+    ])
+    expect(await sampleOutcome(page, 8)).toBe(outcome)
+  })
+}
+
+test('Sample8 on a GHZ state returns all zeros or all ones', async ({ page }) => {
+  await openCircuit(page, GHZ8_SAMPLE8)
+  expect([0, 255]).toContain(await sampleOutcome(page, 8))
+})
+
+// At the default 1000px width the state panel covers the lower Sample8 tiles.
+test.describe('Sample8 at 1280x800', () => {
+  test.use({ viewport: { width: 1280, height: 800 } })
+
+  test('Sample8 lights the tiles of on bits', async ({ page }) => {
+    await openCircuit(page, [SAMPLE8_BITS.map((bit) => `|${bit}>`), ['Sample8']])
+    await sampleOutcome(page, 8)
+    const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+    const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
+    const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), SAMPLE8_BITS.map((_, wire) => (
+      { name: `tile${wire}`, x: SAMPLE_X, y: wireY(wire) }
+    )))
+    expect(SAMPLE8_BITS.flatMap((bit, wire) =>
+      pixelRgbDistance(pixels[`tile${wire}`], bit ? LIT_CORE : UNLIT_FILL) < PIXEL_TOLERANCE ? [] : [wire],
+    )).toEqual([])
+  })
+
+  test('Sample8 tiles show the sampled outcome of a GHZ state', async ({ page }) => {
+    await openCircuit(page, GHZ8_SAMPLE8)
+    const outcome = await sampleOutcome(page, 8)
+    const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+    const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
+    const pixels = await sampleCanvasPixels(page, page.locator('#egui-canvas'), SAMPLE8_BITS.map((_, wire) => (
+      { name: `tile${wire}`, x: SAMPLE_X + UI_CONSTANTS.SLOT_SPACING, y: wireY(wire) }
+    )))
+    expect(SAMPLE8_BITS.flatMap((_, wire) =>
+      pixelRgbDistance(pixels[`tile${wire}`], (outcome >> wire) & 1 ? LIT_CORE : UNLIT_FILL) < PIXEL_TOLERANCE ? [] : [wire],
+    )).toEqual([])
+  })
+
+  test('Sample8 visual snapshot', async ({ page }) => {
+    await openCircuit(page, [SAMPLE8_BITS.map((bit) => `|${bit}>`), ['Sample8']])
+    await page.mouse.move(1200, 780)
+    await sampleOutcome(page, 8)
+    await expect(page.locator('#egui-canvas')).toHaveScreenshot('sample8-10110101.png')
+  })
+})
+
 test('Sample3 leaves the gaps between lit and unlit tiles transparent', async ({ page }) => {
   await openCircuit(page, [['X', 1, 'X'], ['Sample3']])
   await sampleOutcome(page, 3)
@@ -222,13 +279,22 @@ test('Sample top resize handle stretches Sample1 upward to Sample3', async ({ pa
   expect(await colsAfterChange(page, before)).toBe(JSON.stringify([['X', 1, 'X'], ['Sample3']]))
 })
 
-test('Sample resize stops at three wires', async ({ page }) => {
-  await openCircuit(page, [['X', 1, 1, 1, 'X'], ['Sample1']])
+test('Sample bottom resize handle stretches Sample1 to Sample8', async ({ page }) => {
+  await openCircuit(page, [['X', 1, 1, 1, 1, 1, 1, 'X'], ['Sample1']])
   const before = readCols(page)
   const originY = PANEL_MARGIN + await getCircuitOriginY(page)
   const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
-  await dragSpanHandle(page, wireY(0) + UI_CONSTANTS.GATE_SIZE / 2 + 9, 4)
-  expect(await colsAfterChange(page, before)).toBe(JSON.stringify([['X', 1, 1, 1, 'X'], ['Sample3']]))
+  await dragSpanHandle(page, wireY(0) + UI_CONSTANTS.GATE_SIZE / 2 + 9, 7)
+  expect(await colsAfterChange(page, before)).toBe(JSON.stringify([['X', 1, 1, 1, 1, 1, 1, 'X'], ['Sample8']]))
+})
+
+test('Sample resize stops at eight wires', async ({ page }) => {
+  await openCircuit(page, [['X', 1, 1, 1, 1, 1, 1, 1, 1, 'X'], ['Sample1']])
+  const before = readCols(page)
+  const originY = PANEL_MARGIN + await getCircuitOriginY(page)
+  const wireY = (wire: number) => originY + wire * UI_CONSTANTS.LINE_GAP
+  await dragSpanHandle(page, wireY(0) + UI_CONSTANTS.GATE_SIZE / 2 + 9, 9)
+  expect(await colsAfterChange(page, before)).toBe(JSON.stringify([['X', 1, 1, 1, 1, 1, 1, 1, 1, 'X'], ['Sample8']]))
 })
 
 test('Sample resize handles show two pills around the tile column', async ({ page }) => {
@@ -321,8 +387,8 @@ test('Sample readback rejects an out-of-range span', async ({ page }) => {
     const module = window.wasmBindings as unknown as {
       read_sample_display_outcome: (gateId: number, span: number) => Promise<number>
     }
-    return module.read_sample_display_outcome(gateId, 4)
-  }, entry.gateId)).rejects.toThrow('Sample span must be 1..3')
+    return module.read_sample_display_outcome(gateId, 9)
+  }, entry.gateId)).rejects.toThrow('Sample span must be 1..8')
 })
 
 test('Sample readback rejects a span inconsistent with the actual display', async ({ page }) => {
