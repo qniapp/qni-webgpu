@@ -45,8 +45,8 @@ export function gate(state: C[], bit: number, m: C[], mask = 0, value = 0, mode 
     if ((i0 & mask) !== value) continue
     const a = state[i0],
       b = state[i1]
-    if (mode) {
-      const swap = mode === 1 ? mag(b) > mag(a) + 1e-6 : mag(a) > mag(b) + 1e-6
+    if (mode === 2) {
+      const swap = mag(a) > mag(b) + 1e-6
       if (swap) {
         out[i0] = b
         out[i1] = a
@@ -69,13 +69,21 @@ export function rand(seed: number) {
   s = (s ^ (s >>> 16)) >>> 0
   return Math.fround(Math.fround(s) / Math.fround(4294967295))
 }
-export function measure(state: C[], bit: number, seed: number) {
+export function measure(state: C[], bit: number, seed: number, mask = 0, value = 0) {
   let p = 0
-  for (let i = 0; i < state.length; i++) if ((i & (1 << bit)) === 0) p += mag(state[i])
+  for (let i = 0; i < state.length; i++) if (!((i & mask) === value && (i & (1 << bit)) !== 0)) p += mag(state[i])
+  if (state.reduce((sum, a) => sum + mag(a), 0) <= 1e-12)
+    return { aux: [0, rand(seed), -1, 1] }
   const r = rand(seed),
     outcome = +(r > p),
     norm = Math.sqrt(Math.max(outcome ? 1 - p : p, 1e-30))
   return { aux: [p, r, outcome, norm] }
+}
+export function collapse(state: C[], bit: number, aux: number[], mask = 0, value = 0): C[] {
+  return state.map((a, i) => {
+    const click = (i & mask) === value && (i & (1 << bit)) !== 0
+    return click === (aux[2] >= 0.5) ? [a[0] / aux[3], a[1] / aux[3]] : [0, 0]
+  })
 }
 export function insert(rest: number, k: number, base: number, span: number) {
   const lowmask = (1 << base) - 1

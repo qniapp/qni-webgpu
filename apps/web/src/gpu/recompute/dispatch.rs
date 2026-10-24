@@ -15,7 +15,7 @@ pub(super) struct EncodedRecompute {
     pub(super) command_buffer: wgpu::CommandBuffer,
     pub(super) active_state: usize,
     pub(super) bloch_slot_to_gate_id: Vec<u32>,
-    pub(super) measurement_slot_to_gate_id: Vec<u32>,
+    pub(super) measurement_slot_to_gate_id: Vec<Option<u32>>,
     pub(super) postselection_slot_to_gate_id: Vec<u32>,
     pub(super) probability_slot_to_gate_id: Vec<u32>,
     pub(super) amplitude_slot_to_gate_id: Vec<u32>,
@@ -58,8 +58,14 @@ pub(super) fn encode_batched_recompute(
             SimulationOp::CaptureBloch { gate_id, .. } => {
                 state.encode_capture_bloch(&mut encoder, resources, gate_id.as_u32());
             }
-            SimulationOp::MeasureReduceSample { gate_id, .. } => {
-                state.encode_measure_reduce(&mut encoder, resources, gate_id.as_u32());
+            SimulationOp::MeasureReduceSample {
+                gate_id, visible, ..
+            } => {
+                state.encode_measure_reduce(
+                    &mut encoder,
+                    resources,
+                    visible.then_some(gate_id.as_u32()),
+                );
             }
             SimulationOp::MeasureCollapse { .. } => {
                 state.encode_measure_collapse(&mut encoder, resources);
@@ -104,7 +110,7 @@ struct DispatchState {
     amplitude_slot: u64,
     density_slot: u64,
     bloch_slot_to_gate_id: Vec<u32>,
-    measurement_slot_to_gate_id: Vec<u32>,
+    measurement_slot_to_gate_id: Vec<Option<u32>>,
     postselection_slot_to_gate_id: Vec<u32>,
     probability_slot_to_gate_id: Vec<u32>,
     amplitude_slot_to_gate_id: Vec<u32>,
@@ -286,7 +292,7 @@ impl DispatchState {
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         resources: &StateVectorResources,
-        gate_id: u32,
+        gate_id: Option<u32>,
     ) {
         let size = std::mem::size_of::<MeasureReduceParams>() as wgpu::BufferAddress;
         encoder.copy_buffer_to_buffer(

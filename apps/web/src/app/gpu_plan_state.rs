@@ -247,11 +247,14 @@ impl GpuPlanState {
                     self.bloch_slots.insert(*gate_id, *output_slot);
                 }
                 SimulationOp::MeasureReduceSample {
+                    visible,
                     gate_id,
                     output_slot,
                     ..
                 } => {
-                    self.measurement_slots.insert(*gate_id, *output_slot);
+                    if *visible {
+                        self.measurement_slots.insert(*gate_id, *output_slot);
+                    }
                 }
                 SimulationOp::CaptureProbability {
                     gate_id,
@@ -286,6 +289,20 @@ mod tests {
     use crate::gates::ColumnControls;
     use crate::qubit_bit::QubitBit;
     use crate::simulation_plan::SimulationOp;
+
+    #[test]
+    fn internal_reset_does_not_overwrite_original_detector_outcome() {
+        let gates =
+            crate::url_circuit::parse_circuit_json(r#"{"cols":[["ZDetectControlReset"]]}"#).gates;
+        let ops = crate::simulation_plan::linearize_ops(
+            &gates,
+            crate::qubit_count::QubitCount::try_new(1).unwrap(),
+            0,
+        );
+        let mut state = GpuPlanState::default();
+        state.replace_ops(ops, 1, FlagSources::default());
+        assert_eq!(state.measurement_slot(gates[0].id), Some(SlotIndex::new(0)));
+    }
 
     #[test]
     fn callback_retains_plan_after_cpu_marks_it_clean() {

@@ -2,9 +2,9 @@ import type { C } from './reference'
 export type Control = { mask: number; value: number }
 export type Op =
   // `condition`: measurement aux slot that must hold outcome 1 (qni `X<name`).
-  | { kind: 'gate'; bit: number; m: C[]; mode?: 0 | 1 | 2; controls?: Control; condition?: number }
-  | { kind: 'measure'; bit: number; gateId: number; slot: number }
-  | { kind: 'collapse'; bit: number; auxSlot: number }
+  | { kind: 'gate'; bit: number; m: C[]; mode?: 0 | 2; controls?: Control; condition?: number }
+  | { kind: 'measure'; bit: number; gateId: number; slot: number; controls?: Control }
+  | { kind: 'collapse'; bit: number; auxSlot: number; controls?: Control }
   | { kind: 'bloch'; bit: number; slot: number; controls?: Control; expectedStatus?: 0 | -1 }
   | {
       kind: 'probability' | 'amplitude' | 'density'
@@ -101,6 +101,13 @@ export function randomState(qubits: number, seed: number): C[] {
   return state.map(([a, b]) => [Math.fround(a / norm), Math.fround(b / norm)])
 }
 export const gate = (bit: number, m: C[], controls?: Control): Op => ({ kind: 'gate', bit, m, controls })
+// Same three GPU operations emitted by Rust for Write0, including controlled projector.
+export const reset = (bit: number, gateId = 1, slot = 0, controls?: Control): Op[] => [
+  // Match pack.rs hidden-reset RNG stream, preserving ordinary measure seeds.
+  { kind: 'measure', bit, gateId: (gateId ^ 0x80000000) >>> 0, slot, controls },
+  { kind: 'collapse', bit, auxSlot: slot, controls },
+  { kind: 'gate', bit, m: matrices.X, controls, condition: slot },
+]
 export const capture = (
   kind: 'probability' | 'amplitude' | 'density',
   baseBit: number,
@@ -157,7 +164,7 @@ export const cases: RecomputeCase[] = [
   { name: 'multi-workgroup controlled middle', qubits: 12, init: randomState(12, 71),
     ops: [gate(5, matrices.T), gate(9, matrices.H, { mask: 3, value: 1 })] },
   { name: 'write random', qubits: 5, init: randomState(5, 121),
-    ops: [{ kind: 'gate', bit: 2, m: matrices.X, mode: 1 }] },
+    ops: reset(2) },
   ...(['x', 'y', 'z', 'phase'] as const).map((axis) => ({
     name: `R${axis}`,
     qubits: 4,
@@ -190,10 +197,33 @@ export const cases: RecomputeCase[] = [
     name: 'write0',
     qubits: 4,
     init: 'ground',
-    ops: [gate(2, matrices.X), { kind: 'gate', bit: 2, m: matrices.X, mode: 1 }],
+    ops: [gate(2, matrices.X), ...reset(2)],
   },
+  { name: 'write0 H', qubits: 1, init: 'ground', ops: [gate(0, matrices.H), ...reset(0)] },
+  { name: 'write0 tutorial exact complex input', qubits: 1,
+    init: [[-0.38268 / Math.sqrt(1.000000282), 0],
+      [0.7855 / Math.sqrt(1.000000282), -0.48636 / Math.sqrt(1.000000282)]], ops: reset(0) },
+  ...[1, 2].map((seed): RecomputeCase => ({
+    name: `write0 Bell seed${seed}`, qubits: 2,
+    init: [[s, 0], [0, 0], [0, 0], [s, 0]], ops: reset(0, seed),
+  })),
+  ...[1, 2].map((seed): RecomputeCase => ({
+    name: `write0 complex surviving phase ratios seed${seed}`, qubits: 3,
+    init: randomState(3, 121), ops: reset(0, seed),
+  })),
+  { name: 'write0 controlled active', qubits: 2, init: [[0, 0], [0, 0], [0, 0], [0, 1]],
+    ops: reset(0, 1, 0, { mask: 2, value: 2 }) },
+  { name: 'write0 controlled inactive', qubits: 2, init: [[0, 0], [0, 1], [0, 0], [0, 0]],
+    ops: reset(0, 1, 0, { mask: 2, value: 2 }) },
+  ...[1, 2].map((seed): RecomputeCase => ({
+    name: `write0 quantum control seed${seed}`, qubits: 2,
+    init: [[0.5, 0], [0, 0.5], [-0.5, 0], [0, -0.5]],
+    ops: reset(0, seed, 0, { mask: 2, value: 0 }),
+  })),
+  { name: 'write0 zero after impossible postselection', qubits: 2,
+    init: [[0, 0], [0, 0], [0, 0], [0, 0]], ops: reset(0) },
   { name: 'write1', qubits: 4, init: 'ground', ops: [{ kind: 'gate', bit: 1, m: matrices.X, mode: 2 }] },
-  { name: 'write0 no swap', qubits: 1, init: 'ground', ops: [{ kind: 'gate', bit: 0, m: matrices.X, mode: 1 }] },
+  { name: 'write0 no swap', qubits: 1, init: 'ground', ops: reset(0) },
   { name: 'write1 no swap', qubits: 1, init: [[0, 0], [1, 0]],
     ops: [{ kind: 'gate', bit: 0, m: matrices.X, mode: 2 }] },
   ...[1, 5, 6, 10].map((qubits) => ({

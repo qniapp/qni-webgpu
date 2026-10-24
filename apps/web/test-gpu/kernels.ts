@@ -104,7 +104,9 @@ export const constants = {
 } as const
 export const fingerprints: [string, string, number][] = [
   ['gpu/recompute/pack.rs', 'let rest_count = (state_count as u32) >> *span;', 1],
-  ['gpu/recompute/pack.rs', 'seed: gate_id.as_u32() ^ measurement_seed,', 1],
+  ['gpu/recompute/pack.rs', `seed: gate_id.as_u32()
+^ measurement_seed
+^ if *visible { 0 } else { 0x8000_0000 },`, 1],
   ['gpu/recompute/pack.rs', 'let total_qubits = usize::BITS - state_count.leading_zeros() - 1;', 1],
   ['gpu/recompute/pack.rs', 'phase_lock_enabled: u32::from(*span != total_qubits),', 1],
   ['gpu/recompute/dispatch.rs', 'let dispatch_x = outcomes.min(256);', 1],
@@ -125,7 +127,7 @@ std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
   ['gpu/recompute/dispatch.rs', 'pass.dispatch_workgroups(self.dispatch_x, 1, 1);', 2],
   ['gpu/recompute/dispatch.rs', 'let outcomes = 1u32 << span;', 1],
   ['gpu/recompute/dispatch.rs', 'let cells = 1u32 << (span * 2);', 1],
-  ['gates/params.rs', 'pub(crate) const GATE_MODE_WRITE0: u32 = 1;', 1],
+  ['gates/params.rs', 'GateKind::Write0 => panic!("Write0 must be lowered into measurement and conditional X"),', 1],
   ['gates/params.rs', 'pub(crate) const GATE_MODE_WRITE1: u32 = 2;', 1],
   ['gpu/callbacks/probability_display.rs', '&& instance.span >= PROBABILITY_AGGREGATE_MIN_SPAN', 1],
   ['gpu/callbacks/probability_display.rs', '(MAX_PROBABILITY_AGGREGATE_ROWS as u32).div_ceil(64),', 1],

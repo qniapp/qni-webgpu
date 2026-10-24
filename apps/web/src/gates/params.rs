@@ -52,10 +52,9 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
         | GateKind::QftDaggerGate
         | GateKind::Increment
         | GateKind::Decrement => GateMatrix {
-            // Displays, measurement, QFT, and arithmetic are handled by dedicated GPU
-            // orchestration paths instead of this 2x2 matrix helper. Write0 /
-            // Write1 are mode-driven on the GPU. Matrix is unused for these
-            // variants but filled with identity for safety.
+            // Displays, measurement, Write0, QFT, and arithmetic use dedicated
+            // GPU orchestration instead of this matrix helper. Write1 is
+            // mode-driven. Their unused matrices are identity for safety.
             m00: [1.0, 0.0],
             m01: [0.0, 0.0],
             m10: [0.0, 0.0],
@@ -170,9 +169,8 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
 // WGSL compute shader (`STATE_COMPUTE_SHADER` in
 // `gpu/shaders/state_compute.wgsl`). Each placed gate is linearised into one
 // of these so the GPU can apply it via per-pair matrix multiply or, for
-// Write0/Write1, a per-pair conditional swap.
+// Write1, a per-pair conditional swap. Write0 is lowered into measurement + X.
 pub(crate) const GATE_MODE_MATRIX: u32 = 0;
-pub(crate) const GATE_MODE_WRITE0: u32 = 1;
 pub(crate) const GATE_MODE_WRITE1: u32 = 2;
 
 #[repr(C)]
@@ -237,7 +235,7 @@ impl GateParams {
 
 fn gate_mode(kind: GateKind) -> u32 {
     match kind {
-        GateKind::Write0 => GATE_MODE_WRITE0,
+        GateKind::Write0 => panic!("Write0 must be lowered into measurement and conditional X"),
         GateKind::Write1 => GATE_MODE_WRITE1,
         _ => GATE_MODE_MATRIX,
     }

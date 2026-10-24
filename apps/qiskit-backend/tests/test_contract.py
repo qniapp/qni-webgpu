@@ -602,17 +602,27 @@ class ContractTests(unittest.TestCase):
             def x(self, wire):
                 self.ops.append(("x", wire))
 
+            def reset(self, wire):
+                self.ops.append(("reset", wire))
+
         fake = FakeCircuit()
         apply_columns_to_qiskit(fake, [["X"], ["|0>"]], 1)
-        self.assertEqual(fake.ops, [("x", 0), ("x", 0)])
+        self.assertEqual(fake.ops, [("x", 0), ("reset", 0)])
 
-    def test_qiskit_builder_rejects_write0_after_superposition(self):
+    def test_qiskit_builder_resets_write0_after_superposition(self):
         class FakeCircuit:
-            def h(self, _wire):
-                pass
+            def __init__(self):
+                self.ops = []
 
-        with self.assertRaises(CircuitBuildError):
-            apply_columns_to_qiskit(FakeCircuit(), [["H"], ["|0>"]], 1)
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def reset(self, wire):
+                self.ops.append(("reset", wire))
+
+        fake = FakeCircuit()
+        apply_columns_to_qiskit(fake, [["H"], ["|0>"]], 1)
+        self.assertEqual(fake.ops, [("h", 0), ("reset", 0)])
 
     def test_qiskit_builder_applies_write1_to_deterministic_zero(self):
         class FakeCircuit:
@@ -642,19 +652,29 @@ class ContractTests(unittest.TestCase):
             def x(self, wire):
                 self.ops.append(("x", wire))
 
+            def reset(self, wire):
+                self.ops.append(("reset", wire))
+
         fake = FakeCircuit()
         request = parse_run_request({"qubits": 1, "columns": [["X"], ["|0>"]]})
         add_display_saves(fake, request, lambda axis: axis)
-        self.assertEqual(fake.ops, [("x", 0), ("x", 0)])
+        self.assertEqual(fake.ops, [("x", 0), ("reset", 0)])
 
-    def test_qiskit_display_saves_rejects_write0_after_superposition(self):
+    def test_qiskit_display_saves_resets_write0_after_superposition(self):
         class FakeCircuit:
-            def h(self, _wire):
-                pass
+            def __init__(self):
+                self.ops = []
 
+            def h(self, wire):
+                self.ops.append(("h", wire))
+
+            def reset(self, wire):
+                self.ops.append(("reset", wire))
+
+        fake = FakeCircuit()
         request = parse_run_request({"qubits": 1, "columns": [["H"], ["|0>"]]})
-        with self.assertRaises(CircuitBuildError):
-            add_display_saves(FakeCircuit(), request, lambda axis: axis)
+        add_display_saves(fake, request, lambda axis: axis)
+        self.assertEqual(fake.ops, [("h", 0), ("reset", 0)])
 
     def test_qiskit_display_saves_tracks_write1_across_columns(self):
         class FakeCircuit:
@@ -1095,9 +1115,12 @@ class ContractTests(unittest.TestCase):
             def append(self, instruction):
                 self.ops.append(instruction)
 
+            def reset(self, wire):
+                self.ops.append(("reset", wire))
+
         fake = FakeCircuit()
         apply_columns_to_qiskit(fake, [["H", 1], ["•", "Z"], [1, "|0>"]], 2)
-        self.assertEqual(fake.ops, [("h", 0), ("controlled", ("Z", None), [0], [1])])
+        self.assertEqual(fake.ops, [("h", 0), ("controlled", ("Z", None), [0], [1]), ("reset", 1)])
 
     def test_qiskit_builder_applies_active_controlled_write0(self):
         class FakeCircuit:
@@ -1107,12 +1130,12 @@ class ContractTests(unittest.TestCase):
             def x(self, wire):
                 self.ops.append(("x", wire))
 
-            def mcx(self, controls, target):
-                self.ops.append(("mcx", list(controls), target))
+            def reset(self, wire):
+                self.ops.append(("reset", wire))
 
         fake = FakeCircuit()
         apply_columns_to_qiskit(fake, [["|1>", "|1>"], ["•", "|0>"]], 2)
-        self.assertEqual(fake.ops, [("x", 0), ("x", 1), ("mcx", [0], 1)])
+        self.assertEqual(fake.ops, [("x", 0), ("x", 1), ("reset", 1)])
 
     def test_qiskit_builder_keeps_inactive_controlled_write0_as_no_op(self):
         class FakeCircuit:
@@ -1264,6 +1287,9 @@ class ContractTests(unittest.TestCase):
             def mcx(self, controls, target):
                 self.ops.append(("mcx", list(controls), target))
 
+            def reset(self, wire):
+                self.ops.append(("reset", wire))
+
         fake = FakeCircuit()
         request = parse_run_request(
             {"qubits": 3, "columns": [["H", 1, 1], ["•", "Swap", "Swap"], [1, "|0>", "|0>"]]}
@@ -1276,6 +1302,8 @@ class ContractTests(unittest.TestCase):
                 ("mcx", [0, 1], 2),
                 ("mcx", [0, 2], 1),
                 ("mcx", [0, 1], 2),
+                ("reset", 1),
+                ("reset", 2),
             ],
         )
 

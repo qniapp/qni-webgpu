@@ -40,6 +40,8 @@ pub(crate) enum SimulationOp {
         controls: ColumnControls,
     },
     MeasureReduceSample {
+        /// Internal reset samples must not replace a gate’s displayed outcome.
+        visible: bool,
         gate_id: GateId,
         qubit_bit: QubitBit,
         output_slot: SlotIndex<Measurement>,

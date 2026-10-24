@@ -266,12 +266,10 @@ class ZDetectControlResetWebGpuParityTests(unittest.TestCase):
         ])
 
     def test_superposition_decomposition(self):
-        # WebGPU Write0 after a Z sample equals physical reset. Compile that
-        # final primitive locally: backend Write0 rejects an unknown basis.
+        # A Z sample followed by Write0 equals physical reset.
         prefix = [["H"], ["T"]]
         self.assertEqual(snapshot(exact_branches(build(prefix + [[ZDCR, "X"]], 2), 2)),
-                         snapshot(exact_branches(build(prefix + [["•", "X"], ["Measure"]], 2)
-                                                 + [("reset", 0)], 2)))
+                         snapshot(exact_branches(build(prefix + [["•", "X"], ["Measure"], ["|0>"]], 2), 2)))
 
     def test_two_independent_samples(self):
         self.assertEqual([(round(p, 8), history,

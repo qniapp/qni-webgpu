@@ -71,6 +71,7 @@ pub(crate) fn linearize_ops(
                 qubits,
                 &mut measurement_slots,
                 ColumnControls::NONE,
+                true,
             );
         }
         let mut targets: Vec<&PlacedGate> = Vec::new();
@@ -191,6 +192,17 @@ pub(crate) fn linearize_ops(
                     .iter()
                     .fold(controls, |controls, bit| controls.with_control(*bit)),
             };
+            if target.kind == GateKind::Write0 {
+                push_reset(
+                    &mut ops,
+                    target,
+                    qubits,
+                    state_count,
+                    &mut measurement_slots,
+                    controls,
+                );
+                continue;
+            }
             // Parametric gates carry an optional normalized angle. When
             // present we route through the matching `*_params(θ, …)` builder
             // so the matrix carries that angle; when absent we fall back to
@@ -327,6 +339,7 @@ pub(crate) fn linearize_ops(
                 qubits,
                 &mut measurement_slots,
                 measurement_controls,
+                true,
             );
             measurement_slot_by_gate.insert(measurement.id, slot);
         }
@@ -423,15 +436,14 @@ pub(crate) fn linearize_ops(
         }
 
         for detector in &detector_targets {
-            let bit = detector
-                .wire
-                .to_qubit_bit(qubits)
-                .expect("column gates are within the register");
-            ops.push(SimulationOp::ApplyGate(gate_params(
-                GateKind::Write0,
-                bit,
+            push_reset(
+                &mut ops,
+                detector,
+                qubits,
                 state_count,
-            )));
+                &mut measurement_slots,
+                ColumnControls::NONE,
+            );
         }
         ops.extend(
             parity_setup
@@ -463,6 +475,7 @@ fn push_measurement(
     qubits: QubitCount,
     slots: &mut SlotAllocator<Measurement>,
     controls: ColumnControls,
+    visible: bool,
 ) -> SlotIndex<Measurement> {
     let qubit_bit = gate
         .wire
@@ -470,6 +483,7 @@ fn push_measurement(
         .expect("column gates are within the register");
     let slot = slots.allocate();
     ops.push(SimulationOp::MeasureReduceSample {
+        visible,
         gate_id: gate.id,
         qubit_bit,
         output_slot: slot,
@@ -481,6 +495,25 @@ fn push_measurement(
         controls,
     });
     slot
+}
+
+/// A reset samples the controlled target-one projector, then flips only a click.
+fn push_reset(
+    ops: &mut Vec<SimulationOp>,
+    gate: &PlacedGate,
+    qubits: QubitCount,
+    state_count: u32,
+    slots: &mut SlotAllocator<Measurement>,
+    controls: ColumnControls,
+) {
+    let slot = push_measurement(ops, gate, qubits, slots, controls, false);
+    let bit = gate
+        .wire
+        .to_qubit_bit(qubits)
+        .expect("reset within register");
+    ops.push(SimulationOp::ApplyGate(
+        gate_params_controlled(GateKind::X, bit, controls, state_count).conditioned_on(slot),
+    ));
 }
 
 fn push_detector_basis(
@@ -841,6 +874,7 @@ mod tests {
         )));
         for (id, bit, slot, controls) in [(3, 2, 0, controls), (5, 4, 1, ColumnControls::NONE)] {
             ops.push(SimulationOp::MeasureReduceSample {
+                visible: true,
                 gate_id: GateId::from_u32(id),
                 qubit_bit: QubitBit::new(bit),
                 output_slot: SlotIndex::new(slot),
@@ -1284,18 +1318,21 @@ mod tests {
             detector_gate(2, GateKind::X, 0, 1),
         ];
         let ops = linearize_ops(&gates, qubit_count(2), 1);
-        let expected_reset = gate_params(GateKind::Write0, QubitBit::new(0), 4);
         assert!(matches!(
             ops.as_slice(),
             [SimulationOp::MeasureReduceSample { output_slot, .. },
              SimulationOp::MeasureCollapse { aux_slot, .. },
              SimulationOp::ApplyGate(target),
+             SimulationOp::MeasureReduceSample { visible: false, output_slot: reset_slot, .. },
+             SimulationOp::MeasureCollapse { aux_slot: reset_aux, .. },
              SimulationOp::ApplyGate(reset),
              SimulationOp::SnapshotState { .. }]
             if output_slot == aux_slot
                 && target.control_mask() == 1
                 && target.control_value() == 1
-                && bytemuck::bytes_of(reset) == bytemuck::bytes_of(&expected_reset)
+                && reset.condition_slot() == reset_slot.as_u32()
+                && reset_slot == reset_aux && reset_slot != output_slot
+                && reset.mode() == 0 && reset.control_mask() == 0
         ));
     }
 
@@ -1324,14 +1361,30 @@ mod tests {
             detector_gate(2, GateKind::Control, 0, 1),
         ];
         let ops = linearize_ops(&gates, qubit_count(2), 0);
-        let expected_reset = gate_params(GateKind::Write0, QubitBit::new(0), 4);
         assert!(matches!(
             ops.as_slice(),
-            [SimulationOp::MeasureReduceSample { .. },
+            [SimulationOp::MeasureReduceSample { visible: true, .. },
+             SimulationOp::MeasureCollapse { .. },
+             SimulationOp::MeasureReduceSample { visible: false, output_slot, .. },
              SimulationOp::MeasureCollapse { .. },
              SimulationOp::ApplyGate(reset)]
-            if bytemuck::bytes_of(reset) == bytemuck::bytes_of(&expected_reset)
+            if reset.condition_slot() == output_slot.as_u32() && reset.control_mask() == 0
         ));
+    }
+
+    #[test]
+    fn write0_lowers_at_target_position_to_measure_collapse_and_conditional_x() {
+        let gates = flagged_gates(r#"{"cols":[["•","|0>","X"]]}"#);
+        let ops = linearize_ops(&gates, qubit_count(3), 1);
+        assert!(matches!(ops.as_slice(), [
+            SimulationOp::MeasureReduceSample { visible: false, output_slot, controls, .. },
+            SimulationOp::MeasureCollapse { aux_slot, .. },
+            SimulationOp::ApplyGate(reset), SimulationOp::ApplyGate(other),
+            SimulationOp::SnapshotState { .. }
+        ] if output_slot == aux_slot && controls.mask() == 1
+            && reset.mode() == 0 && reset.bit() == 1
+            && reset.control_mask() == 1 && reset.condition_slot() == output_slot.as_u32()
+            && other.bit() == 2));
     }
 
     #[test]
