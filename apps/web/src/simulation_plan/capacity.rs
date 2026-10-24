@@ -172,6 +172,58 @@ mod tests {
         }
     }
 
+    fn hidden_reset_capacity(
+        token: &str,
+        count: usize,
+    ) -> Result<(), super::SimulationPlanCapacityError> {
+        let mut limits = tiny_limits();
+        limits.max_ops_per_variant = 1024;
+        limits.max_measurement_slots = crate::gpu::MAX_MEASUREMENT_SLOTS;
+        let columns = std::iter::repeat_n(format!("[\"{token}\"]"), count)
+            .collect::<Vec<_>>()
+            .join(",");
+        let gates =
+            crate::url_circuit::parse_circuit_json(&format!(r#"{{"cols":[{columns}]}}"#)).gates;
+        let ops = crate::simulation_plan::linearize_ops(
+            &gates,
+            crate::qubit_count::QubitCount::try_new(1).unwrap(),
+            0,
+        );
+        validate_simulation_plan_capacity(&ops, limits)
+    }
+
+    #[test]
+    fn measurement_slot_limit_is_64() {
+        assert_eq!(crate::gpu::MAX_MEASUREMENT_SLOTS, 64);
+    }
+
+    #[test]
+    fn hidden_write0_measurements_fit_64_slots() {
+        assert_eq!(hidden_reset_capacity("|0>", 64), Ok(()));
+    }
+
+    #[test]
+    fn hidden_write0_measurements_reject_65_slots() {
+        assert_eq!(
+            hidden_reset_capacity("|0>", 65).unwrap_err().to_string(),
+            "measurement slot 64 exceeds MAX_MEASUREMENT_SLOTS=64; reduce measurements or grow the GPU buffer"
+        );
+    }
+
+    // Each detector consumes a visible outcome and a fresh hidden reset slot.
+    #[test]
+    fn hidden_detector_reset_measurements_fit_32_detectors() {
+        assert_eq!(hidden_reset_capacity("ZDetectControlReset", 32), Ok(()));
+    }
+
+    #[test]
+    fn hidden_detector_reset_measurements_reject_33_detectors() {
+        assert_eq!(
+            hidden_reset_capacity("ZDetectControlReset", 33).unwrap_err().to_string(),
+            "measurement slot 64 exceeds MAX_MEASUREMENT_SLOTS=64; reduce measurements or grow the GPU buffer"
+        );
+    }
+
     #[test]
     fn arithmetic_op_limit_reports_staging_capacity() {
         let op = SimulationOp::Arithmetic(crate::gpu::ArithmeticParams {
@@ -216,6 +268,7 @@ mod tests {
     #[test]
     fn measurement_slot_limit_reports_buffer_capacity() {
         let ops = vec![SimulationOp::MeasureReduceSample {
+            visible: true,
             gate_id: GateId::from_u32(1),
             qubit_bit: QubitBit::new(0),
             output_slot: SlotIndex::new(1),

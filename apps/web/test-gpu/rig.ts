@@ -248,11 +248,11 @@ export function createRig(device: GPUDevice) {
           break
         case 'measure':
           name = 'measure_reduce'
-          values = { qubit_bit: op.bit, state_count: n, output_slot: op.slot, seed: op.gateId, control_mask: 0, control_value: 0 }
+          values = { qubit_bit: op.bit, state_count: n, output_slot: op.slot, seed: op.gateId, control_mask: control.mask, control_value: control.value }
           break
         case 'collapse':
           name = 'measure_collapse'
-          values = { qubit_bit: op.bit, state_count: n, aux_slot: op.auxSlot, control_mask: 0, control_value: 0 }
+          values = { qubit_bit: op.bit, state_count: n, aux_slot: op.auxSlot, control_mask: control.mask, control_value: control.value }
           groups = [Math.ceil(n / 2 / rustConst('STATE_WORKGROUP_SIZE'))]
           break
         case 'bloch':
