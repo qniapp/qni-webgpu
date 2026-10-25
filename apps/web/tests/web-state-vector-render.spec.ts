@@ -1,6 +1,7 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import {
   pixelRgbDistance,
+  readStateVector,
   sampleCanvasPixels,
   UI_CONSTANTS,
   waitForStartupReady,
@@ -30,6 +31,40 @@ const defaultFilledStateCircleCenter = (cssWidth: number, cssHeight: number): Po
 
   return { x: gridOriginX + circleSize / 2, y: gridOriginY + circleSize / 2 }
 }
+
+async function secondCirclePixels(page: Page) {
+  const canvas = page.locator('#egui-canvas')
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error('expected egui canvas to be measurable')
+  const first = defaultFilledStateCircleCenter(box.width, box.height)
+  return sampleCanvasPixels(page, canvas, [
+    { name: 'needle', x: first.x + 67, y: first.y - 16 },
+    { name: 'outline', x: first.x + 67 + 32, y: first.y },
+  ])
+}
+
+test('state vector renders sub-micro amplitudes like zero, without a phase needle', async ({ page }) => {
+  await page.goto('/')
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const zero = await secondCirclePixels(page)
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['Ry(π/134217728)']] })))
+  await page.reload()
+  await waitForStartupReady(page, { waitForStateVector: true })
+  expect(await secondCirclePixels(page)).toEqual(zero)
+})
+
+test('state vector retains sub-micro amplitudes in GPU simulation', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['Ry(π/134217728)']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  expect((await readStateVector(page))[2]).toBeCloseTo(Math.PI / 268435456, 14)
+})
+
+test('state vector keeps the phase needle above the display cutoff', async ({ page }) => {
+  await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['Ry(π/524288)']] })))
+  await waitForStartupReady(page, { waitForStateVector: true })
+  const pixels = await secondCirclePixels(page)
+  expect(pixels.needle[0]).toBeLessThan(100)
+})
 
 test('state vector probability disk draws the blue inset border', async ({ page }) => {
   await page.goto('/')

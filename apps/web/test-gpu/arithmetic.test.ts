@@ -1,7 +1,10 @@
 import { test } from 'node:test'
+import { globals } from 'webgpu'
 import assert from 'node:assert/strict'
 import { openGpu } from './gpu'
 import { checkDrift, pack, wgsl } from './app-source'
+
+const { GPUBufferUsage, GPUMapMode } = globals as typeof globalThis
 
 // Test-only reference scatters input amplitudes forward; the shader gathers
 // output amplitudes through the inverse map, so these are independent paths.

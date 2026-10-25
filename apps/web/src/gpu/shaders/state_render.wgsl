@@ -91,6 +91,10 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
   // そのまま state バッファの添字になる。内部 state index も q0=bit0 で格納するため reverseBits は不要。
   let amp = state[display_index];
   let prob = clamp(amp.x * amp.x + amp.y * amp.y, 0.0, 1.0);
+  // Match the 1e-6 amplitude cutoff used by Amplitude / Density Display.
+  // Fused f32 arithmetic can leave cancellation residuals (e.g. H * H).
+  // Suppress their phase decoration, without changing the GPU state or fill.
+  let has_visible_phase = prob > 1.0e-12;
 
   // Hover darken — qni's `:host(:hover) #border { filter: brightness(0.9) }`
   // extended to fill + needle + outline in one go. -1 = no hovered cell.
@@ -120,8 +124,8 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
     color = disk_border_pre + color * (1.0 - disk_border_pre.a);
   }
 
-  // Layer 2: phase needle (only when prob > 0).
-  if (prob > 0.0) {
+  // Layer 2: phase needle (only above the display cutoff).
+  if (has_visible_phase) {
     let phase = atan2(amp.y, amp.x);
     let dir = vec2<f32>(-sin(phase), -cos(phase));
     let t = clamp(dot(local, dir), 0.0, params.inner_radius);
@@ -137,7 +141,7 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
   // with `edge` half-width); rounder/cleaner than a one-sided fringe. To
   // avoid the cell-cell gap boundary going to ~50 % alpha, fs_main samples
   // a 2x2 neighbourhood and composes the contributions.
-  let outline_rgba = select(params.outline_zero, params.outline, prob > 0.0);
+  let outline_rgba = select(params.outline_zero, params.outline, has_visible_phase);
   let outline_inner =
     1.0 - smoothstep(params.radius - half_stroke - edge, params.radius - half_stroke + edge, dist);
   let outline_outer =

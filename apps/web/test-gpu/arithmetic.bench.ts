@@ -1,10 +1,13 @@
 import { readFileSync, writeFileSync } from 'node:fs'
+import { globals } from 'webgpu'
 import { createHash } from 'node:crypto'
 import { release, platform, arch } from 'node:os'
 import { performance } from 'node:perf_hooks'
 import { arithmeticShaderPath } from '../scripts/arithmetic-shader-path'
 import { pack } from './app-source'
 import { openGpu, scoped } from './gpu'
+
+const { GPUBufferUsage } = globals as typeof globalThis
 
 const batchSize = 256, sampleCount = 24, warmupCount = 20
 const median = (xs: number[]) => {

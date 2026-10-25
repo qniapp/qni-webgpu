@@ -89,6 +89,26 @@ test('shared standard WebGPU launch options preserve current flagged browser pol
   })
 })
 
+test('standard WebGPU launch can target native Vulkan without SwiftShader', () => {
+  const actual = getStandardWebGpuLaunchOptions({
+    env: { QNI_WEB_GPU_BACKEND: 'vulkan' },
+    defaultPath: '/bundled/chromium',
+    commandLookup: () => null,
+  })
+  assert.deepEqual(actual.args, [
+    ...STANDARD_WEBGPU_ARGS.slice(0, -2),
+    '--use-angle=vulkan',
+    '--use-vulkan=native',
+  ])
+})
+
+test('standard WebGPU launch rejects an unknown backend', () => {
+  assert.throws(() => getStandardWebGpuLaunchOptions({
+    env: { QNI_WEB_GPU_BACKEND: 'typo' },
+    commandLookup: () => null,
+  }), /QNI_WEB_GPU_BACKEND/)
+})
+
 test('agent visual launch options keep screenshots inspectable', () => {
   const actual = getAgentVisualLaunchOptions({
     env: {},

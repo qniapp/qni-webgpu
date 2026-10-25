@@ -228,6 +228,26 @@ GitHub Actions では、`web-build` が開発用の Trunk 成果物とリリー�
 `web` は `web-preflight`、`web-build`、`web-check`、`web-kani`、`web-playwright` のすべての成功を必須とし、いずれかが失敗・キャンセル・スキップされた場合は失敗する。
 `web-playwright-report` による HTML レポートの統合結果には依存しない。
 
+### 実 GPU と SwiftShader での描画検証
+
+Playwright の既定は CI と同じ SwiftShader のままとする。
+Linux の実 GPU (Vulkan) で検証するときは、同じテストに `QNI_WEB_GPU_BACKEND=vulkan` を指定する。
+`QNI_WEB_GPU_BACKEND=swiftshader` は既定と同じ動作で、それ以外の値は起動時にエラーにする。
+
+```sh
+QNI_WEB_EXTERNAL_SERVER=1 QNI_WEB_GPU_BACKEND=vulkan pnpm exec playwright test --workers=1
+```
+
+状態ベクトルの円は、振幅が `1e-6` 以下なら位相の針を描かず、ゼロ用の薄い輪郭を使う。
+これは振幅・密度行列表示ブロックの輪郭と同じ表示基準であり、GPU 上の振幅や確率の塗りつぶしは変更しない。
+例えば H を 2 回適用すると、AMD の積和演算の融合によって振幅 `1.2688051498344066e-8` が残る一方、
+SwiftShader では厳密なゼロになる。厳密な非ゼロ判定で位相を描くと、丸め誤差だけで針と濃い輪郭が現れてしまう。
+画像比較の許容差や基準画像を変えず、描画側でこの微小な残差を扱う。
+
+Node 用の `test:gpu` と算術ベンチマークは、`webgpu` が公開する `globals` から定数を取り込む。
+Node にはブラウザの `GPUBufferUsage` / `GPUMapMode` が自動では定義されない。
+テストは実 GPU のアダプタ情報を出力し、ソフトウェア描画を拒否する。CI の SwiftShader による Playwright 検証とは別の経路である。
+
 ### 起動の固まりとテストの不安定さ
 
 Chrome の WebGPU 初期化は、例外を出さずに応答しなくなることがある。
