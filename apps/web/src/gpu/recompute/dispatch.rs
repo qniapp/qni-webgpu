@@ -82,7 +82,7 @@ pub(super) fn encode_batched_recompute(
         }
     }
 
-    let active_state = state.render_state_index();
+    let active_state = state.in_index;
 
     EncodedRecompute {
         command_buffer: encoder.finish(),
@@ -98,7 +98,6 @@ pub(super) fn encode_batched_recompute(
 
 struct DispatchState {
     in_index: usize,
-    render_state_index: Option<usize>,
     pair_count: u32,
     dispatch_x: u32,
     gate_slot: u64,
@@ -121,7 +120,6 @@ impl DispatchState {
     fn new(pair_count: u32, dispatch_x: u32) -> Self {
         Self {
             in_index: 0,
-            render_state_index: None,
             pair_count,
             dispatch_x,
             gate_slot: 0,
@@ -139,10 +137,6 @@ impl DispatchState {
             amplitude_slot_to_gate_id: Vec::with_capacity(MAX_AMPLITUDE_SLOTS),
             density_slot_to_gate_id: Vec::with_capacity(MAX_DENSITY_SLOTS),
         }
-    }
-
-    fn render_state_index(&self) -> usize {
-        self.render_state_index.unwrap_or(self.in_index)
     }
 
     fn encode_snapshot_state(
