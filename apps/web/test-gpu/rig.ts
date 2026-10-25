@@ -23,6 +23,15 @@ export type Output = {
   bits: Uint32Array
   context?: string
 }
+// Keep guard words in bits, but expose only the selected output in values.
+export function decodeOutput(name: string, slot: number, offset: number, expected: number, bytes: ArrayBuffer): Output {
+  const length = name === 'amplitude' ? slotStride(name) / 4 : expected
+  return {
+    name, slot, offset, expected,
+    values: new Float32Array(bytes, offset * 4, length),
+    bits: new Uint32Array(bytes),
+  }
+}
 type Task = { name: Kernel; params?: ArrayBuffer; groups: number[]; snapshot?: { slot: number; expected: number } }
 function slotStride(name: string) {
   return name === 'probability'
@@ -104,14 +113,7 @@ export function createRig(device: GPUDevice) {
     const bytes = staging.getMappedRange().slice(0)
     staging.unmap()
     staging.destroy()
-    return {
-      name,
-      slot,
-      offset: ((slot - startSlot) * step) / 4,
-      expected,
-      values: new Float32Array(bytes),
-      bits: new Uint32Array(bytes),
-    }
+    return decodeOutput(name, slot, ((slot - startSlot) * step) / 4, expected, bytes)
   }
   async function execute(
     tasks: Task[],
@@ -367,6 +369,7 @@ export function createRig(device: GPUDevice) {
 export function canaryViolations(o: Output): string[] {
   const strideWords = slotStride(o.name) / 4
   const violations: string[] = []
+  const rawValues = new Float32Array(o.bits.buffer, o.bits.byteOffset, o.bits.length)
   const incoherentStart = o.offset + 2 * rustConst('MAX_AMPLITUDE_OUTCOMES')
   for (let i = 0; i < o.bits.length; i++) {
     const valid =
@@ -374,7 +377,7 @@ export function canaryViolations(o: Output): string[] {
         ? (i >= o.offset && i < o.offset + 2 * o.expected) ||
           (i >= incoherentStart && i < incoherentStart + o.expected)
         : i >= o.offset && i < o.offset + o.expected
-    if (valid ? !Number.isFinite(o.values[i]) : o.bits[i] !== CANARY) {
+    if (valid ? !Number.isFinite(rawValues[i]) : o.bits[i] !== CANARY) {
       if (violations.length < 8)
         violations.push(
           `${o.name} byte ${i * 4} slot ${o.slot + Math.floor((i - o.offset) / strideWords)}: ${valid ? 'nonfinite' : 'canary overwritten'}`,
