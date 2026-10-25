@@ -297,7 +297,7 @@ pre.code {
 .resize-handle {
   position: absolute;
   left: 50%;
-  width: 24px;                          /* JS で widthMode='canvas60' なら canvas 幅 × 0.6 で上書き */
+  width: 24px;
   height: 6px;
   background: var(--cyan-400);          /* default。ホバー枠 (purple-400) と別色族 */
   border-radius: 3px;

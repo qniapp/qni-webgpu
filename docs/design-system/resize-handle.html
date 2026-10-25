@@ -452,7 +452,7 @@
   // 各モックホストに attachResizeHandles を呼ぶ。data-mock 属性で状態を切り替える。
   document.querySelectorAll('.rh-mock').forEach(host => {
     const mode = host.dataset.mock;  // default | visible | hover | active
-    const opts = { widthMode: 'fixed' };
+    const opts = {};
     if (mode && mode !== 'default') opts.handleState = mode;
     attachResizeHandles(host, opts);
   });
