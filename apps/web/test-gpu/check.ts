@@ -13,7 +13,6 @@ export function compare(
     [],
     `${path} ${caseName} ${actual.context ?? ''} canary: ${violations.join(', ')}`,
   )
-  const offset = actual.offset
   assert.ok(
     actual.name === 'amplitude' || expected.length <= actual.expected,
     `${caseName}: expected length exceeds written range`,
@@ -25,7 +24,7 @@ export function compare(
   const failures: { i: number; gpu: number; cpu: number; delta: number }[] = []
   expected.forEach((cpu, i) => {
     if (Number.isNaN(cpu)) return
-    const gpu = actual.values[offset + i]
+    const gpu = actual.values[i]
     const delta = Math.abs(gpu - cpu)
     max = Math.max(max, delta)
     if (delta > (categorical.includes(i) ? 0 : tol)) failures.push({ i, gpu, cpu, delta })
