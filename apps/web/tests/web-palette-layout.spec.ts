@@ -27,7 +27,7 @@ const open = async (page: Page, hash: string): Promise<Layout> => {
   ) as Promise<Layout>
 }
 
-const hoveredPaletteIndex = async (page: Page, at: Point, expected: number): Promise<number | null> => {
+const hoveredPaletteIndex = async (page: Page, at: Point, expected: number | null): Promise<number | null> => {
   await page.mouse.move(at.x, at.y)
   return pollForValue(
     async () => JSON.parse(await page.evaluate(() => String(Reflect.get(window, '__qniHoverSnapshotJson') ?? 'null')))?.hoveredPaletteIndex ?? null,
@@ -41,13 +41,19 @@ const paletteCenter = (width: number, index: number): Point => {
   return { x: center.x, y: center.y + EGUI_PANEL_MARGIN }
 }
 
-for (const viewport of [
-  { width: 1280, height: 800 },
-  { width: 1000, height: 800 },
-  { width: 900, height: 800 },
-  { width: 840, height: 800 },
-  { width: 800, height: 800 },
-]) {
+// Right-section items whose right-hand neighbour slot stays empty, per grid.
+const EMPTY_AFTER = { '4x2': [38], '3x3': [25, 38], '2x4': [25] } as const
+
+for (const { rightGrid, ...viewport } of [
+  { width: 1280, height: 800, rightGrid: '4x2' },
+  { width: 1000, height: 800, rightGrid: '4x2' },
+  { width: 960, height: 800, rightGrid: '3x3' },
+  { width: 640, height: 600, rightGrid: '2x4' },
+  { width: 600, height: 580, rightGrid: '2x4' },
+  { width: 900, height: 800, rightGrid: '4x2' },
+  { width: 840, height: 800, rightGrid: '4x2' },
+  { width: 800, height: 800, rightGrid: '4x2' },
+] as const) {
   test.describe(`${viewport.width}x${viewport.height}`, () => {
     test.use({ viewport })
 
@@ -59,6 +65,38 @@ for (const viewport of [
       }
       expect(hovered).toEqual(Array.from({ length: PALETTE_ENTRY_COUNT }, (_, index) => index))
     })
+
+    test('Spacer is directly left of the comment block in the right section', async ({ page }) => {
+      await open(page, EMPTY)
+      const comment = paletteCenter(viewport.width, 38)
+      const spacer = { x: comment.x - UI_CONSTANTS.PALETTE_SIZE - UI_CONSTANTS.PALETTE_GAP, y: comment.y }
+      expect(await hoveredPaletteIndex(page, spacer, 21)).toBe(21)
+    })
+
+    test(`the empty slots of the ${rightGrid} right section are not palette items`, async ({ page }) => {
+      await open(page, EMPTY)
+      const hovered: (number | null)[] = []
+      for (const index of EMPTY_AFTER[rightGrid]) {
+        const item = paletteCenter(viewport.width, index)
+        await waitForValue(
+          () => hoveredPaletteIndex(page, item, index),
+          hoveredIndex => hoveredIndex === index,
+          `item ${index} was not hovered before probing the empty slot`,
+        )
+        const gap = { x: item.x + UI_CONSTANTS.PALETTE_SIZE + UI_CONSTANTS.PALETTE_GAP, y: item.y }
+        hovered.push(await hoveredPaletteIndex(page, gap, null))
+      }
+      expect(hovered).toEqual(EMPTY_AFTER[rightGrid].map(() => null))
+    })
+
+    if (rightGrid === '4x2') {
+      test('Spacer is directly right of Density without an empty slot', async ({ page }) => {
+        await open(page, EMPTY)
+        const density = paletteCenter(viewport.width, 25)
+        const spacer = { x: density.x + UI_CONSTANTS.PALETTE_SIZE + UI_CONSTANTS.PALETTE_GAP, y: density.y }
+        expect(await hoveredPaletteIndex(page, spacer, 21)).toBe(21)
+      })
+    }
 
     test('a palette gate drops onto the first wire below the palette', async ({ page }) => {
       const layout = await open(page, EMPTY)
@@ -111,10 +149,19 @@ for (const width of [1000, 1024]) {
   })
 }
 
+test.describe('1280x800 screenshot', () => {
+  test.use({ viewport: { width: 1280, height: 800 } })
+
+  test('wide palette keeps its size with visual instructions in the right section', async ({ page }) => {
+    await open(page, BELL)
+    await expect(page).toHaveScreenshot('palette-1280x800.png')
+  })
+})
+
 test.describe('1000x800 screenshot', () => {
   test.use({ viewport: { width: 1000, height: 800 } })
 
-  test('palette fits in three rows with the Display section beside the top gate rows', async ({ page }) => {
+  test('palette fits in three rows with displays and visual instructions beside the top gate rows', async ({ page }) => {
     await open(page, BELL)
     await expect(page).toHaveScreenshot('palette-1000x800.png')
   })

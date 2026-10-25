@@ -31,6 +31,9 @@ bash apps/web/scripts/verify-kani.sh
 未導入なら `cargo install --locked kani-verifier --version 0.68.0 && cargo kani setup` を実行する。
 Kani はホスト上で専用の nightly を使う。wasm32 を指定しない。
 
+CI の `web-kani` ジョブも同じスクリプトを実行し、正常版 7 件と故障版 8 件を確認する。
+詳細は [説明文書の CI 節](../../../docs/formal-verification.md#ci-での実行) を参照する。
+
 - 実ソースの各ハーネスに `VERIFICATION:- SUCCESSFUL` が必要で、集計は `Complete - 7 successfully verified harnesses, 0 failures, 7 total.` でなければならない。
 - 8 件の故障版はそれぞれ一時コピーで作り、対象ハーネスだけを実行する。`VERIFICATION:- FAILED` と `Complete - 0 successfully verified harnesses, 1 failures, 1 total.` が必要である。
 - スクリプトが各故障版の `Failed Checks:` 行を完全一致で確認する。制御保存では `Failed Checks: restricted_outside clears inside bits and preserves outside mask/value bits`、計画の前提条件では `Failed Checks: arithmetic plan has exact mask fit disjoint controls and correct amount` が必要である。

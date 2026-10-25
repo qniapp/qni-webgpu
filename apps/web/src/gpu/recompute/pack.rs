@@ -71,6 +71,7 @@ impl PackedRecomputeParams {
                     _pad: [0; 3],
                 }),
                 SimulationOp::MeasureReduceSample {
+                    visible,
                     gate_id,
                     qubit_bit,
                     output_slot,
@@ -81,7 +82,11 @@ impl PackedRecomputeParams {
                     output_slot: output_slot.as_u32(),
                     // Standalone keeps seed zero; embeds mix in a seed owned by
                     // the runner, never by the current step or rendered frame.
-                    seed: gate_id.as_u32() ^ measurement_seed,
+                    // Hidden reset samples use a separate stream, including
+                    // when a detector samples the same gate twice.
+                    seed: gate_id.as_u32()
+                        ^ measurement_seed
+                        ^ if *visible { 0 } else { 0x8000_0000 },
                     control_mask: controls.mask(),
                     control_value: controls.value(),
                     _pad: [0; 2],
@@ -249,6 +254,7 @@ mod tests {
         PackedRecomputeParams::from_ops(
             &[
                 SimulationOp::MeasureReduceSample {
+                    visible: true,
                     gate_id: GateId::from_u32(7),
                     qubit_bit: QubitBit::new(2),
                     output_slot: SlotIndex::new(3),
@@ -264,6 +270,45 @@ mod tests {
             4,
             measurement_seed,
         )
+    }
+
+    #[test]
+    fn detector_reset_has_distinct_sample_seed_from_original_outcome() {
+        let gates =
+            crate::url_circuit::parse_circuit_json(r#"{"cols":[["ZDetectControlReset"]]}"#).gates;
+        let ops = crate::simulation_plan::linearize_ops(
+            &gates,
+            crate::qubit_count::QubitCount::try_new(1).unwrap(),
+            0,
+        );
+        let runner_seed = 0x12345678;
+        let packed = PackedRecomputeParams::from_ops(&ops, 2, 1, runner_seed);
+        assert_eq!(
+            packed
+                .measure_reduce
+                .iter()
+                .map(|params| params.seed)
+                .collect::<Vec<_>>(),
+            vec![
+                gates[0].id.as_u32() ^ runner_seed,
+                gates[0].id.as_u32() ^ runner_seed ^ 0x8000_0000,
+            ]
+        );
+    }
+
+    #[test]
+    fn hidden_reset_seed_is_independent_of_measurement_slot() {
+        let seeds = [0, 7].map(|slot| {
+            let ops = [SimulationOp::MeasureReduceSample {
+                visible: false,
+                gate_id: GateId::from_u32(7),
+                qubit_bit: QubitBit::new(0),
+                output_slot: SlotIndex::new(slot),
+                controls: ColumnControls::NONE,
+            }];
+            PackedRecomputeParams::from_ops(&ops, 2, 1, 0).measure_reduce[0].seed
+        });
+        assert_eq!(seeds, [7 ^ 0x8000_0000; 2]);
     }
 
     #[test]

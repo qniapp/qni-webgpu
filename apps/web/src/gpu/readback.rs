@@ -98,7 +98,7 @@ thread_local! {
     #[cfg(target_arch = "wasm32")]
     pub(crate) static MEASUREMENT_GPU_HANDLE: RefCell<Option<MeasurementGpuHandle>> =
         const { RefCell::new(None) };
-    pub(crate) static MEASUREMENT_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+    pub(crate) static MEASUREMENT_SLOT_MAP: RefCell<Vec<Option<u32>>> = const { RefCell::new(Vec::new()) };
     /// Same pattern for Probability displays. Test-only APIs may read this on
     /// demand; production rendering samples `probability_output` in a
     /// fragment shader.
@@ -258,7 +258,7 @@ pub(crate) async fn read_measurement_outcomes_impl() -> Result<js_sys::Float32Ar
         return Ok(js_sys::Float32Array::new_with_length(0));
     };
     let slot_map = MEASUREMENT_SLOT_MAP.with(|cell| cell.borrow().clone());
-    if slot_map.is_empty() {
+    if slot_map.iter().all(Option::is_none) {
         return Ok(js_sys::Float32Array::new_with_length(0));
     }
     let copy_bytes = slot_map.len() * 4 * std::mem::size_of::<f32>();
@@ -293,15 +293,21 @@ pub(crate) async fn read_measurement_outcomes_impl() -> Result<js_sys::Float32Ar
         .map_err(|err| JsValue::from_str(&format!("map_async failed: {err:?}")))?;
     let data = slice.get_mapped_range();
     let floats: &[f32] = bytemuck::cast_slice(&data);
-    let output = js_sys::Float32Array::new_with_length((slot_map.len() * 2) as u32);
-    for (slot, gate_id) in slot_map.iter().enumerate() {
+    let visible_count = slot_map.iter().flatten().count();
+    let output = js_sys::Float32Array::new_with_length((visible_count * 2) as u32);
+    for (output_slot, (slot, gate_id)) in slot_map
+        .iter()
+        .enumerate()
+        .filter_map(|(slot, gate_id)| gate_id.map(|id| (slot, id)))
+        .enumerate()
+    {
         // aux layout (.x, .y, .z, .w) = (pZero, r, outcome, sqrt_p_kept).
         let outcome_idx = slot * 4 + 2;
         if outcome_idx >= floats.len() {
             break;
         }
-        output.set_index((slot * 2) as u32, *gate_id as f32);
-        output.set_index((slot * 2 + 1) as u32, floats[outcome_idx]);
+        output.set_index((output_slot * 2) as u32, gate_id as f32);
+        output.set_index((output_slot * 2 + 1) as u32, floats[outcome_idx]);
     }
     drop(data);
     staging.unmap();
@@ -561,8 +567,11 @@ pub(crate) async fn read_density_matrix_cell_impl(
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 pub async fn read_sample_display_outcome(gate_id: u32, span: u32) -> Result<u32, JsValue> {
-    if !(1..=3).contains(&span) {
-        return Err(JsValue::from_str("Sample span must be 1..3"));
+    use crate::gates::SAMPLE_MAX_SPAN;
+    if !(1..=SAMPLE_MAX_SPAN).contains(&(span as usize)) {
+        return Err(JsValue::from_str(&format!(
+            "Sample span must be 1..{SAMPLE_MAX_SPAN}"
+        )));
     }
     if !SAMPLE_DISPLAY_SPANS.with(|cell| cell.borrow().contains(&(gate_id, span))) {
         return Err(JsValue::from_str(

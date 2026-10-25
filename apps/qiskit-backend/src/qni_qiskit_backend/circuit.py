@@ -12,7 +12,8 @@ EMPTY_TOKENS = {None, 1, "1", ""}
 AMPLITUDE_DISPLAY_RE = re.compile(r"^Amps(?:[1-9]|1[0-6])$")
 PROBABILITY_DISPLAY_RE = re.compile(r"^Probability(?:[1-9]|1[0-6])?$")
 DENSITY_DISPLAY_RE = re.compile(r"^Density(?:[1-8])?$")
-SAMPLE_DISPLAY_RE = re.compile(r"^Sample[1-3]$")
+SAMPLE_DISPLAY_MAX_SPAN = 8
+SAMPLE_DISPLAY_RE = re.compile(r"^Sample([1-9][0-9]?)$")
 DISPLAY_TOKENS = {"Bloch"}
 POSTSELECTION_TOKENS = {"|0⟩⟨0|", "|1⟩⟨1|", "|+⟩⟨+|", "|-⟩⟨-|"}
 
@@ -202,8 +203,7 @@ def apply_column_to_qiskit(
     if parity_targets:
         controls.append(parity_targets[0][0])
     # A resizable span can cover a control cell, unlike single-wire gates and swaps.
-    # It would make the measured wire quantum again: reset would then differ
-    # from WebGPU's per-pair Write0. Refuse rather than change that semantics.
+    # This overlap with a detect-control-reset wire is not supported here.
     for wire, token in deferred:
         spec = parse_resizable_token(split_parametric(token)[0])
         if spec is not None and any(
@@ -246,8 +246,8 @@ def apply_column_to_qiskit(
         branch_basis = basis[:]
         with qc.if_test((bit, 1)):
             apply_gate(qc, wire, token, controls + partners, anti_controls, qubits, branch_basis)
-        # The tracker must describe both classical branches, so later writes
-        # retain the existing deterministic-basis restriction rather than guess.
+        # The tracker must describe both classical branches, so later Write1
+        # operations retain their deterministic-basis restriction.
         basis[:] = [before if before == after else None
                     for before, after in zip(basis, branch_basis)]
     apply_control_only_z(
@@ -372,8 +372,8 @@ def postselection_registers(qc: Any) -> list[Any]:
 def shared_projector_auxiliary(qc: Any) -> Any:
     from qiskit import QuantumRegister
 
-    # Both projectors return this qubit to |0>. Append it above the logical
-    # register (q0=LSB), so existing logical save indices remain unchanged.
+    # Projectors and controlled reset return this qubit to |0>. Append it above
+    # the logical register (q0=LSB), so logical save indices remain unchanged.
     auxiliary = next((r for r in qc.qregs if r.name == "postselection_aux"), None)
     if auxiliary is None:
         auxiliary = QuantumRegister(1, "postselection_aux")
@@ -444,13 +444,18 @@ def group_same_angle_phases(
     return folded
 
 
+def is_sample_display(token: str) -> bool:
+    match = SAMPLE_DISPLAY_RE.fullmatch(token)
+    return match is not None and int(match.group(1)) <= SAMPLE_DISPLAY_MAX_SPAN
+
+
 def is_readonly_display_token(token: str) -> bool:
     return (
         token in DISPLAY_TOKENS
         or bool(AMPLITUDE_DISPLAY_RE.fullmatch(token))
         or bool(PROBABILITY_DISPLAY_RE.fullmatch(token))
         or bool(DENSITY_DISPLAY_RE.fullmatch(token))
-        or bool(SAMPLE_DISPLAY_RE.fullmatch(token))
+        or is_sample_display(token)
     )
 
 
@@ -984,6 +989,15 @@ def apply_controlled_write(
     ):
         return
     value = basis[wire]
+    if target == 0:
+        if value == 0:
+            return
+        if any(v is None for v in control_values + anti_control_values):
+            apply_controlled_reset(qc, wire, controls, anti_controls)
+            basis[wire] = None
+        else:
+            apply_write0(qc, basis, wire)
+        return
     if value is None:
         raise CircuitBuildError(
             f"|{target}> requires a deterministic basis state in the dev Qiskit runner"
@@ -994,8 +1008,28 @@ def apply_controlled_write(
     track_controlled_gate(basis, controls, anti_controls, wire, "X")
 
 
+def apply_controlled_reset(
+    qc: Any, wire: int, controls: list[int], anti_controls: list[int]
+) -> None:
+    if not is_real_qiskit_circuit(qc):
+        qc.append(("controlled_reset", wire, list(controls), list(anti_controls)))
+        return
+    auxiliary = shared_projector_auxiliary(qc)[0]
+    for control in anti_controls:
+        qc.x(control)
+    # Store only P = controls-match AND target=1, not the individual controls.
+    # Flipping on this predicate then resetting the auxiliary implements
+    # {I-P, X_target P}; the entire no-click subspace stays coherent.
+    qc.mcx(controls + anti_controls + [wire], auxiliary)
+    qc.cx(auxiliary, wire)
+    qc.reset(auxiliary)
+    for control in reversed(anti_controls):
+        qc.x(control)
+
+
 def apply_write0(qc: Any, basis: BasisTracker, wire: int) -> None:
-    apply_write(qc, basis, wire, target=0)
+    qc.reset(wire)
+    basis[wire] = 0
 
 
 def apply_write1(qc: Any, basis: BasisTracker, wire: int) -> None:

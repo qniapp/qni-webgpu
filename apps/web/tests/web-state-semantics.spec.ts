@@ -334,7 +334,7 @@ test('|1> flips |0> to |1>', async ({ page }) => {
   await waitForStateVectorApprox(page, [0, 0, 1, 0])
 })
 
-test('|0> after H leaves the superposition unchanged (qni-faithful no-op)', async ({ page }) => {
+test('|0> after H resets the superposition to |0>', async ({ page }) => {
   await page.goto('/')
 
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -368,8 +368,8 @@ test('|0> after H leaves the superposition unchanged (qni-faithful no-op)', asyn
   await waitForStateVectorApprox(page, superposition)
 
   await dragPointer(page, write0Source, { x: targetX2, y: targetY })
-  // qni's write gate is a no-op when the qubit is in superposition (pZero ≠ 0,1).
-  await waitForStateVectorApprox(page, superposition)
+  // Write0 samples a Z measurement branch and flips the 1 branch to zero.
+  await waitForStateVectorApprox(page, [1, 0, 0, 0])
 })
 
 test('Bloch display does not alter the state vector', async ({ page }) => {

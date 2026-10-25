@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { openGpu } from './gpu'
 import { createRig } from './rig'
-import { aggregateInput, aggregateInstances, cases, type RecomputeCase } from './cases'
+import { aggregateInput, aggregateInstances, cases, reset, matrices, type RecomputeCase } from './cases'
 import * as ref from './reference'
 import { compare } from './check'
 import { rustConst, wgsl } from './app-source'
@@ -51,7 +51,7 @@ function expected(c: RecomputeCase) {
         break
       }
       case 'measure': {
-        const result = ref.measure(state, op.bit, op.gateId)
+        const result = ref.measure(state, op.bit, op.gateId, mask, value)
         if (Math.abs(result.aux[1] - result.aux[0]) <= 1e-4)
           throw Error(`case error ${c.name}: sample near p0`)
         outputs.push({ name: 'measurement', slot: op.slot, data: result.aux, categorical: [2] })
@@ -61,9 +61,7 @@ function expected(c: RecomputeCase) {
         const aux = [...outputs]
           .reverse()
           .find((x) => x.name === 'measurement' && x.slot === op.auxSlot)!.data
-        state = state.map((a, i) =>
-          ((i >> op.bit) & 1) === aux[2] ? [a[0] / aux[3], a[1] / aux[3]] : [0, 0],
-        )
+        state = ref.collapse(state, op.bit, aux, mask, value)
         break
       }
       case 'bloch':
@@ -130,6 +128,69 @@ function expected(c: RecomputeCase) {
   }
   return { state: state.flat(), outputs }
 }
+function rounded(values: number[]) {
+  return values.map((x) => {
+    const rounded = Math.round(x * 1e12) / 1e12
+    return Object.is(rounded, -0) ? 0 : rounded
+  })
+}
+
+for (const seed of [1, 2]) {
+  test(`Write0 oracle selects global Bell branch for seed ${seed}, never a per-pair merge`, () => {
+    const s = Math.SQRT1_2
+    const init: ref.C[] = [[s, 0], [0, 0], [0, 0], [0, s]]
+    const branch = expected({ name: 'Bell', qubits: 2, init, ops: reset(0, seed) })
+    const wanted = seed === 1 ? [1, 0, 0, 0, 0, 0, 0, 0] : [0, 0, 0, 0, 0, 1, 0, 0]
+    assert.deepEqual(rounded(branch.state), wanted)
+  })
+
+  test(`Write0 oracle keeps surviving complex phases and ratios for seed ${seed}`, () => {
+    // Both global branches have probability 1/2; their relative phases differ.
+    const init: ref.C[] = [[0.3, 0.4], [0, -0.5], [-0.4, 0.3], [0.5, 0]]
+    const state = expected({ name: 'complex', qubits: 2, init, ops: reset(0, seed) }).state
+    const branch = seed === 1 ? 0 : 1
+    const wanted = [init[branch], [0, 0], init[branch + 2], [0, 0]].flat()
+      .map((x) => x * Math.SQRT2)
+    assert.deepEqual(rounded(state), rounded(wanted))
+  })
+}
+
+function controlledReset(seed: number) {
+  const init: ref.C[] = [[0.5, 0], [0, 0.5], [-0.5, 0], [0, -0.5]]
+  return expected({ name: 'controlled', qubits: 2, init,
+    ops: reset(0, seed, 0, { mask: 2, value: 0 }) })
+}
+
+test('Write0 controlled oracle measures P=controls-match AND target-one', () => {
+  assert.equal(controlledReset(1).outputs[0].data[0], 0.75)
+})
+
+test('Write0 controlled no-click oracle projects out only the active target-one branch', () => {
+  const amplitude = 1 / Math.sqrt(3)
+  assert.deepEqual(rounded(controlledReset(1).state),
+    rounded([amplitude, 0, 0, 0, -amplitude, 0, 0, -amplitude]))
+})
+
+test('Write0 controlled click oracle retains only the active branch and resets it', () => {
+  assert.deepEqual(rounded(controlledReset(2).state), [0, 1, 0, 0, 0, 0, 0, 0])
+})
+
+test('Write0 after H is zero', () => {
+  const plus = expected({ name: 'H', qubits: 1, init: 'ground',
+    ops: [{ kind: 'gate', bit: 0, m: matrices.H }, ...reset(0)] })
+  assert.deepEqual(rounded(plus.state), [1, 0, 0, 0])
+})
+
+test('Write0 after impossible postselection stays zero', () => {
+  const zero = expected({ name: 'zero', qubits: 1, init: [[0, 0], [0, 0]], ops: reset(0) })
+  assert.deepEqual(rounded(zero.state), [0, 0, 0, 0])
+})
+
+test('Write0 after impossible postselection reports no measurement outcome', () => {
+  const zero = expected({ name: 'zero', qubits: 1, init: [[0, 0], [0, 0]], ops: reset(0) })
+  assert.equal(zero.outputs[0].data[2], -1)
+})
+
 test('real WGSL numeric kernels', async (t) => {
   const { device, assertHealthy } = await openGpu()
   const maxima = Object.fromEntries(kernels.map((key) => [key, 0])) as Record<

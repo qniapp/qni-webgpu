@@ -57,20 +57,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
       return;
     }
   }
-  // Write |0> / |1>: per-pair conditional X. Matches qni's CPU semantics —
-  // X iff the qubit sits in the opposite basis state, no-op otherwise. For
-  // unentangled product states each pair's |a0|/|a1| ratio is consistent,
-  // so the local decision agrees with the global one.
-  if (params.mode == 1u || params.mode == 2u) {
+  // Write1 retains its per-pair conditional swap. Write0 uses measurement + X.
+  if (params.mode == 2u) {
     let mag0 = a0.x * a0.x + a0.y * a0.y;
     let mag1 = a1.x * a1.x + a1.y * a1.y;
-    let eps = 1.0e-6;
-    var swap = false;
-    if (params.mode == 1u) {
-      swap = mag1 > mag0 + eps;
-    } else {
-      swap = mag0 > mag1 + eps;
-    }
+    let swap = mag0 > mag1 + 1.0e-6;
     if (swap) {
       state_out[i0] = a1;
       state_out[i1] = a0;

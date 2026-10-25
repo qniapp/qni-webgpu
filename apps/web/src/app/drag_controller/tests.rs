@@ -1061,23 +1061,23 @@ fn sample_bottom_resize_grows_two_wires() {
 }
 
 #[test]
-fn sample_bottom_resize_stops_at_three_wires() {
+fn sample_bottom_resize_stops_at_eight_wires() {
     let app = drag_sample_span(
-        r#"{"cols":[["Sample1"],[1,1,1,1,"H"]]}"#,
+        r#"{"cols":[["Sample1"],[1,1,1,1,1,1,1,1,1,"H"]]}"#,
         crate::app::SpanResizeEdge::Bottom,
-        4.0,
+        9.0,
         false,
     );
 
-    assert_eq!(app.placed_gates[0].span.get(), 3);
+    assert_eq!(app.placed_gates[0].span.get(), 8);
 }
 
 #[test]
-fn sample_top_resize_stops_at_three_wires() {
+fn sample_top_resize_stops_at_eight_wires() {
     let app = drag_sample_span(
-        r#"{"cols":[[1,1,1,1,"Sample1"]]}"#,
+        r#"{"cols":[[1,1,1,1,1,1,1,1,1,"Sample1"]]}"#,
         crate::app::SpanResizeEdge::Top,
-        -4.0,
+        -9.0,
         false,
     );
 
@@ -1086,7 +1086,7 @@ fn sample_top_resize_stops_at_three_wires() {
             app.placed_gates[0].wire.as_usize(),
             app.placed_gates[0].span.get()
         ),
-        (2, 3)
+        (2, 8)
     );
 }
 
@@ -1100,6 +1100,21 @@ fn sample_resize_release_commits_the_sample3_token() {
     );
 
     assert_eq!(circuit_json(&app), r#"{"cols":[["Sample3"],[1,1,"H"]]}"#);
+}
+
+#[test]
+fn sample_resize_release_commits_the_sample8_token() {
+    let app = drag_sample_span(
+        r#"{"cols":[["Sample1"],[1,1,1,1,1,1,1,"H"]]}"#,
+        crate::app::SpanResizeEdge::Bottom,
+        7.0,
+        true,
+    );
+
+    assert_eq!(
+        circuit_json(&app),
+        r#"{"cols":[["Sample8"],[1,1,1,1,1,1,1,"H"]]}"#
+    );
 }
 
 #[test]

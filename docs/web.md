@@ -224,7 +224,8 @@ GitHub Actions では、`web-build` が開発用の Trunk 成果物とリリー�
 各ジョブは `scripts/serve-static.ts` による SPA フォールバック付きの静的サーバで開発用の成果物を配信し、`test:pw-legacy` の代わりに `playwright test --shard` で全テストを分割して実行する。
 並行して `web-check` が Rust の検査、リリース用の Trunk ビルド、BDD テストを実行する。
 `web-preflight` は他の Web ジョブに依存せず独立して実行する。
-`web` は `web-preflight`、`web-build`、`web-check`、`web-playwright` のすべての成功を必須とし、いずれかが失敗・キャンセル・スキップされた場合は失敗する。
+`web-kani` も独立して [Kani の形式検証](formal-verification.md#ci-での実行)と故障検出を実行する。
+`web` は `web-preflight`、`web-build`、`web-check`、`web-kani`、`web-playwright` のすべての成功を必須とし、いずれかが失敗・キャンセル・スキップされた場合は失敗する。
 `web-playwright-report` による HTML レポートの統合結果には依存しない。
 
 ### 起動の固まりとテストの不安定さ
@@ -343,7 +344,7 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - 全ゲート dispatch は 1 つの encoder にまとめて 1 回 `queue.submit` する。各ゲートの params は事前に staging buffer へ packing し、ループ内で `copy_buffer_to_buffer` で `gate_params_buffer` へ書き戻す。これで「最後の write_buffer が全 dispatch に効いてしまう」問題を避けつつ、recompute あたりの IPC 往復を N → 1 に圧縮している (gpu/callbacks.rs)。
 - Control gates render as a qni-style standalone filled dot, not as a labeled rectangular button.
 - Anti-control gates render as a qni-style standalone open circle and control on the zero state.
-- |0⟩ / |1⟩ gates draw qni's bracket icon plus the literal digit, and follow qni's simulator semantics: per-pair conditional X (no-op when the qubit is in superposition, X when it sits in the opposite basis state).
+- |0⟩ / |1⟩ は括弧と数字で描画する。Write0 は Z 基底で測定し、結果が 1 の分岐だけ X を適用して対象を必ず |0⟩ に戻す。もつれた相手も測定結果に応じて収縮するため、複数試行の平均は混合状態になる。状態ベクトルでは Measurement と同じ方法で 1 分岐を標本抽出し、GPU 内で正規化する。Write1 は従来どおり各振幅ペアの大きさを比較する条件付き交換であり、重ね合わせを必ず |1⟩ にする操作ではない。
 - BlochDisplay は回路にゲートとして並ぶがユニタリではなく観測専用。`linearize_ops` が列ごとに GPU の Bloch capture を挿入し、`BLOCH_REDUCE_SHADER` がその時点の縮約密度行列由来の (x, y, z) を計算する（qni: `packages/simulator/src/state-vector.ts:blochVector`、`matrix.ts:qubitDensityMatrixToBlochVector` と同じ意味論）。x = 2·Re(ρ_01), y = -2·Im(ρ_01), z = ρ_00 - ρ_11。CPU ミラーシミュレータは使わない。
 - BlochDisplay の見た目は qni の `bloch_display.css` の役割に揃え、実色は theme role (`bloch_sphere_bg`, `bloch_sphere_lines`, `bloch_vector_line`, `bloch_vector_tip_0`, `bloch_vector_tip_mid`, `bloch_vector_tip_1`, `bloch_vector_tip_outline`, `bloch_vector_zero`) から取る。Flexoki Light では bg-2 / tx-3 / tx / red-300 / purple-400 / blue-300 / tx / tx-3 に対応する。
 - 投影は qni の DOM 変換 `rotateY(phi) rotateX(-theta)` + `perspective: 4rem` + `perspective-origin: top right` をそのまま再現（pinhole 投影、p = 4·radius、origin = (1, -1) in radius units）。Bloch → CSS 軸対応は +x → +z (奥行き、視点向き)、+y → +x (右)、+z → -y (上)。
@@ -359,11 +360,13 @@ Circuit 全体の panel fill も `background` で塗る。Measurement / `|0⟩` 
 - 描画は GPU 完結: `BLOCH_OVERLAY_SHADER` (vertex+fragment) が `bloch_output_buffer` を直接 sample してアロー線・先端ドットを描く (`BlochOverlayCallback`)。`MEASUREMENT_DIGIT_SHADER` も同様に `measurement_aux_buffer.z` (outcome) を sample し、起動時に rasterize した Geist Mono Regular の `0` / `1` atlas から outcome 桁を描画する。本番経路で GPU → CPU リードバックは発生しない。
 - `read_bloch_vectors()` / `read_measurement_outcomes()` (wasm_bindgen) は **テスト専用の async on-demand readback**: 呼ばれた時に staging buffer + map_async で `[gateId, x, y, z, …]` / `[gateId, outcome, …]` を返す。本番のレンダーには影響しない。Playwright は `readBlochVectors` / `readMeasurementOutcomes` ヘルパー経由で await して使う。
 - Spacer ゲートは qni `packages/elements/icon/spacer-gate.svg` を踏襲した装飾専用 NOP。viewbox 上の (9,21)–(15,27)、(21,21)–(27,27)、(33,21)–(39,27) に塗りつぶし矩形 3 つで `…` を描く。色は `text-neutral-900` (#171717)。`simulation_plan::linearize_ops` では Swap と同じく状態変更 op を出さない。
-- パレットは広い画面では 2 段。1 段目は単量子ビットのユニタリ (H, X, Y, Z, √X, S, S†, T, T†, P, Rx, Ry, Rz) と算術ゲート (+1 / −1)、2 段目は特殊ゲート (SWAP, •, ◦, Zpar, Xpar, |0⟩, |1⟩, Measurement, Z Detect-Control-Reset, X 軸検出器, Y 軸検出器, QFT, QFT†, Spacer, 事後選択 |0⟩ / |1⟩ / |+⟩ / |−⟩)。右側にはブロッホ球・確率・サンプル・振幅・密度行列の表示ブロックとコメントブロックを置く。両段とも左寄せで揃える（qni の `flex flex-row` レイアウトに合わせる）。
-- 横レイアウトでフルパレットが描画領域 (キャンバスから左右 8px ずつの余白を除いた領域) の左右に 16px を残して収まらないときは、配置を次の順に試し、最初に収まるものを使う (`apps/web/src/layout/palette.rs` の `full_palette_layout`)。
-  - 1 段目と 2 段目を、1 行 N 個以下の最少の行数にそれぞれ均等に折り返す。N は 2 段目の個数 (18) から 1 まで減らす。
-  - N ごとに、表示ブロックとコメントブロックの計 6 項目を 3 列 × 2 行、6 列 × 1 行、2 列 × 3 行の順に試す。この欄と区切り線は、欄と同じ行数ぶんのゲートの右に置き、それより下の行は欄の下まで伸ばしてよい。
-  - 例: キャンバス幅 1090px 以上は 15 / 18 個の 2 行と 3 列 × 2 行。1000px と 960px は 15 / 9 / 9 個の 3 行と 3 列 × 2 行になり、回路と状態パネルを 48px 下げる。844px (iPhone の横向き) と 800px は 8 / 7 / 9 / 9 個の 4 行と 3 列 × 2 行。600px は 8 / 7 / 6 / 6 / 6 個の 5 行と 2 列 × 3 行。
+- パレットは広い画面では 2 段。1 段目は単量子ビットのユニタリ (H, X, Y, Z, √X, S, S†, T, T†, P, Rx, Ry, Rz) と算術ゲート (+1 / −1)、2 段目は特殊ゲート (SWAP, •, ◦, Zpar, Xpar, |0⟩, |1⟩, Measurement, Z Detect-Control-Reset, X 軸検出器, Y 軸検出器, QFT, QFT†, 事後選択 |0⟩ / |1⟩ / |+⟩ / |−⟩)。右側は「表示と、見た目のための指示（注釈や空きマス）」の欄とし、1 行目にブロッホ球・確率・サンプル・振幅の表示ブロック、2 行目に密度行列表示ブロック・Spacer・コメントブロック・空きセルを置く。両段とも左寄せで揃える（qni の `flex flex-row` レイアウトに合わせる）。
+- 横レイアウトでは、描画領域 (キャンバスから左右 8px ずつの余白を除いた領域) の左右に 16px を残して収まる配置のうち、全体の高さが最も低いものを使う (`apps/web/src/layout/palette.rs` の `full_palette_layout`)。
+  - 左側の 1 段目と 2 段目を、1 行 N 個以下の最少の行数にそれぞれ均等に折り返す。N は 2 段目の個数 (17) から 1 まで減らす。
+  - 右側の計 7 項目には、4 列 × 2 行、3 列 × 3 行、2 列 × 4 行を候補とする。同じ高さなら、この候補順、次に左側の行を広く取れる順で選ぶ。1 行だけの候補は使わない。この欄と区切り線は、欄と同じ行数ぶんのゲートの右に置き、それより下の行は欄の下まで伸ばしてよい。
+  - どの候補でも、表示ブロックは左上から読み順に詰め、そのすぐ後に Spacer とコメントブロックを隣り合わせで続ける。2 つが行をまたぐときだけ次の行の先頭から置く (3 列 × 3 行と 2 列 × 4 行では密度行列の右が空く)。残りのセルは空け、操作対象にしない。
+  - 例: キャンバス幅 1090px 以上は 15 / 17 個の 2 行と 4 列 × 2 行。1000px は 15 / 9 / 8 個の 3 行と 4 列 × 2 行、960px は同じ左側の 3 行と 3 列 × 3 行になり、回路と状態パネルを 48px 下げる。844px (iPhone の横向き) と 800px は 8 / 7 / 9 / 8 個の 4 行と 4 列 × 2 行。640px は同じ左側の 4 行と 2 列 × 4 行、600px は 8 / 7 / 6 / 6 / 5 個の 5 行と 2 列 × 4 行。
+- 縦レイアウトのカルーセルは、左側の 1 段目、2 段目、ブロッホ球・確率・サンプル・振幅・密度行列の表示ブロック、Spacer、コメントブロックの順。全 39 項目を 4 項目ずつ 10 ページに分け、9 ページ目はブロッホ球・確率・サンプル・振幅、10 ページ目は密度行列・Spacer・コメントブロックとする。
 - パレットが 2 行より高くなったぶんだけ回路を下げる (`Palette::circuit_shift_y`)。
 - テストのヘルパー `apps/web/test-support/palette-layout.ts` は同じ配置を TypeScript で再現する。配置を変えたら両方を直し、`apps/web/tests/web-palette-layout.spec.ts` で各ゲートの中心がそのゲートに当たることを確かめる。
 - パレットの寸法は qni `apps/www/app/views/application/_palette_md.html.erb` に合わせる: ゲート間 8px (`space-x-2`)、行間 8px (`space-y-2`)、横パディング 16px (`px-4`)、縦パディング 20px (`py-5`)、角丸 12px (`rounded-xl`)。

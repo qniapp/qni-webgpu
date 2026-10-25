@@ -9,8 +9,8 @@ import struct
 import unittest
 
 from qni_qiskit_backend.circuit import (
-    CircuitBuildError, apply_column_to_qiskit, apply_columns_to_qiskit,
-    column_parity_targets,
+    SAMPLE_DISPLAY_MAX_SPAN, CircuitBuildError, apply_column_to_qiskit,
+    apply_columns_to_qiskit, column_parity_targets, is_sample_display,
 )
 from qni_qiskit_backend.contract import parse_run_request
 from qni_qiskit_backend.runners import (
@@ -44,8 +44,8 @@ def sample_reference(columns, qubits):
     for column in columns:
         covered = set()
         for wire, token in enumerate(column):
-            if token in {"Sample1", "Sample2", "Sample3"}:
-                covered.update(range(wire, min(wire + int(token[-1]), qubits)))
+            if isinstance(token, str) and is_sample_display(token):
+                covered.update(range(wire, min(wire + int(token[len("Sample"):]), qubits)))
         effective.append([1 if wire in covered and token in {"xpar", "zpar"} else token
                           for wire, token in enumerate(column)])
     return reference(effective, qubits, display_frame=True)
@@ -90,7 +90,7 @@ INVALID = 0xffffffff
 
 def sampled_outcome(probabilities, span, seed):
     """Literal probability_render.wgsl sampler (probability_prob clamps input)."""
-    if span == 0 or span > 3:
+    if span == 0 or span > SAMPLE_DISPLAY_MAX_SPAN:
         return INVALID
     probabilities = [f32(min(1.0, max(0.0, p))) for p in probabilities[:1 << span]]
     total = 0.0
@@ -187,7 +187,7 @@ def drop_case(span):
     return test
 
 
-for _span in (1, 2, 3):
+for _span in range(1, SAMPLE_DISPLAY_MAX_SPAN + 1):
     setattr(SampleFakeTests, f"test_parse_span_{_span}", span_case(_span))
     setattr(SampleFakeTests, f"test_parity_drop_span_{_span}", drop_case(_span))
 
@@ -199,8 +199,9 @@ def rejected_case(token):
     return test
 
 
-for _token in ("Sample", "Sample0", "Sample4", "Sample16", "Sample1<a"):
+for _token in ("Sample", "Sample0", "Sample9", "Sample16", "Sample1<a"):
     setattr(SampleFakeTests, "test_reject_" + _token.replace("<", "_"), rejected_case(_token))
+SampleFakeTests.test_reject_huge_span = rejected_case("Sample" + "1" * 5000)
 
 
 # These fixtures are deliberately small; exact branch arithmetic needs no numpy.
@@ -222,6 +223,7 @@ CASES = {
                        ["xpar", "zpar", "Sample1"]], 3, 1, 2, 1, 1),
     "span2_order": ([["X", 1, "X"], [1, "Sample2"]], 3, 2, 1, 0, 0),
     "span3_order": ([["X", 1, "X"], ["Sample3"]], 3, 3, 0, 0, 0),
+    "span8_order": ([["X", 1, "X", "X", 1, 1, "X", "X"], ["Sample8"]], 8, 8, 0, 0, 0),
     "span_parity_drop": ([["H", "H", "H", "H"], ["S", "T", "T", "S"],
                            ["Sample2", "xpar", "zpar", "xpar", "X"]], 5, 2, 0, 4, 4),
     "postselect_then_sample": ([["H"], ["•", "X"], ["|1⟩⟨1|"],
@@ -267,7 +269,7 @@ class SampleReferenceTests(unittest.TestCase):
                           0.026828646659851074, 0.8804715275764465])
 
     def test_invalid_spans(self):
-        self.assertEqual([sampled_outcome([1] * 16, s, 0) for s in (0, 4)], [INVALID, INVALID])
+        self.assertEqual([sampled_outcome([1] * 512, s, 0) for s in (0, 9)], [INVALID, INVALID])
 
     def test_negative_undefined_sentinel_clamped(self):
         self.assertEqual(sampled_outcome([-1, -1], 1, 0), INVALID)
@@ -310,7 +312,7 @@ def seeded_case(span):
 
 for _label, _case in CASES.items():
     setattr(SampleReferenceTests, "test_exact_marginal_" + _label, reference_case(_case))
-for _span in (1, 2, 3):
+for _span in range(1, SAMPLE_DISPLAY_MAX_SPAN + 1):
     setattr(SampleReferenceTests, f"test_seeded_sparse_span_{_span}", seeded_case(_span))
 
 

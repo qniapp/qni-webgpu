@@ -1,7 +1,7 @@
 //! State-vector compute + render pipelines.
 //!
 //! * `compute_pipeline` applies a single `GateParams` matrix (or
-//!   `Write0/Write1` permutation) to the active state buffer,
+//!   `Write1` permutation) to the active state buffer,
 //!   ping-ponging between the two `Common::state_buffers`. Conditional
 //!   gates read their measurement outcome from `measure::aux_buffer`.
 //! * `render_pipeline` paints the state-vector circle grid (fill +
