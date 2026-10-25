@@ -12,11 +12,7 @@
  *
  *   const host = document.querySelector('.ad-host');     // 任意のホスト
  *   host.classList.add('resize-handle-host');            // hover で visible になる契約
- *   attachResizeHandles(host, { widthMode: 'fixed' });   // 固定 24 px
- *
- *   const host2 = document.querySelector('.ad-host');
- *   host2.classList.add('resize-handle-host');
- *   attachResizeHandles(host2, { widthMode: 'canvas60' }); // amplitude / density は canvas 幅 × 0.6
+ *   attachResizeHandles(host);
  *
  * 仕様ページの常時表示モック (ホバーしなくても状態を強制):
  *   attachResizeHandles(host, { handleState: 'visible' });  // 両方 visible
@@ -31,23 +27,12 @@
   /**
    * @param {HTMLElement} host - ハンドルを appendChild する親要素
    * @param {Object} [opts]
-   * @param {'fixed'|'canvas60'} [opts.widthMode='fixed'] - 幅算出ポリシー
    * @param {'visible'|'hover'|'active'} [opts.handleState] - 強制状態 (仕様ページのモック用)
-   * @param {number} [opts.canvasWidth] - canvas 幅を明示 (省略時は host 内の <canvas>.width を使う)
    * @returns {{ top: HTMLDivElement, bottom: HTMLDivElement }}
    */
   function attachResizeHandles(host, opts) {
     opts = opts || {};
-    const widthMode = opts.widthMode || 'fixed';
-    let width = 24;
-    if (widthMode === 'canvas60') {
-      // canvas 幅を取得。明示指定 > host 内の <canvas>.width > 予備値 24
-      const canvasWidth =
-        opts.canvasWidth != null
-          ? opts.canvasWidth
-          : (host.querySelector('canvas') || {}).width || 24;
-      width = Math.max(24, Math.round(canvasWidth * 0.6));
-    }
+    const width = 24;
     const top = createHandle('top', width, opts.handleState);
     // bottom 側は何かの状態が指定されていれば常に visible で表示する (仕様ページのモック慣習)
     const bottomState = opts.handleState ? 'visible' : undefined;
