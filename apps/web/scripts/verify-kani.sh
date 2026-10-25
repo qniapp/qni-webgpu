@@ -28,16 +28,17 @@ PY
 # 実ソースが全件成功しなければ、故障版の検証には進まない。
 cargo kani --manifest-path "$crate_dir/Cargo.toml" 2>&1 | tee "$log_dir/pass.txt"
 grep -Fq 'VERIFICATION:- SUCCESSFUL' "$log_dir/pass.txt"
-grep -Fxq 'Complete - 2 successfully verified harnesses, 0 failures, 2 total.' "$log_dir/pass.txt"
+grep -Fxq 'Complete - 7 successfully verified harnesses, 0 failures, 7 total.' "$log_dir/pass.txt"
 
 # 毎回実ソースから復元し、前の故障注入が次の証明へ混入しないようにする。
 reset_mutant() {
   mkdir -p "$scratch/web/verification/kani" "$scratch/web/src/gates" \
-    "$scratch/web/src/simulation_plan"
+    "$scratch/web/src/simulation_plan" "$scratch/web/src/gpu"
   cp "$crate_dir/Cargo.toml" "$crate_dir/Cargo.lock" "$crate_dir/lib.rs" \
     "$scratch/web/verification/kani/"
   cp "$web_dir/src/gates/controls.rs" "$scratch/web/src/gates/"
   cp "$web_dir/src/qubit_bit.rs" "$scratch/web/src/"
+  cp "$web_dir/src/gpu/arithmetic_index.rs" "$scratch/web/src/gpu/"
   cp "$web_dir/src/simulation_plan/arithmetic_field.rs" "$scratch/web/src/simulation_plan/"
 }
 
@@ -90,4 +91,22 @@ check_mutant '実 Rust の制御除去で対象範囲のシフトを省略' \
   arithmetic_plan_preconditions \
   'arithmetic plan has exact mask fit disjoint controls and correct amount' mutant-plan-controls.txt
 
-echo '正常版の全 2 件は成功し、故障版の全 4 件はそれぞれ対応する 1 件だけ失敗しました。'
+check_mutant '対象フィールドをゼロに潰す' \
+  src/gpu/arithmetic_index.rs \
+  'let previous = field.wrapping_sub(amount) & target_mask;' \
+  'let previous = field.wrapping_sub(amount) & 0u32;' \
+  arithmetic_permutation 'arithmetic source lookup is injective' mutant-permutation.txt
+
+check_mutant '範囲外ビットを消す' \
+  src/gpu/arithmetic_index.rs '(i & !mask)' '0u32' \
+  arithmetic_outside_bits 'arithmetic preserves outside bits' mutant-outside.txt
+
+check_mutant '加減算量を常に 1 にする' \
+  src/gpu/arithmetic_index.rs 'field.wrapping_sub(amount)' 'field.wrapping_sub(1)' \
+  arithmetic_inverse 'arithmetic opposite amounts are inverse' mutant-inverse.txt
+
+check_mutant '加減算方向を反転する' \
+  src/gpu/arithmetic_index.rs 'field.wrapping_sub(amount)' 'field.wrapping_add(amount)' \
+  arithmetic_direction 'arithmetic source plus amount equals destination field' mutant-direction.txt
+
+echo '正常版の全 7 件は成功し、故障版の全 8 件はそれぞれ対応する 1 件だけ失敗しました。'

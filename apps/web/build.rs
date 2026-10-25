@@ -1,3 +1,6 @@
+#[path = "build_support/arithmetic_codegen.rs"]
+mod arithmetic_codegen;
+
 use std::fs;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -30,6 +33,7 @@ const EDGE_ALPHA: u8 = 128;
 fn main() {
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("manifest dir"));
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").expect("out dir"));
+    arithmetic_codegen::generate(&manifest_dir, &out_dir);
     let out_path = out_dir.join("gate_icon_alpha.rs");
     let mut generated = String::new();
     generated.push_str(&format!(
