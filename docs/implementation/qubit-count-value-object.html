@@ -175,7 +175,7 @@ impl QubitCapacity {
     <ul>
       <li>Web 側は外部 GPU 実行要求を組み立てる直前まで <code>QubitCount</code> を保持し、JSON の <code>qubits</code> へは <code>qiskit_run_payload_with_display_outputs</code> を呼ぶ最後の境界で <code>get()</code> した値だけを書き込む。</li>
       <li><code>contract.py</code> は <code>payload["qubits"]</code> を読んだ直後に <code>QubitCount</code> を生成し、<code>QubitCapacity.external_gpu()</code> で上限を検証する。</li>
-      <li><code>runners.py</code> の <code>QuantumCircuit(request.qubits, request.qubits)</code>、<code>qiskit_basis_order</code>、<code>probability_qargs</code>、<code>density_save_qargs</code> は値オブジェクトから取り出した値だけを使う。</li>
+      <li><code>runners.py</code> の <code>QuantumCircuit(request.qubits, request.qubits)</code>、<code>qiskit_basis_order</code>、<code>probability_save_qargs</code>、<code>density_save_qargs</code> は値オブジェクトから取り出した値だけを使う。</li>
       <li>バックエンドのエラー文言は <code>qubits must be an integer in [1, 32]</code> の意味を維持する。ただし内部では <code>Zero</code> と <code>AboveCapacity</code> を分けておく。</li>
     </ul>
 
