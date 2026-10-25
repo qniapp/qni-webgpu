@@ -501,22 +501,6 @@ impl CircuitLibrary {
         self.move_section_entry_to_slot(src, target_slot, kind);
     }
 
-    pub fn move_user_to_slot(&mut self, src_index: usize, target_user_slot: usize) {
-        self.move_section_entry_to_slot(src_index, target_user_slot, CircuitKind::My);
-    }
-
-    pub fn swap_adjacent(&mut self, a: usize, b: usize) {
-        debug_assert!(a.abs_diff(b) == 1);
-        if a < self.entries.len()
-            && b < self.entries.len()
-            && a.abs_diff(b) == 1
-            && self.entries[a].is_user()
-            && self.entries[b].is_user()
-        {
-            self.entries.swap(a, b);
-        }
-    }
-
     pub fn bump_updated_at(&mut self) {
         let active_id = self.active_id.clone();
         if let Some(entry) = self.entries.iter_mut().find(|entry| entry.id == active_id) {
@@ -659,28 +643,6 @@ impl CircuitLibrary {
             .iter()
             .find(|entry| entry.is_user() && entry.circuit_json == circuit_json)
             .map(|entry| entry.id.clone())
-    }
-
-    pub fn user_indices(&self) -> Vec<usize> {
-        self.entries
-            .iter()
-            .enumerate()
-            .filter_map(|(index, entry)| entry.is_user().then_some(index))
-            .collect()
-    }
-
-    pub fn sample_indices(&self) -> Vec<usize> {
-        self.entries
-            .iter()
-            .enumerate()
-            .filter_map(|(index, entry)| entry.is_sample().then_some(index))
-            .collect()
-    }
-
-    pub fn user_slot_for_index(&self, index: usize) -> Option<usize> {
-        self.user_indices()
-            .iter()
-            .position(|user_index| *user_index == index)
     }
 
     pub fn section_slot_for_index(&self, index: usize) -> Option<(CircuitKind, usize)> {
