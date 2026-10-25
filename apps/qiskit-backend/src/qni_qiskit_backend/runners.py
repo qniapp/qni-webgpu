@@ -488,11 +488,6 @@ def bloch_control_index(request: BlochOutputRequest, control_bits: Sequence[int]
     return index
 
 
-def probability_qargs(request: ProbabilityOutputRequest) -> list[int]:
-    # q0=LSB: web ビット位置 = Qiskit 量子ビット番号（恒等写像）。
-    return list(probability_bits(request))
-
-
 def probability_save_qargs(request: ProbabilityOutputRequest, qubits: int | QubitCount) -> list[int]:
     qubits = qubit_value(qubits)
     return probability_bits(request) + probability_control_bits(request, qubits)
@@ -531,11 +526,6 @@ def probability_control_index(
         if request.control_value & (1 << bit):
             index |= 1 << offset
     return index
-
-
-def density_qargs(request: DensityOutputRequest) -> list[int]:
-    # q0=LSB: web ビット位置 = Qiskit 量子ビット番号（恒等写像）。
-    return list(density_bits(request))
 
 
 def density_save_qargs(request: DensityOutputRequest, qubits: int | QubitCount) -> list[int]:

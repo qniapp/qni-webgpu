@@ -30,11 +30,9 @@ from qni_qiskit_backend.runners import (
     add_qiskit_probability,
     amplitude_display_response,
     bloch_save_qargs,
-    density_qargs,
     density_save_qargs,
     load_qiskit,
     normalize_qiskit_counts,
-    probability_qargs,
     probability_save_qargs,
     select_runner,
 )
@@ -1561,7 +1559,7 @@ class ContractTests(unittest.TestCase):
             },
         )
 
-    def test_probability_qargs_match_web_outcome_order(self):
+    def test_probability_save_qargs_without_controls_match_web_outcome_order(self):
         request = parse_run_request(
             {
                 "qubits": 2,
@@ -1572,7 +1570,7 @@ class ContractTests(unittest.TestCase):
                 },
             }
         )
-        self.assertEqual(probability_qargs(request.probability_outputs[0]), [0, 1])
+        self.assertEqual(probability_save_qargs(request.probability_outputs[0], 2), [0, 1])
 
     def test_bloch_save_qargs_include_controls_after_display_wire(self):
         request = parse_run_request(
@@ -1617,7 +1615,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(probability_save_qargs(request.probability_outputs[0], 3), [2, 0, 1])
 
-    def test_density_qargs_match_web_outcome_order(self):
+    def test_density_save_qargs_without_controls_match_web_outcome_order(self):
         request = parse_run_request(
             {
                 "qubits": 2,
@@ -1628,7 +1626,7 @@ class ContractTests(unittest.TestCase):
                 },
             }
         )
-        self.assertEqual(density_qargs(request.density_outputs[0]), [0, 1])
+        self.assertEqual(density_save_qargs(request.density_outputs[0], 2), [0, 1])
 
     def test_density_save_qargs_include_controls_after_display_bits(self):
         request = parse_run_request(
