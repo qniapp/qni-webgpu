@@ -1,10 +1,3 @@
-"""Named measurement contracts and independent exact-mixture runner checks.
-
-WebGPU expectations: apps/web/tests/web-conditional-gate.spec.ts (applied,
-skipped, unset, and BB84). The nine accepted conditional kinds come from
-apps/web/src/gates/flag.rs::GateKind::is_ifable; parametric gates are NOT in it.
-No reference calculation below interprets emitted Qiskit operations.
-"""
 import cmath
 from contextlib import contextmanager
 import math
@@ -241,13 +234,6 @@ def split_measurement(branch, wire, name=None):
 
 
 def exact(columns, qubits, *, normalize=True):
-    """Enumerate normalized pure branches with their joint probabilities.
-
-    Interpret columns directly: all unitaries read OLD flags; measurement
-    writes occur afterwards in increasing wire order. Postselection retains
-    probability mass until the final mixture is normalized. Fixtures use
-    ordinary Z measurement and computational-basis postselection.
-    """
     branches = [(1.0, {}, [1+0j] + [0j] * ((1 << qubits)-1))]
     for column in columns:
         controls = [i for i, t in enumerate(column) if t == "•"]

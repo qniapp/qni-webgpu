@@ -1,8 +1,3 @@
-"""Exact modular little-endian arithmetic contracts; CPU oracles are test-only.
-
-FakeCircuit and sparse-reference cases need no Qiskit. Aer checks skip when
-optional dependencies are absent. No production simulation fallback is added.
-"""
 import math
 import unittest
 

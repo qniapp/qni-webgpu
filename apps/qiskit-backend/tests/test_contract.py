@@ -55,7 +55,6 @@ def running_test_server(default_runner, allowed_runners, proxy_token=""):
 
 @contextmanager
 def server_subprocess(runner):
-    # 読み込み状態はプロセス単位なので、別プロセスでサーバを立てる。
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
@@ -1051,7 +1050,6 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(
             fake.ops,
             [
-                # leading controlled bit-reversal swap (q1↔q2) gated by q0
                 ("mcx", [0, 1], 2),
                 ("mcx", [0, 2], 1),
                 ("mcx", [0, 1], 2),
@@ -1089,7 +1087,6 @@ class ContractTests(unittest.TestCase):
                 ("x", 0),
                 ("controlled", ("H", None), [0], [1]),
                 ("x", 0),
-                # trailing bit-reversal swap (q1↔q2) gated by anti-control q0
                 ("x", 0),
                 ("mcx", [1, 0], 2),
                 ("x", 0),
@@ -1763,9 +1760,6 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(round(response["ket"][1][0], 3), 0.707)
 
     def test_qiskit_runner_histogram_uses_q0_lsb_ket_order(self):
-        # 実 Qiskit 実行で wire→qubit→state index→ket の規約全体を固定する。
-        # X を wire0 だけに置くと wire0=1, wire1=0。q0=LSB では wire0(=q0) が
-        # ket の右端なので "01"。reverseBits 時代の規約だと "10" になっていた。
         request = parse_run_request(
             {
                 "qubits": 2,
@@ -1780,8 +1774,6 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(response["histogram"], {"01": request.shots})
 
     def test_qiskit_runner_amplitude_index_uses_q0_lsb(self):
-        # X を wire0 だけに置くと状態は index 1 (= bit0/q0/wire0 が 1) に集中する。
-        # qiskit_basis_order が恒等になったことを実 Qiskit 実行で固定する。
         request = parse_run_request(
             {
                 "qubits": 2,
@@ -1846,8 +1838,6 @@ class ContractTests(unittest.TestCase):
         )
 
     def test_qiskit_counts_pass_through_in_qiskit_little_endian_order(self):
-        # q0=LSB: Qiskit の little-endian ビット列 = qni の ket 順なので並べ替えなし。
-        # 空白除去とキーのソートのみが起きる。
         self.assertEqual(normalize_qiskit_counts({"10": 5, "01": 7}), {"01": 7, "10": 5})
 
     def test_contract_defaults_to_allowed_gpu_runner(self):

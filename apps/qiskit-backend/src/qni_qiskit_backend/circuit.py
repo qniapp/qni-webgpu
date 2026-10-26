@@ -105,7 +105,6 @@ class MeasurementFlags:
 
 
 def split_flag_token(token: str) -> tuple[str, str | None, str | None]:
-    """Mirror gates/flag.rs; parametric gates cannot carry URL conditions."""
     if token.startswith("Measure>"):
         return "Measure", token.removeprefix("Measure>").strip() or None, None
     if "<" in token:
@@ -202,8 +201,6 @@ def apply_column_to_qiskit(
         deferred.append((wire, token))
     if parity_targets:
         controls.append(parity_targets[0][0])
-    # A resizable span can cover a control cell, unlike single-wire gates and swaps.
-    # This overlap with a detect-control-reset wire is not supported here.
     for wire, token in deferred:
         spec = parse_resizable_token(split_parametric(token)[0])
         if spec is not None and any(
@@ -294,7 +291,6 @@ def apply_column_to_qiskit(
 
 
 def column_parity_targets(column: list[Any], qubits: int) -> list[tuple[int, str]]:
-    """Drop markers covered by a resizable span, as WebGPU linearize.rs does."""
     spans: list[tuple[int, int]] = []
     parity: list[tuple[int, str]] = []
     for wire, raw in enumerate(column):

@@ -1,8 +1,3 @@
-"""ZDetectControlReset contracts and exact, dependency-free WebGPU fixtures.
-
-Only the optional Aer class imports simulator dependencies. The exact reference
-interprets emitted primitives, not the high-level gate under test.
-"""
 import math
 import unittest
 
@@ -187,12 +182,6 @@ for _token in ("QFT2", "QFT†2", "QFT3", "QFT†3"):
 
 
 def exact_branches(ops, qubits):
-    """Extend axis reference locally with controlled gates and physical reset.
-
-    Axis helpers supply single-qubit gates and joint detector projection. A reset
-    branches by Z outcome and flips only outcome 1; it never merges amplitudes.
-    Reset's internal sample is deliberately absent from detector outcome history.
-    """
     branches = axis_branches([], qubits)
     for op in ops:
         name = op[0]
@@ -257,7 +246,6 @@ def prepare(bits):
     return ["X" if bit else "|0>" for bit in bits]
 
 
-# WebGPU parity fixtures: apps/web/tests/z-detect-control-reset.spec.ts.
 class ZDetectControlResetWebGpuParityTests(unittest.TestCase):
     def test_h_sample_correlates_with_target_and_resets(self):
         self.assertEqual(snapshot(exact_branches(build([["H"], [ZDCR, "X"]], 2), 2)), [
