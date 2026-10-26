@@ -75,6 +75,32 @@ test('mobile tap selects a circuit step', async ({ page }) => {
   await expect.poll(() => MobileEmbed.selectedStep(page)).toBe(1)
 })
 
+for (const [name, point, step] of [
+  ['step', { x: 144, y: 335 }, 1],
+  ['blank space', { x: 330, y: 420 }, 4],
+] as const) {
+  test(`mobile stationary ${name} tap does not synthesize host mouse events`, async ({ page }, testInfo) => {
+    const before = await page.evaluate(() => (window as any).runner.circuitJSON())
+    await page.evaluate(() => {
+      const events: string[] = []
+      const w = window as any
+      w.hostMouseEvents = events
+      for (const type of ['mousemove', 'mousedown', 'mouseup', 'click']) {
+        document.addEventListener(type, () => events.push(type), { capture: true })
+      }
+    })
+    await page.touchscreen.tap(point.x, point.y)
+    await page.waitForTimeout(200)
+    const after = await page.evaluate(() => ({
+      mouseEvents: (window as any).hostMouseEvents,
+      step: (window as any).runner.selectedStep(),
+      circuit: (window as any).runner.circuitJSON(),
+    }))
+    await writeFile(testInfo.outputPath('post-tap.json'), JSON.stringify(after, null, 2))
+    expect(after).toEqual({ mouseEvents: [], step, circuit: before })
+  })
+}
+
 test('mobile empty-area horizontal swipe reveals later steps', async ({ page }) => {
   await MobileEmbed.swipe(page, { x: 330, y: 335 }, { x: 90, y: 335 })
   if (process.env.QNI_MOBILE_SCREENSHOT) await page.screenshot({ path: process.env.QNI_MOBILE_SCREENSHOT })

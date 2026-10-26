@@ -308,8 +308,9 @@ async fn start_runner(
                 return true;
             }
             // Capture interactive targets synchronously at touchstart. That
-            // cancellation owns the gesture; later events must not cancel a
+            // cancellation owns the gesture; movement must not cancel a
             // native article scroll that started on empty canvas space.
+            // Cancelable releases still suppress compatibility mouse events.
             match event {
                 egui::Event::PointerButton {
                     pos, pressed: true, ..
@@ -317,9 +318,7 @@ async fn start_runner(
                     .borrow()
                     .as_ref()
                     .is_some_and(|ctx| QniApp::embed_captures_touch(ctx, *pos)),
-                egui::Event::PointerMoved(_)
-                | egui::Event::PointerButton { pressed: false, .. }
-                | egui::Event::PointerGone => false,
+                egui::Event::PointerMoved(_) => false,
                 _ => true,
             }
         }),
