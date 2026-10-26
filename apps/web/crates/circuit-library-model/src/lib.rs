@@ -1,5 +1,3 @@
-//! Domain model for the local circuit library.
-
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
@@ -119,13 +117,6 @@ pub const DELAYED_CHOICE_ERASER_JSON: &str = concat!(
     r#"]}"#,
 );
 
-/// 量子テレポーテーション 3 量子ビット回路。q0=メッセージ、q1=アリス、q2=ボブ。
-/// もつれ（Bell ペア）と 2 ビットの古典情報で未知の状態を q0 から q2 へ移す。アリスの
-/// ベル測定（CNOT・H・測定）で q0・q1 を潰し、ボブが測定結果で X / Z 補正をかけると、
-/// ランダムな測定結果によらず q2 が決定的にメッセージと一致する（qni の硬測定が正しく働く例。
-/// 測定で状態が潰れることをそのまま使う点で遅延選択量子消しゴムと対照的）。転送前後を
-/// 2 つのブロッホ球表示ブロックで見比べる。解説は
-/// docs/implementation/quantum-teleportation.html。
 pub const TELEPORTATION_JSON: &str = concat!(
     r#"{"cols":["#,
     r#"["{Bell pair"],[1,"H"],[1,"•","X"],["}"],"#,
@@ -140,11 +131,6 @@ pub const TELEPORTATION_JSON: &str = concat!(
     r#"]}"#,
 );
 
-/// 超高密度符号化（Superdense Coding）6 量子ビット回路。q0・q1=送信ビット、q2=アリス、
-/// q3・q4=ベルペアを作って配る量子ビット、q5=ボブ。ベルペアを生成して Swap でアリスとボブへ
-/// 配り、Z・X でメッセージ「11」を符号化、Swap で送信し、ボブのベル測定（CNOT・H・測定）で
-/// 2 ビットを復号する。テレポーテーションの双対で、こちらも qni の硬測定が正しく働く。解説は
-/// docs/implementation/superdense-coding.html。
 pub const SUPERDENSE_CODING_JSON: &str = concat!(
     r#"{"cols":["#,
     r#"["{Bell pair"],[1,1,1,"H"],[1,1,1,"•","X"],["}"],"#,
@@ -161,12 +147,6 @@ pub const SUPERDENSE_CODING_JSON: &str = concat!(
     r#"]}"#,
 );
 
-/// 可逆加算（Reversible Addition）10 量子ビット回路。q0-q4=A レジスタ、q5-q9=B レジスタ
-/// （下位ビットが上のワイヤ）。Quirk の Swap ネット構成で、A を保ったまま B に A を足し込む
-/// （B += A、5 ビット同士の mod 32）。入力は A=5・B=3 に固定し、B を 8 にする。多ターゲット制御 X
-/// （X の壁）と制御 Swap（Fredkin）を使う。加算の前後に Probability5 を A・B 各 1 つずつ（計 4 つ）
-/// 置き、入力 A=5・B=3 と出力 A=5・B=8 の各レジスタ値を見せる。どれも GPU シェーダが対応済みで
-/// 新ゲートは不要。解説は docs/implementation/reversible-addition.html。
 pub const REVERSIBLE_ADDITION_JSON: &str = concat!(
     r#"{"cols":["#,
     r#"["{A=5, B=3"],["X",1,"X",1,1,"X","X"],["Probability5",1,1,1,1,"Probability5"],["}"],"#,
@@ -232,8 +212,6 @@ impl CircuitId {
         &self.0
     }
 
-    /// クレート内部で生成する識別子（サンプルの固定文字列・採番結果）専用。
-    /// これらは構造上空にならないため、検証失敗は不変条件の破れとして panic させる。
     fn from_known(value: impl Into<String>) -> Self {
         Self::try_new(value).expect("internally generated circuit id must not be empty")
     }

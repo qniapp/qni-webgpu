@@ -1,9 +1,3 @@
-//! Central names and helpers for wasm debug/test hooks.
-//!
-//! Browser globals are intentionally limited to Playwright/Cucumber support and
-//! debug geometry probes. Keep hook names here so Rust publishers and TS tests
-//! do not grow independent string literals.
-
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
 

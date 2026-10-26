@@ -14,7 +14,6 @@ trap 'rm -rf -- "$scratch"' EXIT
 log_dir=${KANI_LOG_DIR:-$scratch/logs}
 mkdir -p -- "$log_dir"
 
-# 計画の証明範囲がローカル実行の上限と一致することを確認する。
 python3 - "$web_dir" <<'PY'
 from pathlib import Path
 import sys
@@ -25,7 +24,6 @@ if constants.count("pub(crate) const LOCAL_MAX_QUBITS: usize = 16;") != 1:
     sys.exit("ローカル量子ビット数の上限が変更されています。証明範囲を見直してください。")
 PY
 
-# 実ソースが全件成功しなければ、故障版の検証には進まない。
 cargo kani --manifest-path "$crate_dir/Cargo.toml" 2>&1 | tee "$log_dir/pass.txt"
 grep -Fq 'VERIFICATION:- SUCCESSFUL' "$log_dir/pass.txt"
 grep -Fxq 'Complete - 7 successfully verified harnesses, 0 failures, 7 total.' "$log_dir/pass.txt"

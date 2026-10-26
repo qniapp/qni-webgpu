@@ -36,7 +36,6 @@ export function preflightSync(env = globalThis) {
   return null
 }
 
-// Only pending probes are shared, and never across injected environments.
 const probes = new WeakMap()
 const adapterInfo = new WeakMap()
 export async function diagnoseWebGpu(env = globalThis) {
@@ -109,7 +108,6 @@ function adapterSteps({ os, browser }) {
   return ['ブラウザーの設定で「ハードウェア アクセラレーション」(グラフィック アクセラレーション) をオンにして、ブラウザーを再起動してください。', 'ブラウザーと OS を最新版に更新してください。', '直らなければ、別のブラウザーや端末で試してください。']
 }
 
-// Content is deterministic for its arguments; browser metadata is appended only by the renderer.
 export function startupErrorContent(error, platform = detectPlatform()) {
   const e = classifyStartupError(error), d = e.detail ?? {}
   const c = { code: e.code, motif: 'crayon', title: '量子回路を起動できませんでした', cause: '予想していなかったエラーが起きました。', environment: '', steps: ['「再試行」を押してください。', '直らなければ、ページを再読み込みするか、別のブラウザーで開いてください。', 'それでも直らないときは、「エラーの詳細」をコピーしてページの作成者に知らせてください。'], primary: 'retry', secondary: null, details: `code: ${e.code}\nmessage: ${messageOf(e)}`, detailsOpen: false }
@@ -137,7 +135,6 @@ export function startupErrorContent(error, platform = detectPlatform()) {
   return c
 }
 
-// Colors: src/colors/flexoki.rs and kepano/flexoki css/flexoki.css.
 // Hover uses the TX overlay instead of the design's unverified blue-700.
 const CSS = `
 :host{--bg:#FFFCF0;--bg-2:#F2F0E5;--ui:#E6E4D9;--ui-3:#CECDC3;--tx-3:#B7B5AC;--tx-2:#6F6E69;--tx:#100F0F;--blue-600:#205EA6;--blue-400:#4385BE;--blue-200:#92BFDB;--purple:#5E409D;--purple-bg:#F0EAEC;--yellow:#D0A215;--orange:#DA702C;--red:#AF3029;display:block;height:100%;min-width:0;color-scheme:light;color:var(--tx);background:var(--bg);font:14px/20px var(--qni-startup-error-font,system-ui,-apple-system,"Segoe UI","Hiragino Sans","Noto Sans JP","Yu Gothic UI",Meiryo,sans-serif);text-align:left;letter-spacing:normal;container:qse / inline-size}
@@ -171,7 +168,6 @@ export function renderStartupError(container, error, { onRetry, platform, headin
   if (c.primary === 'retry' && typeof onRetry !== 'function') {
     c.steps = c.steps.map(step => step.replaceAll('「再試行」', '「ページを再読み込み」'))
   }
-  // Walk active elements, rather than assuming the container is in the document light DOM.
   let active = doc.activeElement
   while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement
   let ancestor = active, restoreFocus = false
