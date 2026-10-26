@@ -113,7 +113,7 @@ fn main() -> io::Result<()> {
 
     let area = Rect::new(0, 0, width, height);
     let mut state = AppState::new();
-    let buffer = render_to_buffer(&mut state, area, None);
+    let buffer = render_to_buffer(&mut state, area);
 
     let mut stdout = io::stdout();
     let mut current_fg: Option<(u8, u8, u8)> = None;

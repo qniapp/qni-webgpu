@@ -399,37 +399,7 @@ pub fn update_hovered_slot(state: &mut AppState, x: u16, y: u16, area: Rect) {
         (Some((index, dist)), Some(row)) => Some((row, index, dist)),
         _ => None,
     };
-    let insert_target = insertion_target(state, x, y, area).and_then(|(row, index)| {
-        let layout = circuit_layout(area, qubit_count(state));
-        let left = layout
-            .slots
-            .get(row)
-            .and_then(|slots| slots.get(index.saturating_sub(1)))?;
-        let gap_x = left.x.saturating_add(GATE_BOX_WIDTH);
-        let gap = Rect {
-            x: gap_x,
-            y: left.y,
-            width: SLOT_GAP,
-            height: left.height,
-        };
-        let dx = if x < gap.x {
-            gap.x - x
-        } else if x >= gap.x.saturating_add(gap.width) {
-            x - gap.x.saturating_add(gap.width - 1)
-        } else {
-            0
-        };
-        let dy = if y < gap.y {
-            gap.y - y
-        } else if y >= gap.y.saturating_add(gap.height) {
-            y - gap.y.saturating_add(gap.height - 1)
-        } else {
-            0
-        };
-        Some((row, index, dx.saturating_add(dy)))
-    });
-
-    if let Some((row, index, _)) = insert_target {
+    if let Some((row, index)) = insertion_target(state, x, y, area) {
         state.hovered_slot = None;
         state.hovered_row = None;
         state.hovered_insert = Some((row, index));

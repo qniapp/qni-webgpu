@@ -12,7 +12,7 @@ fn snapshot_two_qubit_state_circles() {
     terminal
         .draw(|frame| {
             let area = frame.area();
-            let buffer = render_to_buffer(&mut state, area, None);
+            let buffer = render_to_buffer(&mut state, area);
             let frame_buffer = frame.buffer_mut();
             for y in 0..area.height {
                 for x in 0..area.width {

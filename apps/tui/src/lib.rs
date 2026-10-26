@@ -15,8 +15,8 @@ pub use layout::{
     CircuitLayout, PaletteItem, Regions,
 };
 pub use model::{
-    apply_gate_to_state, apply_gates_to_zero, build_state_line, format_complex, parse_args,
-    AppState, Complex, DragOrigin, DragState, Gate, QuitChoice,
+    apply_gate_to_state, apply_gates_to_zero, build_state_line, format_complex, AppState, Complex,
+    DragOrigin, DragState, Gate, QuitChoice,
 };
 pub use render::{render_to_buffer, render_to_buffer_with_drag, DragVisual};
 
@@ -54,11 +54,6 @@ mod tests {
             None
         });
         state
-    }
-
-    fn parse_args_from(args: &[&str]) -> Gate {
-        let owned: Vec<String> = args.iter().map(|value| value.to_string()).collect();
-        parse_args(&owned)
     }
 
     fn gate_test_area() -> Rect {
@@ -108,18 +103,6 @@ mod tests {
     fn build_state_line_for_phase_gate() {
         let line = build_state_line(&[vec![Some(Gate::Phase)]]);
         assert_eq!(line, "State: [(1+0i), (0+0i), (0+0i), (0+0i)]");
-    }
-
-    #[test]
-    fn parse_args_handles_rotation_gates() {
-        assert_eq!(
-            (
-                parse_args_from(&["--gate", "rx"]),
-                parse_args_from(&["--gate", "ry"]),
-                parse_args_from(&["--gate", "rz"]),
-            ),
-            (Gate::Rx, Gate::Ry, Gate::Rz)
-        );
     }
 
     #[test]
@@ -176,42 +159,10 @@ mod tests {
     }
 
     #[test]
-    fn parse_args_handles_gate_flags() {
-        assert_eq!(
-            (
-                parse_args_from(&[]),
-                parse_args_from(&["--gate", "y"]),
-                parse_args_from(&["--gate=Z"]),
-                parse_args_from(&["--gate", "control"]),
-                parse_args_from(&["--gate", "measure"]),
-                parse_args_from(&["--gate", "phase"]),
-                parse_args_from(&["--gate", "sqrtx"]),
-                parse_args_from(&["--gate", "sdg"]),
-                parse_args_from(&["--gate", "tdg"]),
-                parse_args_from(&["--gate", "swap"]),
-                parse_args_from(&["--gate", "nope"]),
-            ),
-            (
-                Gate::H,
-                Gate::Y,
-                Gate::Z,
-                Gate::Control,
-                Gate::Measure,
-                Gate::Phase,
-                Gate::SqrtX,
-                Gate::Sdg,
-                Gate::Tdg,
-                Gate::Swap,
-                Gate::H,
-            )
-        );
-    }
-
-    #[test]
     fn render_to_buffer_writes_spaced_lines() {
         let area = Rect::new(0, 0, 100, 40);
         let mut state = state_with_gate(Gate::H);
-        let buffer = render_to_buffer(&mut state, area, None);
+        let buffer = render_to_buffer(&mut state, area);
         let layout = circuit_layout(area, qubit_count(&state));
         let regions = layout_regions(area, qubit_count(&state));
         let gate_rect = layout.slots[0][0];
@@ -236,7 +187,7 @@ mod tests {
         state.placed[0] = vec![Some(Gate::H), Some(Gate::Control)];
         state.placed[1] = vec![None, Some(Gate::X)];
         state.hovered_column = Some((0, 0));
-        render_to_buffer(&mut state, area, None);
+        render_to_buffer(&mut state, area);
         let first_limit = state.cached_limit;
         let first_sig: Vec<String> = state
             .cached_state
@@ -244,7 +195,7 @@ mod tests {
             .map(|amp| format_complex(*amp))
             .collect();
         state.hovered_column = Some((0, 1));
-        render_to_buffer(&mut state, area, None);
+        render_to_buffer(&mut state, area);
         let second_limit = state.cached_limit;
         let second_sig: Vec<String> = state
             .cached_state
@@ -258,10 +209,10 @@ mod tests {
     fn hover_state_circle_shows_popup() {
         let area = Rect::new(0, 0, 80, 40);
         let mut state = AppState::new();
-        render_to_buffer(&mut state, area, None);
+        render_to_buffer(&mut state, area);
         state.hovered_state_display = Some(0);
         state.hovered_state_index = Some(0);
-        let buffer = render_to_buffer(&mut state, area, None);
+        let buffer = render_to_buffer(&mut state, area);
         let mut found = false;
         let regions = layout_regions(area, qubit_count(&state));
         for y in 0..regions.state_popup.height {
@@ -279,7 +230,7 @@ mod tests {
         let area = Rect::new(0, 0, 80, 24);
         let mut state = AppState::new();
         state.hovered_start = true;
-        let buffer = render_to_buffer(&mut state, area, None);
+        let buffer = render_to_buffer(&mut state, area);
         let layout = circuit_layout(area, qubit_count(&state));
         let line_x = start_line_x(&layout).unwrap();
         let symbol = buffer.get(line_x, layout.wire_rows[0]).symbol();
@@ -293,7 +244,7 @@ mod tests {
         state.hovered_start = true;
         confirm_hovered_column(&mut state);
         state.hovered_start = false;
-        let buffer = render_to_buffer(&mut state, area, None);
+        let buffer = render_to_buffer(&mut state, area);
         let layout = circuit_layout(area, qubit_count(&state));
         let line_x = start_line_x(&layout).unwrap();
         let symbol = buffer.get(line_x, layout.wire_rows[0]).symbol();
@@ -309,7 +260,7 @@ mod tests {
             y: 3,
         };
         let mut state = AppState::new();
-        let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
+        let buffer = render_to_buffer_with_drag(&mut state, area, Some(drag));
         let overlay = buffer_to_string(&buffer, 5, 3, 5);
         assert_eq!(overlay, "▔▔▔▔▔");
     }
@@ -321,16 +272,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         let mut buffer = Buffer::empty(area);
-        render::draw_gate_box(
-            &mut buffer,
-            slot,
-            Gate::Swap,
-            None,
-            None,
-            false,
-            None,
-            false,
-        );
+        render::draw_gate_box(&mut buffer, slot, Gate::Swap, None, None, false, None);
         let mid_x = slot.x + slot.width / 2;
         let mid_y = slot.y + slot.height / 2;
         let symbol = buffer.get(mid_x, mid_y).symbol();
@@ -344,7 +286,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         let mut buffer = Buffer::empty(area);
-        render::draw_gate_box(&mut buffer, slot, Gate::X, None, None, false, None, false);
+        render::draw_gate_box(&mut buffer, slot, Gate::X, None, None, false, None);
         let mid_x = slot.x + slot.width / 2;
         let mid_y = slot.y + slot.height / 2;
         let symbol = buffer.get(mid_x, mid_y).symbol();
@@ -358,7 +300,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         let mut buffer = Buffer::empty(area);
-        render::draw_gate_box(&mut buffer, slot, Gate::X, None, None, false, None, false);
+        render::draw_gate_box(&mut buffer, slot, Gate::X, None, None, false, None);
         let bottom_y = slot.y + slot.height.saturating_sub(1);
         let symbol = buffer.get(slot.x, bottom_y).symbol();
         assert_eq!(symbol, "▝");
@@ -371,7 +313,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         let mut buffer = Buffer::empty(area);
-        render::draw_gate_box(&mut buffer, slot, Gate::X, None, None, false, None, false);
+        render::draw_gate_box(&mut buffer, slot, Gate::X, None, None, false, None);
         let symbol = buffer.get(slot.x, slot.y).symbol();
         assert_eq!(symbol, "▗");
     }
@@ -383,7 +325,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         let mut buffer = Buffer::empty(area);
-        render::draw_gate_box(&mut buffer, slot, Gate::X, None, None, false, None, false);
+        render::draw_gate_box(&mut buffer, slot, Gate::X, None, None, false, None);
         let symbol = buffer
             .get(slot.x + slot.width.saturating_sub(1), slot.y)
             .symbol();
@@ -397,7 +339,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         let mut buffer = Buffer::empty(area);
-        render::draw_gate_box(&mut buffer, slot, Gate::X, None, None, false, None, false);
+        render::draw_gate_box(&mut buffer, slot, Gate::X, None, None, false, None);
         let symbol = buffer
             .get(
                 slot.x + slot.width.saturating_sub(1),
@@ -414,16 +356,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         let mut buffer = Buffer::empty(area);
-        render::draw_gate_box(
-            &mut buffer,
-            slot,
-            Gate::Phase,
-            None,
-            None,
-            false,
-            None,
-            false,
-        );
+        render::draw_gate_box(&mut buffer, slot, Gate::Phase, None, None, false, None);
         let top_left = buffer.get(slot.x, slot.y).symbol();
         let top_right = buffer
             .get(slot.x + slot.width.saturating_sub(1), slot.y)
@@ -450,16 +383,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         let mut buffer = Buffer::empty(area);
-        render::draw_gate_box(
-            &mut buffer,
-            slot,
-            Gate::Phase,
-            None,
-            None,
-            false,
-            None,
-            false,
-        );
+        render::draw_gate_box(&mut buffer, slot, Gate::Phase, None, None, false, None);
         let mid_x = slot.x + slot.width / 2;
         let mid_y = slot.y + slot.height / 2;
         let symbol = buffer.get(mid_x, mid_y).symbol();
@@ -474,7 +398,7 @@ mod tests {
         state.phase_values.resize(3, Vec::new());
         state.placed[0] = vec![Some(Gate::Swap)];
         state.placed[2] = vec![Some(Gate::Swap)];
-        let buffer = render_to_buffer(&mut state, area, None);
+        let buffer = render_to_buffer(&mut state, area);
         let layout = circuit_layout(area, qubit_count(&state));
         let rect0 = layout.slots[0][0];
         let rect1 = layout.slots[2][0];
@@ -495,16 +419,7 @@ mod tests {
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         let mut buffer = Buffer::empty(area);
-        render::draw_gate_box(
-            &mut buffer,
-            slot,
-            Gate::Control,
-            None,
-            None,
-            false,
-            None,
-            false,
-        );
+        render::draw_gate_box(&mut buffer, slot, Gate::Control, None, None, false, None);
         let mid_x = slot.x + slot.width / 2;
         let mid_y = slot.y + slot.height / 2;
         let symbol = buffer.get(mid_x, mid_y).symbol();
@@ -520,7 +435,7 @@ mod tests {
             y: 2,
         };
         let mut state = AppState::new();
-        let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
+        let buffer = render_to_buffer_with_drag(&mut state, area, Some(drag));
         let mid_x = drag.x + GATE_BOX_WIDTH / 2;
         let symbol = buffer.get(mid_x, drag.y).symbol();
         assert_eq!(symbol, "▁");
@@ -535,7 +450,7 @@ mod tests {
             y: 2,
         };
         let mut state = AppState::new();
-        let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
+        let buffer = render_to_buffer_with_drag(&mut state, area, Some(drag));
         let mid_x = drag.x + GATE_BOX_WIDTH / 2;
         let mid_y = drag.y + GATE_BOX_HEIGHT / 2;
         let symbol = buffer.get(mid_x, mid_y).symbol();
@@ -556,7 +471,7 @@ mod tests {
         });
         state.hovered_row = Some(2);
         state.hovered_slot = Some(0);
-        let buffer = render_to_buffer_with_drag(&mut state, area, None, None);
+        let buffer = render_to_buffer_with_drag(&mut state, area, None);
         let layout = circuit_layout(area, qubit_count(&state));
         let rect0 = layout.slots[0][0];
         let rect1 = layout.slots[2][0];
@@ -584,7 +499,7 @@ mod tests {
         });
         state.hovered_row = Some(2);
         state.hovered_slot = Some(0);
-        let buffer = render_to_buffer_with_drag(&mut state, area, None, None);
+        let buffer = render_to_buffer_with_drag(&mut state, area, None);
         let layout = circuit_layout(area, qubit_count(&state));
         let rect0 = layout.slots[0][0];
         let rect1 = layout.slots[2][0];
@@ -607,7 +522,7 @@ mod tests {
         state.placed[0] = vec![Some(Gate::Control)];
         state.placed[1] = vec![Some(Gate::H)];
         state.placed[2] = vec![Some(Gate::X)];
-        let buffer = render_to_buffer(&mut state, area, None);
+        let buffer = render_to_buffer(&mut state, area);
         let layout = circuit_layout(area, qubit_count(&state));
         let rect0 = layout.slots[0][0];
         let rect1 = layout.slots[1][0];
@@ -629,7 +544,7 @@ mod tests {
         state.placed[0] = vec![Some(Gate::Control)];
         state.placed[1] = vec![Some(Gate::X)];
         state.placed[2] = vec![Some(Gate::X)];
-        let buffer = render_to_buffer(&mut state, area, None);
+        let buffer = render_to_buffer(&mut state, area);
         let layout = circuit_layout(area, qubit_count(&state));
         let rect0 = layout.slots[0][0];
         let rect2 = layout.slots[2][0];
@@ -653,7 +568,7 @@ mod tests {
             gate: Gate::X,
             origin: DragOrigin::Palette,
         });
-        let buffer = render_to_buffer_with_drag(&mut state, area, None, None);
+        let buffer = render_to_buffer_with_drag(&mut state, area, None);
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][1];
         let outline = buffer_to_string(&buffer, slot.x, slot.y, GATE_BOX_WIDTH);
@@ -675,7 +590,7 @@ mod tests {
             x: 1,
             y: 1,
         };
-        let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
+        let buffer = render_to_buffer_with_drag(&mut state, area, Some(drag));
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][1];
         let top = buffer_to_string(&buffer, slot.x, slot.y, GATE_BOX_WIDTH);
@@ -688,7 +603,7 @@ mod tests {
         let mut state = AppState::new();
         state.quit_confirm = true;
         state.quit_choice = QuitChoice::No;
-        let buffer = render_to_buffer(&mut state, area, None);
+        let buffer = render_to_buffer(&mut state, area);
         let mut found = false;
         for y in 0..area.height {
             let line = buffer_to_line(&buffer, area, y);
@@ -717,7 +632,7 @@ mod tests {
             x: 1,
             y: 1,
         };
-        let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
+        let buffer = render_to_buffer_with_drag(&mut state, area, Some(drag));
         let overlay_top = buffer_to_string(&buffer, 1, 1, GATE_BOX_WIDTH);
         let overlay_mid = buffer_to_string(&buffer, 1, 2, GATE_BOX_WIDTH);
         let layout = circuit_layout(area, qubit_count(&state));
@@ -742,7 +657,7 @@ mod tests {
             slot: 0,
             input: "π/2".to_string(),
         });
-        let buffer = render_to_buffer(&mut state, area, None);
+        let buffer = render_to_buffer(&mut state, area);
         let layout = circuit_layout(area, qubit_count(&state));
         let slot = layout.slots[0][0];
         let label = buffer_to_string(&buffer, slot.x, slot.y - 1, GATE_BOX_WIDTH);
@@ -766,7 +681,7 @@ mod tests {
             x: 1,
             y: 1,
         };
-        let buffer = render_to_buffer_with_drag(&mut state, area, None, Some(drag));
+        let buffer = render_to_buffer_with_drag(&mut state, area, Some(drag));
         let layout = circuit_layout(area, qubit_count(&state));
         let right_slot = layout.slots[0][1];
         let mid = buffer_to_string(&buffer, right_slot.x, right_slot.y + 1, GATE_BOX_WIDTH);

@@ -78,35 +78,6 @@ fn darken(r: u8, g: u8, b: u8, delta: u8) -> Color {
     )
 }
 
-fn draw_gate_outline(buffer: &mut Buffer, rect: Rect, highlight: Color, shadow: Color) {
-    if rect.width < 2 || rect.height < 2 {
-        return;
-    }
-    let top = "▔".repeat(rect.width as usize);
-    let bottom = "▁".repeat(rect.width as usize);
-    let highlight_style = Style::default().fg(highlight).bg(UI_BACKGROUND);
-    let shadow_style = Style::default().fg(shadow).bg(UI_BACKGROUND);
-    buffer.set_string(rect.x, rect.y, &top, highlight_style);
-    buffer.set_string(
-        rect.x,
-        rect.y.saturating_add(rect.height.saturating_sub(1)),
-        &bottom,
-        shadow_style,
-    );
-    if rect.height > 2 {
-        for offset in 1..rect.height.saturating_sub(1) {
-            let y = rect.y.saturating_add(offset);
-            buffer.set_string(rect.x, y, "▏", highlight_style);
-            buffer.set_string(
-                rect.x.saturating_add(rect.width.saturating_sub(1)),
-                y,
-                "▕",
-                shadow_style,
-            );
-        }
-    }
-}
-
 fn draw_quit_modal(buffer: &mut Buffer, area: Rect, choice: QuitChoice) {
     if area.width < 20 || area.height < 7 {
         return;
@@ -393,16 +364,12 @@ pub(crate) fn draw_gate_box(
     phase_label: Option<&str>,
     phase_edit_active: bool,
     override_background: Option<Color>,
-    outline: bool,
 ) {
     if rect.width < GATE_BOX_WIDTH || rect.height < GATE_DRAW_HEIGHT {
         return;
     }
     let (text, background, highlight, shadow) = gate_theme_with_override(gate, override_background);
     if gate == Gate::Control {
-        if outline {
-            draw_gate_outline(buffer, rect, highlight, shadow);
-        }
         let style = Style::default()
             .fg(background)
             .bg(UI_BACKGROUND)
@@ -457,9 +424,6 @@ pub(crate) fn draw_gate_box(
         return;
     }
     if gate == Gate::Swap {
-        if outline {
-            draw_gate_outline(buffer, rect, highlight, shadow);
-        }
         let style = Style::default()
             .fg(background)
             .bg(UI_BACKGROUND)
@@ -558,14 +522,13 @@ pub(crate) fn draw_gate_box(
     );
 }
 
-pub fn render_to_buffer(state: &mut AppState, area: Rect, debug_line: Option<&str>) -> Buffer {
-    render_to_buffer_with_drag(state, area, debug_line, None)
+pub fn render_to_buffer(state: &mut AppState, area: Rect) -> Buffer {
+    render_to_buffer_with_drag(state, area, None)
 }
 
 pub fn render_to_buffer_with_drag(
     state: &mut AppState,
     area: Rect,
-    debug_line: Option<&str>,
     drag: Option<DragVisual>,
 ) -> Buffer {
     let mut buffer = Buffer::empty(area);
@@ -584,16 +547,7 @@ pub fn render_to_buffer_with_drag(
         );
     }
     for item in palette_items(regions.palette) {
-        draw_gate_box(
-            &mut buffer,
-            item.rect,
-            item.gate,
-            None,
-            None,
-            false,
-            None,
-            false,
-        );
+        draw_gate_box(&mut buffer, item.rect, item.gate, None, None, false, None);
     }
 
     if !regions.circuits.is_empty() {
@@ -925,7 +879,6 @@ pub fn render_to_buffer_with_drag(
                     phase_label.as_deref(),
                     phase_edit_active,
                     None,
-                    false,
                 );
             }
         }
@@ -933,7 +886,6 @@ pub fn render_to_buffer_with_drag(
     if state.dragging.is_some() {
         // No placeholder rendering; snapping is handled by the drag visual.
     }
-    let _ = debug_line;
     let cached_len = state.cached_state.len();
     let display_qubits_count = display_qubits(state);
     let display_total = if cached_len == 0 {
@@ -1023,7 +975,6 @@ pub fn render_to_buffer_with_drag(
                 None,
                 false,
                 Some(DRAG_GATE_COLOR),
-                false,
             );
         }
     }
@@ -1036,7 +987,6 @@ pub fn render_to_buffer_with_drag(
             deferred_gate.phase_label.as_deref(),
             deferred_gate.phase_edit_active,
             None,
-            false,
         );
     }
     if state.quit_confirm {
