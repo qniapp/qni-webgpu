@@ -9,7 +9,7 @@ type BrowserLaunchRequest = {
   headless?: boolean
 }
 
-export const STANDARD_WEBGPU_ARGS = [
+const WEBGPU_COMMON_ARGS = [
   '--enable-features=WebGPU,WebGPUDeveloperFeatures,WebGPUService,Vulkan',
   '--enable-unsafe-webgpu',
   '--enable-dawn-features=allow_unsafe_apis,enable_immediate_error_handling',
@@ -17,6 +17,10 @@ export const STANDARD_WEBGPU_ARGS = [
   '--disable-gpu-sandbox',
   '--no-sandbox',
   '--use-gl=angle',
+]
+
+export const STANDARD_WEBGPU_ARGS = [
+  ...WEBGPU_COMMON_ARGS,
   '--use-angle=swiftshader',
   '--use-vulkan=swiftshader',
 ]
@@ -64,11 +68,19 @@ export const getStandardWebGpuLaunchOptions = ({
   defaultPath,
   commandLookup = findCommand,
   headless = env.HEADLESS !== '0',
-}: BrowserLaunchRequest = {}): LaunchOptions => ({
-  headless,
-  executablePath: resolvePlaywrightBrowserExecutable({ env, defaultPath, commandLookup }),
-  args: [...STANDARD_WEBGPU_ARGS],
-})
+}: BrowserLaunchRequest = {}): LaunchOptions => {
+  const backend = env.QNI_WEB_GPU_BACKEND ?? 'swiftshader'
+  if (backend !== 'swiftshader' && backend !== 'vulkan') {
+    throw new Error('QNI_WEB_GPU_BACKEND must be swiftshader or vulkan')
+  }
+  return {
+    headless,
+    executablePath: resolvePlaywrightBrowserExecutable({ env, defaultPath, commandLookup }),
+    args: backend === 'vulkan'
+      ? [...WEBGPU_COMMON_ARGS, '--use-angle=vulkan', '--use-vulkan=native']
+      : [...STANDARD_WEBGPU_ARGS],
+  }
+}
 
 export const getPlainChromiumLaunchOptions = ({
   env = process.env,

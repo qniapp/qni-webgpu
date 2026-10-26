@@ -247,14 +247,12 @@ impl GpuPlanState {
                     self.bloch_slots.insert(*gate_id, *output_slot);
                 }
                 SimulationOp::MeasureReduceSample {
-                    visible,
+                    visible: true,
                     gate_id,
                     output_slot,
                     ..
                 } => {
-                    if *visible {
-                        self.measurement_slots.insert(*gate_id, *output_slot);
-                    }
+                    self.measurement_slots.insert(*gate_id, *output_slot);
                 }
                 SimulationOp::CaptureProbability {
                     gate_id,
