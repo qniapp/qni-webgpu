@@ -1,21 +1,12 @@
-//! Palette tooltip metadata for each gate.
-
 use super::GateKind;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct GateInfo {
     pub(crate) name: &'static str,
-    /// One or more paragraphs of description text, each rendered on its
-    /// own line. Mirrors qni's `<p>…</p>` blocks inside `<header>`.
     pub(crate) paragraphs: &'static [&'static str],
-    /// One row per input basis state shown in the mini transformation
-    /// diagram. Empty for gates that don't have a `QubitTransitionComponent`
-    /// example in qni (multi-qubit gates, displays, controls, etc.).
     pub(crate) transitions: &'static [GateTransition],
 }
 
-/// Complex amplitude in the standard re + im·i form. Same shape as
-/// `qni`'s ruby tuples (`[re, im]` / `'i'` / `'0.7071 + 0.7071i'`).
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Amp {
     pub(crate) re: f32,
@@ -23,14 +14,10 @@ pub(crate) struct Amp {
 }
 
 impl Amp {
-    /// Probability (|amp|²) — drives the filled-disk radius of the
-    /// amplitude circle in the tooltip diagram.
     pub(crate) fn probability(self) -> f32 {
         self.re * self.re + self.im * self.im
     }
 
-    /// Phase in radians, where 0 means the needle points up
-    /// (12 o'clock) — matching the state-panel convention.
     pub(crate) fn phase(self) -> f32 {
         self.im.atan2(self.re)
     }
@@ -38,20 +25,11 @@ impl Amp {
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct GateTransition {
-    /// Pre-gate qubit state as 2 amplitudes for the |0⟩ / |1⟩ basis.
     pub(crate) from: [Amp; 2],
-    /// Post-gate qubit state. qni hard-codes these per gate (using the
-    /// default angle for parametric gates).
     pub(crate) to: [Amp; 2],
 }
 
 impl GateKind {
-    /// Tooltip metadata for the palette hover popup. Strings, paragraph
-    /// breaks, and `transitions` mirror
-    /// `apps/www/app/views/application/_palette_help_templates.html.erb`
-    /// in the qni repo so a user familiar with one app reads identical
-    /// copy in the other. Parametric gates (Phase / Rx / Ry / Rz) show
-    /// the qni default θ = π/2 / φ = π/2 behaviour.
     pub(crate) fn info(self) -> GateInfo {
         // qni hard-codes its `QubitTransitionComponent` amplitudes per
         // gate. We mirror those literals directly as `Amp { re, im }`

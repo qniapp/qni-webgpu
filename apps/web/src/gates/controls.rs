@@ -13,29 +13,24 @@ pub(crate) struct ColumnControls {
 }
 
 impl ColumnControls {
-    /// 制御なしの列。
     pub(crate) const NONE: Self = Self { mask: 0, value: 0 };
 
-    /// 制御ワイヤを 1 本追加する（mask と value の両方を立てる）。
     pub(crate) fn add_control(&mut self, bit: QubitBit) {
         let bit_mask = bit.mask();
         self.mask |= bit_mask;
         self.value |= bit_mask;
     }
 
-    /// 反制御ワイヤを 1 本追加する（mask のみ立てる）。
     pub(crate) fn add_anti_control(&mut self, bit: QubitBit) {
         self.mask |= bit.mask();
     }
 
-    /// 制御ワイヤを 1 本足した新しい制御条件を返す（不変のまま追加）。
     pub(crate) fn with_control(self, bit: QubitBit) -> Self {
         let mut next = self;
         next.add_control(bit);
         next
     }
 
-    /// 指定ビットを mask と value の両方から外した新しい制御条件を返す。
     pub(crate) fn without(self, bit: QubitBit) -> Self {
         let keep = !bit.mask();
         Self {
@@ -44,8 +39,6 @@ impl ColumnControls {
         }
     }
 
-    /// 値 1 を要求する制御ワイヤだけを残した純制御集合（反制御を落とす）。
-    /// CCZ 化で、反制御を除いた Z の制御を作るのに使う。
     pub(crate) fn controls_only(self) -> Self {
         Self {
             mask: self.value,
@@ -53,9 +46,6 @@ impl ColumnControls {
         }
     }
 
-    /// 指定マスク内のビットを mask と value の両方から外した新しい制御条件を返す。
-    /// QFT スパン内の制御を除外するのに使う。
-    /// 変更時は `bash apps/web/scripts/verify-kani.sh` で形式検証する。
     pub(crate) fn restricted_outside(self, span_mask: u32) -> Self {
         let keep = !span_mask;
         Self {
@@ -64,27 +54,22 @@ impl ColumnControls {
         }
     }
 
-    /// 制御が 1 本もないか（`control_mask == 0` の置き換え）。
     pub(crate) fn is_uncontrolled(self) -> bool {
         self.mask == 0
     }
 
-    /// 値 1 を要求する制御ワイヤの本数（CCZ 化の 2 本以上判定用）。
     pub(crate) fn control_count(self) -> u32 {
         self.value.count_ones()
     }
 
-    /// 値 1 を要求する制御ワイヤのうち最上位のビット（CCZ の Z 対象選択用）。
     pub(crate) fn highest_control(self) -> Option<QubitBit> {
         (self.value != 0).then(|| QubitBit::new(31 - self.value.leading_zeros()))
     }
 
-    /// GPU 境界（GateParams / SimulationOp）へ渡す制御ワイヤ全体のマスク。
     pub(crate) fn mask(self) -> u32 {
         self.mask
     }
 
-    /// GPU 境界へ渡す、値 1 を要求するワイヤのマスク。
     pub(crate) fn value(self) -> u32 {
         self.value
     }
@@ -116,8 +101,6 @@ mod tests {
 
     #[test]
     fn controls_only_then_without_drops_anti_and_target() {
-        // CCZ composition: keep only Control bits (drop anti-control bit 2),
-        // then remove the Z target (bit 1), leaving control bit 0.
         let mut controls = ColumnControls::NONE;
         controls.add_control(QubitBit::new(0));
         controls.add_control(QubitBit::new(1));
