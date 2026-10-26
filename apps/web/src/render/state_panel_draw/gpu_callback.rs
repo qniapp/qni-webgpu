@@ -55,9 +55,6 @@ pub(super) fn paint_state_vector_gpu(
         target_format,
         render_params,
     };
-    // Clip the GPU pass to the viewport so the grid is cropped at the panel
-    // body's inner edge — circles flush against the rounded corners get sliced
-    // cleanly instead of bleeding past the panel.
     let clipped = painter.with_clip_rect(viewport_rect);
     let paint_callback = egui_wgpu::Callback::new_paint_callback(callback_rect, callback);
     clipped.add(egui::Shape::Callback(paint_callback));

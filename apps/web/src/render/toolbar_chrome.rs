@@ -2,15 +2,15 @@ use crate::colors::{with_alpha, Colors};
 use eframe::egui;
 
 pub(super) const DROPDOWN_WIDTH: f32 = 240.0;
-pub(super) const SECTION_HEADER_HEIGHT: f32 = 26.0; // 16px line height + 10px vertical padding.
-pub(super) const SECTION_HEADER_TOP_MARGIN: f32 = crate::tailwind::SPACING_1_5; // Space between sections.
+pub(super) const SECTION_HEADER_HEIGHT: f32 = 26.0;
+pub(super) const SECTION_HEADER_TOP_MARGIN: f32 = crate::tailwind::SPACING_1_5;
 pub(super) const ITEM_HEIGHT: f32 = 36.0;
 pub(super) const ITEM_RADIUS: u8 = crate::tailwind::ROUNDED_MD;
 pub(super) const ITEM_PAD_X: f32 = crate::tailwind::SPACING_2_5;
-pub(super) const ROW_ICON_SIZE: f32 = 14.0; // mock row icon box = 14px.
+pub(super) const ROW_ICON_SIZE: f32 = 14.0;
 pub(super) const ROW_ICON_GAP: f32 = crate::tailwind::SPACING_2;
 pub(super) const ROW_TEXT_OFFSET: f32 = ITEM_PAD_X + ROW_ICON_SIZE + ROW_ICON_GAP;
-pub(super) const TOPBAR_BOTTOM_OFFSET: f32 = crate::tailwind::SPACING_1_5; // Trigger bottom → topbar bottom.
+pub(super) const TOPBAR_BOTTOM_OFFSET: f32 = crate::tailwind::SPACING_1_5;
 
 pub(super) fn popover_frame(colors: &Colors) -> egui::Frame {
     egui::Frame {

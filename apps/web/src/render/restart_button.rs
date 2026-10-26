@@ -1,5 +1,3 @@
-//! Host-owned restart action in the state panel strip.
-
 use crate::colors::Colors;
 use eframe::egui;
 
@@ -36,8 +34,6 @@ pub(crate) fn paint(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) 
 }
 
 fn paint_icon(painter: &egui::Painter, center: egui::Pos2, color: egui::Color32) {
-    // 16px icon, 2px stroke like the toolbar's vector icons.
-    // A nearly full clockwise circle, not the toolbar's bent redo arrow.
     let points = (0..=40)
         .map(|i| {
             let angle = 0.1 + i as f32 / 40.0 * (std::f32::consts::TAU - 0.6);

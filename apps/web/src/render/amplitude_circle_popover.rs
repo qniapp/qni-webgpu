@@ -1,10 +1,3 @@
-//! Shared geometry for amplitude-circle hover popovers.
-//!
-//! State-vector cells and Amplitude Display cells share the same popover body:
-//! a 296 px card, 14px header, and three 12px metric rows. Numeric
-//! values are still rendered by the caller's GPU callback; this module only owns
-//! fixed chrome/layout geometry.
-
 use eframe::egui;
 
 use crate::gpu::{POPUP_GLYPH_CELL_H, POPUP_GLYPH_CELL_W};
@@ -20,7 +13,7 @@ pub(crate) const ROW_H: f32 = crate::tailwind::LEADING_5;
 pub(crate) const BODY_TEXT_H: f32 = crate::tailwind::LEADING_4;
 pub(crate) const ICON_SIZE: f32 = crate::tailwind::SPACING_4;
 pub(crate) const ICON_TEXT_GAP: f32 = crate::tailwind::SPACING_2;
-pub(crate) const LABEL_W: f32 = 88.0; // 22 × 4px; fixed label column from the spec.
+pub(crate) const LABEL_W: f32 = 88.0;
 pub(crate) const VALUE_CHARS: f32 = 17.0;
 pub(crate) const ROWS: usize = 3;
 

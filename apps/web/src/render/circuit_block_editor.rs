@@ -196,8 +196,6 @@ impl QniApp {
     }
 }
 
-/// The editor stays upright in both orientations. In portrait it is
-/// right-aligned with the single label to the left of the projected body.
 fn circuit_block_editor_rect(
     body: egui::Rect,
     slot: CircuitBlockLabelSlot,
@@ -346,8 +344,6 @@ mod tests {
         egui::Event::Text(value.to_owned())
     }
 
-    /// Open the editor on block 0 and let it take focus with the label
-    /// selected, as after a click on the label.
     fn open(json: &str) -> (QniApp, egui::Context) {
         let (mut app, ctx) = editable(json);
         frame(&mut app, &ctx, Vec::new());

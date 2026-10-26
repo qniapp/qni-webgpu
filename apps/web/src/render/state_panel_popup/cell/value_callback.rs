@@ -14,9 +14,6 @@ pub(super) fn paint_popup_values(
     display_index: u32,
     popup: &PopupGeometry,
 ) {
-    // Numeric values come from the GPU state buffer via a dedicated render pass
-    // — see `PopupValueCallback`. The CPU only computes the anchor / row pitch /
-    // colour and hands them off; no readback.
     let value_color = colors.state_needle;
     let value_anchor = popup.value_anchor();
     let popup_value_callback = PopupValueCallback {
@@ -35,8 +32,6 @@ pub(super) fn paint_popup_values(
         qubits: layout.qubits as u32,
     };
 
-    // Clip the GPU pass to the popup body so the value text never bleeds past
-    // the border / tail.
     let paint_callback = egui_wgpu::Callback::new_paint_callback(screen_rect, popup_value_callback);
     let clipped = painter.with_clip_rect(popup.value_clip_rect());
     clipped.add(egui::Shape::Callback(paint_callback));

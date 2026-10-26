@@ -5,9 +5,9 @@ use super::layout::{PAD_X, PAD_Y};
 use crate::colors::Colors;
 use crate::gates::GateInfo;
 
-pub(super) const TITLE_GAP: f32 = crate::tailwind::SPACING_1; // between title and first paragraph
-pub(super) const PARA_GAP: f32 = crate::tailwind::SPACING_0_5; // between paragraphs
-pub(super) const DIAGRAM_GAP: f32 = crate::tailwind::SPACING_4; // Gap before the diagram body.
+pub(super) const TITLE_GAP: f32 = crate::tailwind::SPACING_1;
+pub(super) const PARA_GAP: f32 = crate::tailwind::SPACING_0_5;
+pub(super) const DIAGRAM_GAP: f32 = crate::tailwind::SPACING_4;
 
 pub(super) struct TooltipText {
     title: Arc<egui::Galley>,
@@ -51,11 +51,6 @@ pub(super) fn layout_tooltip_text(
     info: &GateInfo,
     colors: &Colors,
 ) -> TooltipText {
-    // Text layout sizes mirror qni's `.tooltip-*` utilities:
-    // title = 18px bold tx — qni's
-    // `.tooltip-heading`. We can't render true bold without bundling a
-    // bold font; rely on size + colour contrast for hierarchy.
-    // para = 14px — `.tooltip-subheading`.
     let title = painter.layout_no_wrap(
         info.name.to_owned(),
         egui::FontId::proportional(crate::tailwind::TEXT_LG),

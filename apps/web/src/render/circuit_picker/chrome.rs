@@ -174,7 +174,7 @@ pub(super) fn paint_picker_item_text(
 ) {
     let font = egui::FontId::new(crate::tailwind::TEXT_SM, egui::FontFamily::Proportional);
     let name_rect = egui::Rect::from_min_max(
-        egui::pos2(rect.left() + ROW_TEXT_OFFSET, rect.top()), // Padding + icon + gap.
+        egui::pos2(rect.left() + ROW_TEXT_OFFSET, rect.top()),
         egui::pos2(
             kebab_rect.left() - crate::tailwind::SPACING_2,
             rect.bottom(),

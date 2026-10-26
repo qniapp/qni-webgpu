@@ -1,6 +1,3 @@
-//! Circuit area drawing — qubit lines, placed gates, palette, drag
-//! preview. Independent of the state-vector panel.
-
 use eframe::egui;
 
 use crate::app::{CircuitColumnIndex, DragState, GateId, PlacedGate, QniApp};
@@ -13,7 +10,6 @@ pub(in crate::render) fn gate_draw_pos(gate: &PlacedGate, drag: Option<DragState
         .map_or_else(|| gate.committed_pos(), |drag| drag.preview_pos)
 }
 
-/// Screen rect of a gate drawn at `pos` (its circuit-space top-left).
 pub(in crate::render) fn gate_screen_rect(
     projection: CircuitProjection,
     gate: &PlacedGate,
@@ -22,8 +18,6 @@ pub(in crate::render) fn gate_screen_rect(
     projection.to_screen_rect_from_min_size(pos, gate_size(gate.kind, gate.span.get()))
 }
 
-/// Screen centre of the `GATE_SIZE` square whose circuit-space top-left is
-/// `pos`.
 pub(in crate::render) fn gate_square_center(
     projection: CircuitProjection,
     pos: egui::Pos2,
@@ -65,7 +59,6 @@ impl QniApp {
             - screen_rect.min.y;
         let last_line_y = origin_y + LINE_Y + LINE_GAP * (line_count.saturating_sub(1)) as f32;
         let content_height = if matches!(self.mode, crate::app::AppMode::Embed { .. }) {
-            // 16px: embeds do not need the standalone editor's drop-area padding.
             last_line_y + GATE_SIZE + crate::tailwind::SPACING_4 + self.circuit_block_outset_y()
         } else {
             last_line_y + GATE_SIZE + 4.0 * REM
@@ -92,8 +85,6 @@ impl QniApp {
         // it; the GPU callback viewports stay on `rect` so they don't track
         // the scroll.
         let projection = self.circuit_projection(rect, scroll_time);
-        // Blocks sit behind everything else, like qni's block body that
-        // wraps its steps.
         self.draw_circuit_blocks(painter, metrics, colors, projection);
         for &line_y in &metrics.line_ys {
             let start = projection.to_screen(egui::pos2(metrics.line_left, line_y));
@@ -101,12 +92,6 @@ impl QniApp {
             painter.line_segment([start, end], egui::Stroke::new(2.0_f32, colors.line));
         }
 
-        // Step-preview bars at the trailing edge of the hovered /
-        // breakpoint column (leading edge of slot 0 for INITIAL).
-        // Hovered = 30% alpha (live preview), breakpoint = full opacity.
-        // Mirrors
-        // qni's `circuit-step::after` data-active / data-breakpoint
-        // styling.
         if !metrics.line_ys.is_empty() && !metrics.slot_centers.is_empty() {
             let top = metrics.line_ys[0] - STEP_OUTSET_Y;
             let bot = metrics.line_ys[metrics.line_ys.len() - 1] + STEP_OUTSET_Y;
@@ -194,8 +179,6 @@ impl QniApp {
                 label_pos,
                 gutters.label_align,
                 label,
-                // Monospace keeps q0:/q1: wire
-                // labels aligned with angle labels and state-panel numerals.
                 egui::FontId::monospace(crate::tailwind::TEXT_SM),
                 colors.text,
             );

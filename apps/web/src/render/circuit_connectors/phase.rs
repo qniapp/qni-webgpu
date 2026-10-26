@@ -13,14 +13,9 @@ use super::{along_wires, draw_wire_connector, screen_time};
 
 pub(in crate::render) const ANGLE_LABEL_FONT_SIZE: f32 = crate::tailwind::TEXT_XS;
 pub(in crate::render) const ANGLE_LABEL_ROW_HEIGHT: f32 = crate::tailwind::LEADING_4;
-pub(in crate::render) const ANGLE_UNDERLINE_BOTTOM_INSET: f32 = 2.5; // Prototype ::after bottom: 1px + 0.5px optical lift.
-                                                                     // The 16px label sits centered in a 17px row; lift the stroke center slightly while keeping it below text.
-                                                                     // Anchor top labels at the target gate's top edge; this is
-                                                                     // the midpoint between the previous too-low +2px inset and too-high -2px gap.
+pub(in crate::render) const ANGLE_UNDERLINE_BOTTOM_INSET: f32 = 2.5;
 const ANGLE_LABEL_TOP_OFFSET: f32 = crate::tailwind::SPACING_0;
 const ANGLE_LABEL_BOTTOM_GAP: f32 = 2.0;
-// qni styles measurement variable / condition labels with 12px monospace
-// (`.operation-flaggable` / `.operation-ifable`), tracking -0.05em = -0.6px.
 const FLAG_LABEL_TRACKING: f32 = -0.6;
 // qni joins `if` and the flag name with U+2009. The monospace font advances
 // a thin space by a full cell, so paint the two runs apart instead: a 12px
@@ -115,8 +110,6 @@ fn draw_flag_labels(
     projection: CircuitProjection,
     drag: Option<DragState>,
 ) {
-    // `aliceX` above `Measure>aliceX` and `if aliceX` above `X<aliceX`, with
-    // the same top / outlined top / bottom placement rules as angle labels.
     for gate in &app.placed_gates {
         let Some(label) = flag_label_info(gate, render_columns, metrics, projection, drag) else {
             continue;
@@ -156,8 +149,6 @@ fn flag_label_info(
             .map(|column| control_connection_sides(column, gate))
             .unwrap_or_default()
     };
-    // qni's negative margin and 12px line height leave 4px between the label ink and the
-    // gate; the angle label anchor already lands the egui galley there.
     let (layout, pos, align) = angle_label_placement(projection, center, connection_sides);
     Some(FlagLabelInfo {
         prefix: flag.label_prefix(),
@@ -174,7 +165,6 @@ fn draw_flag_label(painter: &egui::Painter, label: &FlagLabelInfo, colors: &Colo
         painter.layout_job(egui::text::LayoutJob::single_section(
             text.to_owned(),
             egui::TextFormat {
-                // 12px, the same font as the angle labels.
                 font_id: egui::FontId::monospace(ANGLE_LABEL_FONT_SIZE),
                 extra_letter_spacing: FLAG_LABEL_TRACKING,
                 color,
@@ -212,11 +202,6 @@ fn draw_phase_phase_connectors(
     projection: CircuitProjection,
     drag: Option<DragState>,
 ) {
-    // Phase-Phase connector. qni's
-    // `circuit-step-element.ts::updatePhasePhaseConnections` (:566-602)
-    // draws a connector between same-angle Phase gates in the same column.
-    // Each connected group is one multi-controlled phase (CPHASE / CCPHASE)
-    // in the simulation, so the buckets use the same `PhaseGroupKey`.
     for column in render_columns.columns() {
         let mut groups: HashMap<PhaseGroupKey<'_>, Vec<egui::Pos2>> = HashMap::new();
         for gate in column.gates() {
@@ -239,7 +224,6 @@ fn draw_phase_phase_connectors(
                 min_y = min_y.min(along_wires(projection, point));
                 max_y = max_y.max(along_wires(projection, point));
             }
-            // Slot-center anchored — same rationale as the control connectors.
             let time = screen_time(projection, metrics.slot_centers[column.slot]);
             draw_wire_connector(painter, projection, time, min_y, max_y, colors.box_fill);
         }
@@ -255,12 +239,6 @@ fn draw_parametric_angle_labels(
     projection: CircuitProjection,
     drag: Option<DragState>,
 ) {
-    // Angle labels for parametric gates. qni puts the angle text near the gate
-    // body and draws a white text-shadow when the dropzone has both
-    // `data-connect-top` and `data-connect-bottom`
-    // (`packages/elements/css/qni.css`, `.operation-angleable`). We mirror that
-    // with the circuit background (via `colors.background`) so
-    // labels stay legible over vertical connectors.
     for gate in &app.placed_gates {
         if app
             .angle_editor
@@ -438,8 +416,6 @@ fn draw_angle_label(
     colors: &Colors,
     outline_with_background: bool,
 ) {
-    // Matches the popup body font so labels
-    // feel like they belong to the same typographic system.
     let font_id = egui::FontId::monospace(ANGLE_LABEL_FONT_SIZE);
     if outline_with_background {
         for (dx, dy) in ANGLE_LABEL_OUTLINE_OFFSETS {

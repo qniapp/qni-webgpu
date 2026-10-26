@@ -1,7 +1,3 @@
-//! State-vector panel drawing — `draw_state_vector` plus the helpers
-//! it dispatches to (popover, minimap, resize-handle arc). Reads layout
-//! info from `state_panel_layout` and paints with the `egui::Painter`.
-
 mod gpu_callback;
 mod header;
 mod overlays;
@@ -29,8 +25,6 @@ impl QniApp {
     ) -> egui::Rect {
         let state_rect = layout.state_rect.translate(offset);
         let viewport_rect = layout.viewport_rect.translate(offset);
-        // Where the circle grid actually lands in viewport coords. Centred
-        // when the grid fits, panned by `state_grid_offset` otherwise.
         let grid_origin = Self::grid_origin(layout, offset, self.state_panel.grid_offset);
 
         panel::paint_panel_background(painter, colors, state_rect);

@@ -1,8 +1,3 @@
-//! Circuit connector and phase-label drawing facade.
-//!
-//! Connector families are split by gate relationship: controlled columns,
-//! swap pairs, and same-angle phase chains / labels.
-
 mod control;
 pub(in crate::render) mod phase;
 mod swap;
@@ -18,7 +13,6 @@ use crate::layout::{CircuitProjection, LayoutMetrics};
 // the exact same center coordinate as the 40px gate grid.
 pub(super) const CONNECTOR_STROKE_WIDTH: f32 = crate::tailwind::SPACING_1;
 
-/// Screen coordinate of `point` along the wire axis (across the wires).
 pub(super) fn along_wires(projection: CircuitProjection, point: egui::Pos2) -> f32 {
     if projection.is_vertical() {
         point.x
@@ -27,7 +21,6 @@ pub(super) fn along_wires(projection: CircuitProjection, point: egui::Pos2) -> f
     }
 }
 
-/// Screen coordinate of `point` along the time axis.
 pub(super) fn along_time(projection: CircuitProjection, point: egui::Pos2) -> f32 {
     if projection.is_vertical() {
         point.y
@@ -36,13 +29,10 @@ pub(super) fn along_time(projection: CircuitProjection, point: egui::Pos2) -> f3
     }
 }
 
-/// Screen coordinate along the time axis of circuit-space time `x`.
 pub(super) fn screen_time(projection: CircuitProjection, x: f32) -> f32 {
     along_time(projection, projection.to_screen(egui::pos2(x, 0.0)))
 }
 
-/// Connector across the wires at screen time `time`, from screen
-/// coordinate `start` to `end` along the wire axis.
 pub(super) fn draw_wire_connector(
     painter: &egui::Painter,
     projection: CircuitProjection,
@@ -80,10 +70,6 @@ impl QniApp {
         projection: CircuitProjection,
         dragging_gate_id: Option<GateId>,
     ) {
-        // Connector lines are computed every frame, including mid-drag, so a
-        // gate being moved into or out of a multi-qubit relationship snaps
-        // visually before drop. The work is cheap: one pass per connector
-        // family over the ≤16-qubit circuit.
         control::draw_control_connectors(
             self,
             painter,

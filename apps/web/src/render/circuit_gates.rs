@@ -1,5 +1,3 @@
-//! Placed circuit gates and GPU-backed circuit overlays.
-
 use std::collections::HashMap;
 
 use eframe::egui;
@@ -61,8 +59,6 @@ impl CircuitGpuBatch {
 // Font-rasterisation baseline correction for the GPU atlas: keep the visible
 // digit's vertical centre on the wire, matching qni's flex-centred value layer.
 const MEASUREMENT_DIGIT_CENTER_Y_OFFSET: f32 = 1.0;
-// 4px: qni shortens the measurement dropzone wires
-// around the meter body, so the wire never touches or runs through the arc.
 const MEASUREMENT_WIRE_CLEARANCE: f32 = crate::tailwind::SPACING_1;
 // 3px keeps the anti-control ring open without biting into the 3px stroke.
 // The mask is painted after the glyph so the qubit wire never remains in the
@@ -86,8 +82,6 @@ fn bloch_hover_popup_title() -> &'static str {
     "Bloch sphere representation of local state"
 }
 
-// Both circuit and panel-overlay passes start right-side GPU painting at
-// the insertion preview's center, without widening the existing scissor.
 pub(super) fn insert_preview_right_clip(
     mut clip: egui::Rect,
     projection: CircuitProjection,
@@ -102,8 +96,6 @@ pub(super) fn insert_preview_right_clip(
     clip
 }
 
-/// Screen point on the insertion preview's centre line across the wires;
-/// columns before it in time paint behind the preview.
 fn insert_preview_split(projection: CircuitProjection, gate_pos: egui::Pos2) -> egui::Pos2 {
     projection.to_screen(gate_pos) + projection.to_screen_vec(egui::vec2(GATE_SIZE / 2.0, 0.0))
 }
@@ -268,9 +260,6 @@ impl QniApp {
                 gate,
                 crate::render::circuit::gate_draw_pos(gate, self.dragging),
             );
-            // docs/design-system/amplitude-display.html §04: Amplitude's footprint follows
-            // slot spacing, but the visible matrix body is the square-cell
-            // draw area. The shared span-resize component uses that same body.
             let body_rect = span_resize_body_rect(gate.kind, gate.span.get(), gate_rect);
             let measurement_has_slot =
                 gate.kind.is_sampled_measurement() && self.gpu_plan.has_measurement_slot(gate.id);
@@ -306,9 +295,6 @@ impl QniApp {
             if dragging_gate_id == Some(gate.id) {
                 draw_drag_gate_body(painter, body_rect, gate.kind, colors);
             } else if measurement_has_slot {
-                // Repaint the meter in the same neutral tone as the wire after
-                // masking the wire gap. Draw it once (instead of purple then
-                // neutral) so anti-aliased edges do not leak the palette colour.
                 draw_sampled_measurement_icon(
                     painter,
                     gate_rect,
@@ -346,9 +332,6 @@ impl QniApp {
                     );
                 }
             }
-            // Resizable-span gates use one shared handle component: top +
-            // bottom cyan pills with hover/active scaling. Amplitude's
-            // component body is its centred matrix, so width follows the body.
             if let Some(handles) = SpanResizeHandles::for_gate_at_with_availability(
                 gate,
                 gate_rect,
@@ -376,9 +359,6 @@ impl QniApp {
                 }
             }
             if gate.kind == GateKind::BlochDisplay && self.bloch_display_slot(gate.id).is_none() {
-                // Not yet captured by a recompute (placed mid-drag, unsnapped,
-                // or before the first frame's GPU dispatch). Show the
-                // inactive center dot via egui until the GPU overlay takes over.
                 draw_bloch_center_dot(painter, gate_rect, colors);
             }
         }
@@ -426,9 +406,7 @@ impl QniApp {
                     params: ConditionalGateBodyParams {
                         viewport_min: [gpu_viewport.min.x, gpu_viewport.min.y],
                         viewport_size: [gpu_viewport.width(), gpu_viewport.height()],
-                        // Same gamma story as the measurement digit callback.
                         enabled_color: colors.box_fill.to_normalized_gamma_f32(),
-                        // qni `--qni-semantic-fill-color-disabled`.
                         disabled_color: colors.semantic_disabled.to_normalized_gamma_f32(),
                     },
                 }),
@@ -500,8 +478,6 @@ impl QniApp {
             return shapes;
         }
 
-        // GPU overlay: draw Probability bars from the GPU-side
-        // marginalization buffer. CPU supplies only geometry + hover row.
         let mut next_probability_placeholder_slot = self
             .external_gpu
             .view()
@@ -777,10 +753,6 @@ impl QniApp {
             shapes.push(egui::Shape::Callback(paint_callback));
         }
 
-        // GPU overlay: draws the dynamic arrow + tip dot for every placed
-        // BlochDisplay whose values are live in `bloch_output_buffer`. No
-        // CPU readback — the fragment shader samples the storage buffer
-        // directly.
         let live_dragging_bloch_id = dragging_gate_id.filter(|_| self.dragging_live_display_snap);
         let bloch_overlay_instances: Vec<BlochOverlayInstance> = self
             .placed_gates
@@ -814,8 +786,6 @@ impl QniApp {
                 instances: bloch_overlay_instances.into(),
                 viewport_min: [callback_rect.min.x, callback_rect.min.y],
                 viewport_size: [callback_rect.width(), callback_rect.height()],
-                // Same gamma story as `RenderColors::new` — surface is
-                // rgba8unorm so we hand the GPU sRGB bytes, not linear.
                 line_color: colors.bloch_vector_line.to_normalized_gamma_f32(),
                 tip_0_color: colors.bloch_vector_tip_0.to_normalized_gamma_f32(),
                 tip_mid_color: colors.bloch_vector_tip_mid.to_normalized_gamma_f32(),
@@ -831,9 +801,6 @@ impl QniApp {
             shapes.push(egui::Shape::Callback(paint_callback));
         }
 
-        // GPU overlay: 0/1 digit per measurement, sourced directly from
-        // `measurement_aux_buffer.z`. Half extent is roughly digit-bounding
-        // box + AA fringe.
         let measurement_digit_instances =
             self.measurement_digit_instances(projection, dragging_gate_id);
         if !measurement_digit_instances.is_empty() {
@@ -1001,9 +968,6 @@ impl QniApp {
             egui::vec2(GATE_SIZE, GATE_SIZE),
         );
 
-        // docs/design-system/bloch-display-popover.html: title uses Geist regular
-        // 14px; labels are Geist Mono 12px; values are rendered by GPU from
-        // `bloch_output_buffer` to avoid production GPU→CPU readback.
         let title_font = egui::FontId::proportional(crate::tailwind::TEXT_SM);
         let label_font = egui::FontId::monospace(crate::tailwind::TEXT_XS);
         let title_galley = painter.layout_no_wrap(
@@ -1019,7 +983,7 @@ impl QniApp {
         let divider_gap = crate::tailwind::SPACING_3;
         let label_gap = crate::tailwind::SPACING_2;
         let col_gap = crate::tailwind::SPACING_3;
-        let label_w = 12.0; // min-width 12px for r / φ / θ / x / y / z.
+        let label_w = 12.0;
         let value_chars = 8.0; // Matches WGSL VALUE_CHARS.
         let value_w = POPUP_GLYPH_CELL_W as f32 * value_chars;
         let value_h = POPUP_GLYPH_CELL_H as f32;
@@ -1119,10 +1083,6 @@ impl QniApp {
             return;
         };
 
-        // docs/design-system/amplitude-circle-popover.html: state-vector panel
-        // amplitude-circle popover is canonical. CPU paints only fixed chrome,
-        // labels, and icons; all numeric values are rendered by WebGPU from the
-        // Amplitude Display storage buffers without production readback.
         let header = amplitude_hover_popup_header(outcome, span);
         let header_font = egui::FontId::monospace(crate::tailwind::TEXT_SM);
         let body_font = egui::FontId::monospace(crate::tailwind::TEXT_XS);
@@ -1221,8 +1181,6 @@ impl QniApp {
             return;
         };
 
-        // Popup typography follows docs/design-system/probability-display.html §10: 14px ket,
-        // 12px subtitle/labels, spacing on the 4px scale.
         let ket_font = egui::FontId::monospace(crate::tailwind::TEXT_SM);
         let subtitle_font = egui::FontId::proportional(crate::tailwind::TEXT_XS);
         let label_font = egui::FontId::monospace(crate::tailwind::TEXT_XS);
@@ -1411,9 +1369,6 @@ fn bloch_hover_popup_placement(
         target_top - rect.top(),
     ));
 
-    // The popover card top aligns to the 40px Bloch host top, while the tail
-    // apex points at the host's vertical center. This keeps the callout visually
-    // anchored to the sphere instead of drooping below it.
     let anchor_y = gate_rect.center().y;
     let tail = if rect.center().x >= gate_rect.center().x {
         PopoverTail::on_left_edge(rect, anchor_y)
@@ -1463,9 +1418,6 @@ fn probability_hover_popup_placement(
         target_top - rect.top(),
     ));
 
-    // Choose the tail edge after viewport clamping. In cramped viewports the
-    // card can move away from the preferred side; the tail should still point
-    // from the card edge nearest to the hovered probability/amplitude row.
     let tail = if rect.center().x >= gate_rect.center().x {
         PopoverTail::on_left_edge(rect, row_center_y)
     } else {

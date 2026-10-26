@@ -53,27 +53,12 @@ pub(super) fn draw_control_connectors(
                     anti_control_gaps.push(along_wires(projection, center));
                 }
             } else {
-                // Swap counts as a controllable target so a controlled-SWAP
-                // (Fredkin) gets the control→swap connector line. A column's
-                // controls apply to every gate in it, so the swap symbols sit
-                // on the same vertical connector as the control dots. An
-                // uncontrolled swap still skips this line via the
-                // `controls.is_empty()` early-return below; its swap-to-swap
-                // connector is drawn separately in `draw_swap_connectors`.
                 targets.push(center);
             }
         }
-        // Connector is a *control-only* affordance: it tells the reader "this
-        // column is a multi-qubit controlled operation". Columns with no
-        // controls (e.g. four parallel Hs, parallel Blochs, parallel writes)
-        // are independent single-qubit gates and must NOT get a line —
-        // matching qni's `circuit-step-element.ts:526` early-return when both
-        // control lists are empty.
         if controls.is_empty() {
             continue;
         }
-        // A lone control with no controllable target is a disabled no-op in qni
-        // (`:513-524`); we likewise skip the line for it.
         if targets.is_empty() && controls.len() < 2 {
             continue;
         }

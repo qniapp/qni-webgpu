@@ -23,11 +23,6 @@ pub(super) struct DiagramMetrics {
 
 impl DiagramMetrics {
     pub(super) fn for_transition_count(transition_count: usize) -> Self {
-        // Diagram geometry. Sizes match qni's `QubitTransitionComponent`:
-        // * QubitCircle                → 32 × 32 px
-        // * qpu-operation-sm = `1.5rem` → 24 × 24 px gate body
-        // * arrow_start / arrow_end SVG → 12 × 24 px each side
-        // * 8 px between groups
         let amps_width = CIRCLE * 2.0 + CIRCLE_GAP;
         // The arrowhead chevron is drawn over the last 6 px of the right wire
         // (matches qni's arrow_end SVG where the chevron tip ends at x=11.6
@@ -70,7 +65,6 @@ pub(super) fn paint_tooltip_diagram(
         return;
     }
 
-    // Trim trailing para_gap before the diagram block.
     let diagram_top = text_end_y
         - if info.paragraphs.is_empty() {
             0.0
@@ -83,14 +77,12 @@ pub(super) fn paint_tooltip_diagram(
         let row_top = diagram_top + row_idx as f32 * (metrics.row_height + ROW_GAP);
         let row_center_y = row_top + CIRCLE / 2.0;
 
-        // Left amplitudes (input).
         draw_tooltip_amps(painter, diagram_left, row_top, &trans.from, colors);
         let mut x = diagram_left + metrics.amps_width + SECTION_GAP;
 
         draw_connector_and_gate(painter, x, row_center_y, gate, colors);
         x += WIRE + GATE_BODY + WIRE + SECTION_GAP;
 
-        // Right amplitudes (output).
         draw_tooltip_amps(painter, x, row_top, &trans.to, colors);
     }
 }
@@ -102,11 +94,6 @@ fn draw_connector_and_gate(
     gate: GateKind,
     colors: &Colors,
 ) {
-    // Connector: 12 px wire → 24 px gate body → 12 px wire whose last 6 px
-    // hold the arrowhead chevron (matches qni's arrow_start / arrow_end SVG
-    // geometry). Both wires are pulled 2 px short of the gate edges so the gate
-    // sits with a small breathing-room gap on either side instead of being
-    // visually fused to the line.
     const WIRE_GATE_PAD: f32 = 2.0;
     let wire_color = colors.text_strong;
     painter.line_segment(
@@ -126,8 +113,6 @@ fn draw_connector_and_gate(
 
     let wire2_x = gate_x + GATE_BODY;
     let arrow_tip = egui::pos2(wire2_x + WIRE, row_center_y);
-    // Line ending where the chevron starts (arrow tip −6 px), starting
-    // WIRE_GATE_PAD after the gate's right edge.
     painter.line_segment(
         [
             egui::pos2(wire2_x + WIRE_GATE_PAD, row_center_y),
@@ -147,10 +132,6 @@ fn draw_connector_and_gate(
     ));
 }
 
-/// Mini gate body (24 px) for the tooltip diagram — matches qni's
-/// `qpu-operation-sm` (1.5rem). Delegates to the shared `draw_gate_body` so
-/// the icon glyph is identical to what the palette renders (Phase = `Φ`
-/// circle, X = filled disk, …), just scaled down.
 fn draw_tooltip_mini_gate(
     painter: &egui::Painter,
     gate_rect: egui::Rect,

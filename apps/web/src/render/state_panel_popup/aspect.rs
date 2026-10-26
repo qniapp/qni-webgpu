@@ -13,9 +13,6 @@ const THUMB_SLOT_W: f32 = 50.0;
 const THUMB_SLOT_H: f32 = 16.0;
 const THUMB_TEXT_GAP: f32 = crate::tailwind::SPACING_3;
 
-/// Draw the aspect popover (background + rows). Chrome and row rhythm mirror
-/// the Circuit picker dropdown: 1px border, 12px radius,
-/// 6px padding, shadow-popover, and 36px proportional rows.
 pub(crate) fn draw_aspect_popover(
     painter: &egui::Painter,
     colors: &Colors,
@@ -103,7 +100,7 @@ fn paint_aspect_row_text(
         egui::FontFamily::Name("geist-medium".into()),
     );
     let font = if is_current {
-        medium_font.clone() // Geist Medium 500 for active / "(now)" identifier.
+        medium_font.clone()
     } else {
         regular_font
     };

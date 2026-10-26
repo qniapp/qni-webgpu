@@ -45,7 +45,6 @@ impl QniApp {
 
         let palette_origin = rect.min + egui::vec2(palette_start_x, PALETTE_ROW_Y);
         if let Some(separator) = layout.separator {
-            // 右側: 表示と、見た目のための指示（注釈や空きマス）
             painter.rect_filled(
                 separator.translate(palette_origin.to_vec2()),
                 egui::CornerRadius::ZERO,
@@ -115,13 +114,10 @@ impl QniApp {
             draw_gate_body(painter, gate_rect, gate, colors);
         }
         if gate == GateKind::BlochDisplay {
-            // Palette has no associated state: render the inactive |v|=0 center dot.
             draw_bloch_center_dot(painter, gate_rect, colors);
         }
     }
 
-    /// The vertical layout's palette: one page of gates between page
-    /// arrows, with a dot per page below.
     fn draw_palette_carousel(&self, painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
         let carousel = PaletteCarousel::new(rect, self.palette.len());
         let card = carousel.rect();
@@ -184,7 +180,6 @@ fn palette_shadow(colors: &Colors) -> egui::epaint::Shadow {
     }
 }
 
-/// `‹` (`direction` -1) or `›` (`direction` 1) centred on `center`.
 fn draw_chevron(painter: &egui::Painter, center: egui::Pos2, direction: f32, color: egui::Color32) {
     let half = crate::tailwind::SPACING_2;
     let tip = center + egui::vec2(direction * half / 2.0, 0.0);

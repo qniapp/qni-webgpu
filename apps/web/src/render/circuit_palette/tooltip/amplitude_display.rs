@@ -6,10 +6,6 @@ use crate::gates::Amp;
 pub(super) const CIRCLE: f32 = crate::tailwind::SPACING_8;
 pub(super) const CIRCLE_GAP: f32 = 8.0;
 
-/// Render a 2-amplitude row (one `[Amp; 2]`) at the given top-left
-/// position. Each amp = outline circle + filled disk sized by |amp|² +
-/// phase-needle line, with the basis label `|0⟩` / `|1⟩` tucked into the
-/// bottom-right corner (qni convention).
 pub(super) fn draw_tooltip_amps(
     painter: &egui::Painter,
     left_x: f32,
@@ -17,7 +13,6 @@ pub(super) fn draw_tooltip_amps(
     amps: &[Amp; 2],
     colors: &Colors,
 ) {
-    // Same size as qni's `qubit-circle`.
     for (basis, amp) in amps.iter().enumerate() {
         let center = egui::pos2(
             left_x + CIRCLE / 2.0 + basis as f32 * (CIRCLE + CIRCLE_GAP),
@@ -44,11 +39,6 @@ pub(super) fn draw_tooltip_amps(
                 egui::Stroke::new(2.0_f32, colors.state_needle),
             );
         }
-        // Basis label `|0⟩` / `|1⟩` tucked tight against the circle's
-        // bottom-right edge (qni convention). The anchor is the label's
-        // top-left, placed at ~5 o'clock just inside the circle's outline so
-        // the label's bounding box hugs the disk without floating off to the
-        // side.
         let label = if basis == 0 { "|0⟩" } else { "|1⟩" };
         painter.text(
             egui::pos2(center.x + CIRCLE / 2.0 - 7.0, center.y + CIRCLE / 2.0 - 6.0),

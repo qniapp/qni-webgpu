@@ -8,14 +8,6 @@ mod value_callback;
 use crate::colors::Colors;
 use crate::render::state_panel_layout::StatePanelLayout;
 
-/// Hover popup showing the |ket⟩ + amplitude / probability / phase for
-/// the cell under the pointer. Paper background + 1px border +
-/// soft shadow (B variant from `docs/state-cell-popup-mockups.html`),
-/// with qni-style icons rendered as egui primitives.
-///
-/// Numeric amplitude / probability / phase values are rendered by
-/// `PopupValueCallback` on the GPU. The CPU computes only layout,
-/// colours, and glyph atlas placement; it performs no value readback.
 pub(crate) fn draw_state_cell_popup(
     painter: &egui::Painter,
     colors: &Colors,

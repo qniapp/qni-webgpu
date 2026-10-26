@@ -13,9 +13,9 @@ impl QniApp {
         qubits: usize,
         bounds: egui::Rect,
     ) -> (egui::Rect, Vec<egui::Rect>) {
-        const ROW_HEIGHT: f32 = crate::tailwind::SPACING_9; // Same height as a picker item.
+        const ROW_HEIGHT: f32 = crate::tailwind::SPACING_9;
         const PADDING: f32 = crate::tailwind::SPACING_1_5;
-        const WIDTH: f32 = 240.0; // match Circuit picker dropdown.
+        const WIDTH: f32 = 240.0;
         const TRIGGER_GAP: f32 = 2.0;
         let n_rows = qubits + 1;
         let total_height = n_rows as f32 * ROW_HEIGHT + PADDING * 2.0;

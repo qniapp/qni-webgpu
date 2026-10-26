@@ -122,10 +122,7 @@ fn pill_parts(status: &ExternalGpuStatus, colors: &Colors) -> Option<PillParts> 
 }
 
 fn paint_dot(ui: &mut egui::Ui, color: egui::Color32, running: bool) {
-    let (rect, _) = ui.allocate_exact_size(
-        egui::vec2(6.0, 6.0), // 6px status dot.
-        egui::Sense::hover(),
-    );
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(6.0, 6.0), egui::Sense::hover());
     let color = if running {
         let id = ui.make_persistent_id("gpu_status_pill_dot_pulse");
         let time = ui.ctx().input(|input| input.time);
@@ -136,5 +133,5 @@ fn paint_dot(ui: &mut egui::Ui, color: egui::Color32, running: bool) {
     } else {
         color
     };
-    ui.painter().circle_filled(rect.center(), 3.0, color); // radius 3px = 6px dot.
+    ui.painter().circle_filled(rect.center(), 3.0, color);
 }
