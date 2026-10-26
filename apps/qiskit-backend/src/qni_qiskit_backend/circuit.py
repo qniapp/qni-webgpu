@@ -274,7 +274,8 @@ def apply_column_to_qiskit(
             ):
                 basis[wire] = None
         else:
-            apply_measurements(qc, [wire], controls, anti_controls)
+            # qni/WebGPU does not model controlled Measurement; column controls are ignored.
+            qc.measure(wire, wire)
             if wire in measurement_names:
                 # Also retain the ordinary wire bit, exactly as plain Measure.
                 # The repeated measurement has no intervening quantum operation.
@@ -547,20 +548,6 @@ def apply_gate(
         apply_write1(qc, basis, wire)
     else:
         raise CircuitBuildError(f"unsupported gate token: {token}")
-
-
-def apply_measurements(
-    qc: Any,
-    measurement_wires: list[int],
-    controls: list[int],
-    anti_controls: list[int],
-) -> None:
-    if not measurement_wires:
-        return
-    # qni/WebGPU does not model controlled Measurement; column controls are ignored.
-    del controls, anti_controls
-    for wire in measurement_wires:
-        qc.measure(wire, wire)
 
 
 def apply_swap(
@@ -1033,15 +1020,11 @@ def apply_write0(qc: Any, basis: BasisTracker, wire: int) -> None:
 
 
 def apply_write1(qc: Any, basis: BasisTracker, wire: int) -> None:
-    apply_write(qc, basis, wire, target=1)
-
-
-def apply_write(qc: Any, basis: BasisTracker, wire: int, *, target: int) -> None:
     value = basis[wire]
     if value is None:
         raise CircuitBuildError(
-            f"|{target}> requires a deterministic basis state in the dev Qiskit runner"
+            "|1> requires a deterministic basis state in the dev Qiskit runner"
         )
-    if value != target:
+    if value != 1:
         qc.x(wire)
-        basis[wire] = target
+        basis[wire] = 1
