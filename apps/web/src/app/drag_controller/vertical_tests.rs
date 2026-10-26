@@ -228,8 +228,6 @@ fn vertical_pan_stops_at_the_circuit_end() {
 #[test]
 fn vertical_press_on_the_palette_card_ignores_gates_scrolled_under_it() {
     let (mut app, ctx) = fixture(&long_circuit("X"));
-    // Column 8's gate reaches past the circuit area into the card's top
-    // padding, where the carousel has no target.
     let pos = egui::pos2(cell(&app, 8, 0).x, carousel(&app).rect().min.y + 2.0);
     press(&mut app, &ctx, pos);
 
@@ -248,8 +246,6 @@ fn vertical_drop_on_the_palette_card_does_not_fill_a_hidden_column() {
     let json = long_circuit("H");
     let (mut app, ctx) = fixture(&json);
     let card = carousel(&app);
-    // Between two carousel slots, over wire 1 of a column scrolled under
-    // the card.
     let to = egui::pos2(cell(&app, 9, 1).x, card.slot_rect(0).center().y);
     drag(&mut app, &ctx, card.slot_rect(1).center(), to);
 
@@ -268,7 +264,6 @@ fn vertical_hover_on_the_palette_card_ignores_hidden_gates() {
 #[test]
 fn vertical_angle_label_under_the_carousel_does_not_take_the_arrow_tap() {
     let (mut app, ctx) = fixture(&long_circuit("Rx"));
-    // Column 8's angle label sits under the top edge of the next arrow.
     let next = carousel(&app).next_rect();
     let pos = egui::pos2(cell(&app, 8, 0).x + 8.0, next.min.y + 2.0);
     tap(&mut app, &ctx, pos);

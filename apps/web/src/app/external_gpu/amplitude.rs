@@ -30,8 +30,6 @@ pub(super) fn collect_amplitude_requests(
             let span = display
                 .span
                 .clamped_for(display.kind, n - display.wire.as_usize());
-            // span 内の最下位ビット = 上端ワイヤ（q0=LSB なので wire がそのままビット位置）。
-            // outcome の bit j は base_bit + j = 上端から j 本目のワイヤに対応する。
             let base_bit = display
                 .wire
                 .to_qubit_bit(qubits)
@@ -239,8 +237,6 @@ mod tests {
 
     #[test]
     fn serializes_amplitude_span_base_bit() {
-        // 3 qubits, top wire (wire 0), span 2 → 範囲 [0,2)、最下位ビット = 上端ワイヤ
-        // なので base_bit = 0（q0=LSB）。phase_lock_enabled は span != n で true。
         let requests = requests(
             &[PlacedGate::new(
                 crate::app::GateId::from_u32(2),

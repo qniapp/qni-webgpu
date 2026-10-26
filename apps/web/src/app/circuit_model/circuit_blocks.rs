@@ -27,7 +27,6 @@ impl CircuitBlock {
         &self.label
     }
 
-    /// First column inside the block.
     pub(crate) fn start(&self) -> CircuitColumnIndex {
         CircuitColumnIndex::new(self.start)
     }

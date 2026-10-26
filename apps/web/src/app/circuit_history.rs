@@ -1,13 +1,3 @@
-//! Quirk-style linear circuit revision history.
-//!
-//! Quirk keeps the mutable drag/display state out of the undo stack: drag start
-//! calls `startedWorkingOnCommit`, live drag mutates the displayed circuit, and
-//! drop commits exactly one serialised circuit checkpoint. Pressing undo while a
-//! commit is in progress cancels back to the active checkpoint instead of
-//! skipping over it. This module mirrors that model with qni-compatible circuit
-//! JSON snapshots (`{"cols":[...]}`), so the URL and undo stack share one
-//! canonical representation.
-
 use eframe::egui;
 
 use super::{ExecMode, QniApp};

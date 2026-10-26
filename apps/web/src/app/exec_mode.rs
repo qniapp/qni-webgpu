@@ -158,7 +158,7 @@ fn toggle_layout(
     } else {
         crate::tailwind::SPACING_3
     };
-    let segment_padding = egui::vec2(segment_padding_x, crate::tailwind::SPACING_1); // Per-side padding matches the mock.
+    let segment_padding = egui::vec2(segment_padding_x, crate::tailwind::SPACING_1);
     let mut local_size = local.size() + segment_padding * 2.0;
     let mut gpu_size = gpu.size() + segment_padding * 2.0;
     if let Some(width) = width {

@@ -1,9 +1,3 @@
-//! Circuit-domain model helpers extracted from `QniApp`.
-//!
-//! This module keeps qni's semantic step/dropzone idea explicit: committed
-//! gates are addressed by `column` + `wire`; pixels are derived layout data or
-//! drag previews, never the source of truth for URL / GPU planning.
-
 use eframe::egui;
 use std::collections::{BTreeSet, HashMap};
 
@@ -127,7 +121,6 @@ pub(crate) enum LiveDragSnap {
     },
 }
 
-/// Which vertical edge of a span-resizable gate is being manipulated.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SpanResizeEdge {
     Top,
@@ -281,7 +274,6 @@ impl QniApp {
 
     pub(super) fn state_qubits(&self) -> QubitCount {
         let capacity = QubitCapacity::local();
-        // An off-circuit drag is a floating preview, not a simulation operand.
         let floating_id = self
             .dragging
             .filter(|_| self.dragging_live_snap.is_none())

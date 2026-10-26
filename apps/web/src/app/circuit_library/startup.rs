@@ -15,8 +15,6 @@ pub(crate) fn for_startup(url_json: String, url_has_payload: bool) -> (CircuitLi
     if library.migrate_legacy_default_names() {
         changed = true;
     }
-    // 組み込みサンプルの定義（JSON / 名前）をコード側で更新したとき、初回シード後に
-    // 保存された既存ライブラリにも反映させる。ユーザー回路には触れない。
     if library.reconcile_samples() {
         changed = true;
     }

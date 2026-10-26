@@ -66,8 +66,6 @@ impl DragController {
                         app.insert_gate_at_column(gate_id, wire, column, drag.original_column);
                     }
                 }
-                // Mirror qni's post-drop `resize()`: remove empty
-                // columns and shift trailing gates left for both branches.
                 app.compact_empty_steps();
                 app.update_qubit_count();
                 // Mirror qni / Quirk: live drag state is transient;

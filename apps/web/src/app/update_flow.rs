@@ -1,9 +1,3 @@
-//! Per-frame update coordinator for `QniApp`.
-//!
-//! The app root owns state; this module owns the order of each frame:
-//! circuit input/draw, state-panel interactions, GPU plan refresh, overlay
-//! drawing, and repaint / debug-HUD tail work.
-
 mod circuit_frame;
 mod frame_tail;
 mod gpu_frame;
@@ -45,9 +39,6 @@ impl QniApp {
         let colors = self.colors();
         let target_format = frame.wgpu_render_state().map(|state| state.target_format);
 
-        // Decide whether wheel-over-the-panel should suppress the surrounding
-        // ScrollArea's page-scroll. If pointer is on the state panel (or its
-        // popover), route wheel to our aspect / zoom handlers instead.
         let pointer_over_state_panel = self.compute_state_panel_input_gate(ctx, screen_rect);
 
         if let Some(target_format) = target_format {

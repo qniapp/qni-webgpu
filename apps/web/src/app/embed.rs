@@ -505,7 +505,6 @@ mod tests {
                         eframe::egui::vec2(width as f32 - 16.0, height - 16.0),
                     );
                     let layout = app.state_panel_layout(rect, 1 << wires);
-                    // pitch includes a trailing gap (at most 3px), unlike grid size.
                     let fits = app.circuit_content_height(app.qubit_count, rect) <= rect.height()
                         && (!shown
                             || (rect.contains_rect(layout.state_rect)

@@ -17,8 +17,6 @@ pub(crate) struct GpuPlanState {
     sim_ops: std::sync::Arc<Vec<SimulationOp>>,
     revision: u64,
     snapshot_slot_count: usize,
-    /// gate_id → output_slot mapping derived from the latest `sim_ops` so
-    /// the GPU Bloch overlay can pick the right slot in `bloch_output_buffer`.
     bloch_slots: HashMap<GateId, SlotIndex<Bloch>>,
     /// Same idea for measurement gates → `measurement_aux_buffer` slot.
     measurement_slots: HashMap<GateId, SlotIndex<Measurement>>,

@@ -7,7 +7,6 @@ use super::{CircuitRevision, EmbedStartup, QniApp};
 
 const H: &str = r#"{"cols":[["H"]]}"#;
 const EMPTY: &str = r#"{"cols":[]}"#;
-// Button centres: 32px buttons with 8px between them.
 const UNDO_X: f32 = 16.0;
 const REDO_X: f32 = 56.0;
 const THIRD_BUTTON_X: f32 = 96.0;
