@@ -7,7 +7,7 @@ use crate::gpu::{
     AmplitudeDisplayCallback, AmplitudeInstance, ProbabilityDisplayCallback, ProbabilityInstance,
     AMPLITUDE_FORCE_ZERO,
 };
-use crate::icons::{draw_bloch_vector, draw_drag_gate_body, draw_sample_drag_outline};
+use crate::icons::{draw_bloch_center_dot, draw_drag_gate_body, draw_sample_drag_outline};
 use crate::layout::{amplitude_grid_rect, CircuitProjection};
 
 impl QniApp {
@@ -59,7 +59,7 @@ impl QniApp {
         if gate.kind == GateKind::BlochDisplay {
             // While dragging the gate isn't snapped, so we can't compute a
             // Bloch vector. Render the center dot at the sphere center.
-            draw_bloch_vector(painter, gate_rect, [0.0, 0.0, 0.0], colors);
+            draw_bloch_center_dot(painter, gate_rect, colors);
         }
     }
 
