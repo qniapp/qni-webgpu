@@ -11,7 +11,55 @@ use crate::constants::{
 };
 use crate::shared::now_seconds;
 
+#[cfg(test)]
+#[path = "touch_cancel_tests.rs"]
+mod tests;
+
 impl QniApp {
+    pub(crate) fn cancel_touch_gesture(&mut self, ctx: &egui::Context) {
+        let Some(has_new_touch) = ctx.input(|input| {
+            let cancel = input.events.iter().rposition(|event| {
+                matches!(
+                    event,
+                    egui::Event::Touch {
+                        phase: egui::TouchPhase::Cancel,
+                        ..
+                    }
+                )
+            })?;
+            Some(input.events[cancel + 1..].iter().any(|event| {
+                matches!(
+                    event,
+                    egui::Event::Touch {
+                        phase: egui::TouchPhase::Start,
+                        ..
+                    }
+                )
+            }))
+        }) else {
+            return;
+        };
+        // egui's Touch cancellation does not release its emulated pointer.
+        // Reset it without synthesizing a release (which could click a widget).
+        // A newer touch in the same frame already owns the pointer state.
+        if !has_new_touch {
+            ctx.input_mut(|input| input.pointer = Default::default());
+        }
+        ctx.stop_dragging();
+        self.pointer_was_down = false;
+        self.circuit_pan = None;
+        self.state_panel.drag = None;
+        self.state_panel.resize_drag = None;
+        if self.dragging.is_some()
+            || self.span_resize_drag.is_some()
+            || self.circuit_block_drag.is_some()
+        {
+            let breakpoint_step = self.breakpoint_step;
+            self.undo_circuit(ctx);
+            self.breakpoint_step = breakpoint_step;
+        }
+    }
+
     pub(crate) fn handle_input(
         &mut self,
         content_rect: egui::Rect,

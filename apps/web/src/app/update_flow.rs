@@ -133,6 +133,7 @@ impl eframe::App for QniApp {
 
     fn ui(&mut self, root_ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let ctx = &root_ui.ctx().clone();
+        self.cancel_touch_gesture(ctx);
         crate::icons::set_sdf_target_format(
             ctx,
             frame.wgpu_render_state().map(|state| state.target_format),

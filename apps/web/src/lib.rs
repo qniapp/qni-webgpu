@@ -307,8 +307,9 @@ async fn start_runner(
             if standalone {
                 return true;
             }
-            // Decide at touchstart, while the canvas listener can still
-            // prevent native scrolling. Document touchmove may be passive.
+            // Capture interactive targets synchronously at touchstart. That
+            // cancellation owns the gesture; later events must not cancel a
+            // native article scroll that started on empty canvas space.
             match event {
                 egui::Event::PointerButton {
                     pos, pressed: true, ..
@@ -316,6 +317,9 @@ async fn start_runner(
                     .borrow()
                     .as_ref()
                     .is_some_and(|ctx| QniApp::embed_captures_touch(ctx, *pos)),
+                egui::Event::PointerMoved(_)
+                | egui::Event::PointerButton { pressed: false, .. }
+                | egui::Event::PointerGone => false,
                 _ => true,
             }
         }),

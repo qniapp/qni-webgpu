@@ -725,7 +725,7 @@ fn install_touchstart(runner_ref: &WebRunner, target: &EventTarget) -> Result<()
                 event.stop_propagation();
             }
 
-            if should_prevent_default {
+            if should_prevent_default && event.cancelable() {
                 event.prevent_default();
             }
         },
@@ -733,31 +733,42 @@ fn install_touchstart(runner_ref: &WebRunner, target: &EventTarget) -> Result<()
 }
 
 fn install_touchmove(runner_ref: &WebRunner, target: &EventTarget) -> Result<(), JsValue> {
-    runner_ref.add_event_listener(target, "touchmove", |event: web_sys::TouchEvent, runner| {
-        if let Some((pos, touch)) = primary_touch_pos(runner, &event)
-            && is_interested_in_pointer_event(
-                runner,
-                egui::pos2(touch.client_x() as f32, touch.client_y() as f32),
-            )
-        {
-            let egui_event = egui::Event::PointerMoved(pos);
-            let should_stop_propagation = (runner.web_options.should_stop_propagation)(&egui_event);
-            let should_prevent_default = (runner.web_options.should_prevent_default)(&egui_event);
-            runner.input.raw.events.push(egui_event);
+    // Document listeners default to passive in Chromium. Standalone apps can
+    // still request cancellation; embeds decide ownership at touchstart.
+    let options = web_sys::AddEventListenerOptions::default();
+    options.set_passive(false);
+    runner_ref.add_event_listener_ex(
+        target,
+        "touchmove",
+        &options,
+        |event: web_sys::TouchEvent, runner, _| {
+            if let Some((pos, touch)) = primary_touch_pos(runner, &event)
+                && is_interested_in_pointer_event(
+                    runner,
+                    egui::pos2(touch.client_x() as f32, touch.client_y() as f32),
+                )
+            {
+                let egui_event = egui::Event::PointerMoved(pos);
+                let should_stop_propagation =
+                    (runner.web_options.should_stop_propagation)(&egui_event);
+                let should_prevent_default =
+                    (runner.web_options.should_prevent_default)(&egui_event);
+                runner.input.raw.events.push(egui_event);
 
-            push_touches(runner, egui::TouchPhase::Move, &event);
-            runner.needs_repaint.repaint();
+                push_touches(runner, egui::TouchPhase::Move, &event);
+                runner.needs_repaint.repaint();
 
-            // Use web options to tell if the web event should be propagated to parent elements based on the egui event.
-            if should_stop_propagation {
-                event.stop_propagation();
+                // Use web options to tell if the web event should be propagated to parent elements based on the egui event.
+                if should_stop_propagation {
+                    event.stop_propagation();
+                }
+
+                if should_prevent_default && event.cancelable() {
+                    event.prevent_default();
+                }
             }
-
-            if should_prevent_default {
-                event.prevent_default();
-            }
-        }
-    })
+        },
+    )
 }
 
 fn install_touchend(runner_ref: &WebRunner, target: &EventTarget) -> Result<(), JsValue> {
@@ -796,7 +807,7 @@ fn install_touchend(runner_ref: &WebRunner, target: &EventTarget) -> Result<(), 
                 event.stop_propagation();
             }
 
-            if should_prevent_default {
+            if should_prevent_default && event.cancelable() {
                 event.prevent_default();
             }
 
@@ -816,8 +827,13 @@ fn install_touchcancel(runner_ref: &WebRunner, target: &EventTarget) -> Result<(
         "touchcancel",
         |event: web_sys::TouchEvent, runner| {
             push_touches(runner, egui::TouchPhase::Cancel, &event);
+            runner.input.primary_touch = None;
+            runner.input.raw.events.push(egui::Event::PointerGone);
+            runner.needs_repaint.repaint_asap();
             event.stop_propagation();
-            event.prevent_default();
+            if event.cancelable() {
+                event.prevent_default();
+            }
         },
     )?;
 
