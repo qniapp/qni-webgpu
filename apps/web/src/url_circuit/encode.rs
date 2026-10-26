@@ -91,10 +91,7 @@ fn gate_columns_json(
         // wires are the `1` literal; gates emit their token.
         let mut entries: Vec<String> = (0..qubit_count.get()).map(|_| "1".to_string()).collect();
         for gate in bucket {
-            let Some(mut token) = gate_token(gate.kind, gate.span.get(), gate.angle.as_ref())
-            else {
-                continue;
-            };
+            let mut token = gate_token(gate.kind, gate.span.get(), gate.angle.as_ref());
             // qni `gate-element-helpers.js` `tI` / `tF`: `X<name` / `Measure>name`.
             if let Some(flag) = &gate.flag {
                 token.push_str(&flag.token_suffix());
@@ -117,18 +114,15 @@ fn gate_columns_json(
 }
 
 /// Map a gate kind + span + optional angle string to its URL token.
-/// `None` for kinds that shouldn't appear in the serialised circuit
-/// at all (currently no such kinds — every `GateKind` is
-/// serialisable).
 ///
 /// `angle` is `Some` only for parametric gates and is emitted as
 /// `Base(<angle>)` with `/` replaced by `_` so the literal fits cleanly
 /// into URL fragments — mirroring qni's `phase-gate-element.ts::toJson`.
 /// Palette drops store the explicit default `π/2`; `None` is kept for bare
 /// legacy tokens and emits bare `"Base"`.
-fn gate_token(kind: GateKind, span: usize, angle: Option<&ParametricAngle>) -> Option<String> {
+fn gate_token(kind: GateKind, span: usize, angle: Option<&ParametricAngle>) -> String {
     let spec = kind.spec();
-    let s = match kind {
+    match kind {
         GateKind::Phase | GateKind::Rx | GateKind::Ry | GateKind::Rz => {
             format_parametric(spec.url_token, angle)
         }
@@ -156,8 +150,7 @@ fn gate_token(kind: GateKind, span: usize, angle: Option<&ParametricAngle>) -> O
             }
         }
         _ => spec.url_token.to_string(),
-    };
-    Some(s)
+    }
 }
 
 /// Emit a parametric gate token: `Base(<angle>)` when `angle` is set,
@@ -432,16 +425,16 @@ mod tests {
                 .map(|kind| [0, 1, 16, 32].map(|span| gate_token(kind, span, None))),
             [
                 [
-                    Some("inc1".into()),
-                    Some("inc1".into()),
-                    Some("inc16".into()),
-                    Some("inc16".into())
+                    "inc1".to_string(),
+                    "inc1".to_string(),
+                    "inc16".to_string(),
+                    "inc16".to_string()
                 ],
                 [
-                    Some("dec1".into()),
-                    Some("dec1".into()),
-                    Some("dec16".into()),
-                    Some("dec16".into())
+                    "dec1".to_string(),
+                    "dec1".to_string(),
+                    "dec16".to_string(),
+                    "dec16".to_string()
                 ],
             ]
         );
