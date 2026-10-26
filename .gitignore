@@ -13,8 +13,6 @@ apps/web/playwright-dist/
 apps/web/pages-dist/
 apps/web/test-results/
 apps/web/node_modules/
-apps/tui/tests/snapshots/*.snap.new
-apps/tui/tests/snapshots/*.snap.old
 .env
 .venv/
 __pycache__/

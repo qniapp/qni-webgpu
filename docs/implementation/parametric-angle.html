@@ -51,7 +51,7 @@
   <div class="card">
     <p>
       角度を扱う箇所を走査すると、必要な操作は「解析」だけではない。
-      URL 往復、ラベル表示、同角度判定、GPU 行列生成、外部 Qiskit Aer 経路との互換、TUI の入力確定がそれぞれ角度値へ別の要求を持つ。
+      URL 往復、ラベル表示、同角度判定、GPU 行列生成、外部 Qiskit Aer 経路との互換がそれぞれ角度値へ別の要求を持つ。
       <code>ParametricAngle</code> はこれらを 1 つの正規形から派生させる。
     </p>
     <table class="spec">
@@ -63,7 +63,6 @@
         <tr><th>GPU 実行計画</th><td><code>simulation_plan/linearize.rs</code>, <code>gates/params.rs</code></td><td>ラジアン値を <code>f32</code> で返し、解析失敗時の <code>π/2</code> 置き換えをなくす</td></tr>
         <tr><th>ラベル描画</th><td><code>render/circuit_connectors/phase.rs</code></td><td><code>4π/8</code> と <code>π/2</code> を同じ表示ラベル <code>π/2</code> にする</td></tr>
         <tr><th>Phase 接続線</th><td><code>render/circuit_connectors/phase.rs</code></td><td>文字列ではなく正規化済み係数で同角度判定し、同じ列の Phase を束ねる</td></tr>
-        <tr><th>TUI 入力</th><td><code>apps/tui/src/model.rs</code>, <code>apps/tui/src/input.rs</code></td><td><code>parse_phase_label</code> は <code>pi</code> / <code>PI</code> / 空白入り入力を処理するが、キー入力制約と約分規則は Web とずれる。統合時は <code>parse_user_input</code> に寄せる</td></tr>
         <tr><th>外部 Qiskit Aer 経路</th><td><code>qni_qiskit_backend/circuit.py</code></td><td>列配列 JSON の形を変えず、qni 互換の正規化済みラベルを同じ角度として解釈できるようにする</td></tr>
       </tbody>
     </table>
@@ -124,7 +123,7 @@ impl ParametricAngle {
       ただし <code>0</code> だけは <code>π</code> を含まない例外として受け付ける。
       小数係数や符号付き分母は拒否し、<code>0.5π</code> は <code>π/2</code>、<code>π/-2</code> は <code>-π/2</code> のような正規形で表す。
       約分後は <code>4π</code> 周期で正規化し、係数を <code>(-2, 2]</code> に収める。
-      <code>parse_user_input</code> は角度入力 UI と TUI 互換のため、<code>pi</code> / <code>PI</code>、Unicode マイナス、空白除去を追加で許可する。
+      <code>parse_user_input</code> は角度入力 UI のため、<code>pi</code> / <code>PI</code>、Unicode マイナス、空白除去を追加で許可する。
       また、<code>π</code> を含まない整数または分数は <code>π</code> の係数として扱い、<code>1/2</code> を <code>π/2</code> に正規化する。
       ただし小数係数と符号付き分母は入力 UI でも拒否し、妥当性検証は <code>ParametricAngle</code> だけで行う。
     </p>
@@ -267,7 +266,6 @@ impl ParametricAngle {
         <tr><th>URL 復元</th><td><code>apps/web/src/url_circuit/decode.rs</code> (<code>P(...)</code> / <code>Rx(...)</code> / <code>Ry(...)</code> / <code>Rz(...)</code>)</td></tr>
         <tr><th>URL 生成</th><td><code>apps/web/src/url_circuit/encode.rs</code> (<code>format_parametric</code>)</td></tr>
         <tr><th>角度ラベル描画</th><td><code>apps/web/src/render/circuit_connectors/phase.rs</code> (<code>parametric_angle_label_text</code>)</td></tr>
-        <tr><th>TUI 角度入力</th><td><code>apps/tui/src/model.rs</code> (<code>PhaseValue</code>, <code>parse_phase_label</code>), <code>apps/tui/src/input.rs</code> (<code>handle_phase_edit_key</code>)</td></tr>
         <tr><th>外部 Qiskit Aer 経路</th><td><code>apps/qiskit-backend/src/qni_qiskit_backend/circuit.py</code> (<code>parse_angle</code>, <code>split_parametric</code>)</td></tr>
         <tr><th>対象外の角度</th><td><code>apps/web/src/simulation_plan/linearize.rs</code> (<code>linearize_qft</code> の制御 Phase 角度), <code>apps/web/src/gpu/shaders/state_render.wgsl</code> (表示用の振幅位相)</td></tr>
       </tbody>

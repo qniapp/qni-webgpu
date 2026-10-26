@@ -144,7 +144,6 @@ impl ProbabilityDistribution {
         <tr><td>GPU バッファ上の <code>f32</code>（本番描画）</td><td>対象外。Rust の型が届かない。描画は shader が直接バッファを sample する</td></tr>
         <tr><td>テスト専用 readback（<code>read_probability_distributions_impl</code>）</td><td>対象外。本番では発生しない例外経路で、JS の <code>Float32Array</code> へ抜けるため生の <code>&amp;[f32]</code> のままにする</td></tr>
         <tr><td>静的パレットツールチップの <code>|amp|&sup2;</code>（<code>gates/info.rs</code>）</td><td>対象外。固定振幅から描く図示用で、量子状態ではない</td></tr>
-        <tr><td><code>apps/tui</code> の測定確率</td><td>対象外。<code>apps/web</code> とは別の CPU シミュレータで、GPU-only ルールの管轄外</td></tr>
       </tbody>
     </table>
   </div>

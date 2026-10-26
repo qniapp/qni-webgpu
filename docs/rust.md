@@ -1,60 +1,24 @@
-# Rust 開発チェック
+# Rust のチェック
 
-このリポジトリは `rust-toolchain.toml` で stable を指定している。
+このリポジトリは `rust-toolchain.toml` で stable を指定している。対象は `apps/web` と、その中の `circuit-library-model`、`external-gpu-model` である。
 
-## フォーマット
+## まとめて確認する
 
-```
-cd apps/tui
-cargo fmt
-```
+リポジトリ直下で次を実行する。
 
-## Lint（Clippy）
-
-```
-cd apps/tui
-cargo clippy -- -D warnings
+```bash
+apps/web/scripts/check-rust.sh
 ```
 
-## テスト
+このスクリプトは次を行う。
 
-```
-cd apps/tui
-cargo test
-```
+- `circuit-library-model` と `external-gpu-model` の `cargo fmt --check`、`cargo clippy -- -D warnings`、`cargo test`
+- `apps/web` の `cargo fmt --check`
+- `wasm32-unknown-unknown` 向けの `cargo clippy --tests -- -D warnings`
+- `wasm32-unknown-unknown` 向けの `cargo test --no-run`
+- `apps/web` の `cargo test --lib` と `arithmetic_codegen` テスト
+- `cargo insta pending-snapshots`
 
-## 依存関係 / Snapshot チェック
+事前に `rustup target add wasm32-unknown-unknown` と `cargo install cargo-insta` が必要である。
 
-事前にインストール:
-
-```
-cargo install cargo-audit cargo-deny cargo-insta
-```
-
-未承認 snapshot 確認:
-
-```
-cd apps/tui
-cargo insta pending-snapshots
-```
-
-脆弱性チェック:
-
-```
-cd apps/tui
-cargo audit
-```
-
-ライセンス/依存ポリシー（リポジトリ直下で実行）:
-
-```
-cargo deny --manifest-path apps/tui/Cargo.toml check
-```
-
-## ワンコマンド
-
-リポジトリ直下で実行する:
-
-```
-make check
-```
+Web のビルド、BDD、Playwright、Qiskit バックエンドまで含めた確認は `./scripts/check-all.sh` を使う。

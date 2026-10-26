@@ -58,7 +58,7 @@ Run the main checks together from the repository root:
 ./scripts/check-all.sh
 ```
 
-This runs Web Rust fmt / clippy / test / snapshot checks and a production Trunk build, Web preflight / BDD / Playwright tests, Node deployment configuration tests, a Qiskit backend installation smoke check and tests, and TUI fmt / clippy / test / snapshot / audit / deny checks. It does not include documentation linting. Beyond the quick-start prerequisites, this requires `cargo-insta`, `cargo-audit`, `cargo-deny`, Playwright Chromium and Xvfb, and Python 3.10+.
+This runs Web Rust fmt / clippy / test / snapshot checks and a production Trunk build, Web preflight / BDD / Playwright tests, Node deployment configuration tests, and a Qiskit backend installation smoke check and tests. It does not include documentation linting. Beyond the quick-start prerequisites, this requires `cargo-insta`, Playwright Chromium and Xvfb, and Python 3.10+.
 
 Main commands for running checks individually:
 

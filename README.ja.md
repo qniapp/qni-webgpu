@@ -58,7 +58,7 @@ http://127.0.0.1:4174/
 ./scripts/check-all.sh
 ```
 
-これは Web の Rust fmt、clippy、test、snapshot チェックと Trunk 本番ビルド、Web の事前チェック、BDD、Playwright テスト、Node の配備設定テスト、Qiskit バックエンドのインストール確認とテスト、TUI の fmt、clippy、test、snapshot、audit、deny を実行します。ドキュメント lint は含まれません。クイックスタートの前提条件に加え、`cargo-insta`、`cargo-audit`、`cargo-deny`、Playwright 用 Chromium と Xvfb、Python 3.10 以降が必要です。
+これは Web の Rust fmt、clippy、test、snapshot チェックと Trunk 本番ビルド、Web の事前チェック、BDD、Playwright テスト、Node の配備設定テスト、Qiskit バックエンドのインストール確認とテストを実行します。ドキュメント lint は含まれません。クイックスタートの前提条件に加え、`cargo-insta`、Playwright 用 Chromium と Xvfb、Python 3.10 以降が必要です。
 
 個別に実行する場合の主なコマンドは次のとおりです。
 

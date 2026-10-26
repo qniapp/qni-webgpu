@@ -33,7 +33,7 @@ READ ../agent-kit/AGENTS.MD BEFORE ANYTHING.
 
 ## テスト規約
 
-- テストケースごとのアサーションは 1 つまでにする。Playwright / Node / Rust / TUI では `expect` / `assert*` / `assert_*` を 1 test に 1 回だけ置き、複数観点を確認したい場合はテストケースを分割する。setup / helper は失敗時に例外を投げてもよいが、複数アサーションを隠す wrapper にしない。Cucumber は 1 Scenario につき `Then` を 1 つだけにし、`Then` 後の `And` で追加検証しない。
+- テストケースごとのアサーションは 1 つまでにする。Playwright / Node / Rust では `expect` / `assert*` / `assert_*` を 1 test に 1 回だけ置き、複数観点を確認したい場合はテストケースを分割する。setup / helper は失敗時に例外を投げてもよいが、複数アサーションを隠す wrapper にしない。Cucumber は 1 Scenario につき `Then` を 1 つだけにし、`Then` 後の `And` で追加検証しない。
 - UI 変更はスナップショットテストで管理し、`cargo insta review` で差分を確認して accept/reject を明示する。
 - スナップショットのシリアライズ形式は統一し、改行や CRLF を正規化して差分ノイズを抑える。
 - CI で `cargo insta pending-snapshots` を実行し、未承認スナップショットがある場合は失敗させる。
