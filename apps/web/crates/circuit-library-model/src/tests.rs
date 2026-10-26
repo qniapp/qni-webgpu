@@ -213,7 +213,6 @@ fn reversible_addition_seed_uses_json() {
 #[test]
 fn reconcile_refreshes_stale_sample_json() {
     let mut library = CircuitLibrary::seed();
-    // コード更新前に保存された旧サンプル JSON を模擬する。
     library
         .entries
         .iter_mut()

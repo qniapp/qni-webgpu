@@ -9,7 +9,6 @@ stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 
 env -u NO_COLOR -C "$web_dir" trunk build --verbose --release --cargo-profile embed --dist "$stage"
-# Fonts and shaders are compiled into wasm; the standalone bootstrap is not used.
 cp "$stage/qni-web.js" "$stage/qni-web_bg.wasm" "$output/"
 source_commit="${QNI_SOURCE_COMMIT:-${GITHUB_SHA:-$(git -C "$web_dir" rev-parse HEAD 2>/dev/null || true)}}"
 if [[ ! "$source_commit" =~ ^[[:xdigit:]]{40}$ ]]; then

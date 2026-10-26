@@ -166,7 +166,6 @@ const startupStage = (): unknown => Reflect.get(window, '__qniStartupStage')
 // 監視が立てたエラーを取り消す。取り消し対象を区別するため発火を記録しておく。
 let watchdogError: string | null = null
 
-// sessionStorage が使えない環境 (プライベートモードなど) でも起動は続ける。
 const readRetryMarker = (): string | null => {
   try {
     return sessionStorage.getItem(STARTUP_RETRY_KEY)
