@@ -66,10 +66,6 @@ pub(crate) fn gate_rect_at_grid(
     egui::Rect::from_min_size(PlacedGate::grid_pos(column, wire), gate_size(kind, span))
 }
 
-/// Visible rect of a placed gate, accounting for the multi-qubit `span`
-/// of resizable-span gates and the variable-width Amplitude display body.
-/// `origin` is the top-left of the gate body (= rect.min + the gate draw position
-/// in the circuit's local coordinate space).
 pub(crate) fn gate_visible_rect(gate: &PlacedGate, origin: egui::Pos2) -> egui::Rect {
     egui::Rect::from_min_size(origin, gate_size(gate.kind, gate.span.get()))
 }
@@ -128,24 +124,15 @@ pub(crate) fn density_matrix_cell_index_at(
     Some(GridCell::new(col, row).to_index(dim) as u32)
 }
 
-/// Horizontal gutters of the circuit on a canvas. Circuit-space geometry
-/// (`LINE_LEFT_OFFSET`, slot centres, gate positions) never changes; a
-/// narrow canvas instead slides the circuit left by `shift_x` and draws the
-/// qubit labels right-aligned against the wires, so the space left of the
-/// first gate shrinks from 142px to 60px.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct CircuitGutters {
-    /// Screen distance the circuit moves left, before horizontal scroll.
     pub(crate) shift_x: f32,
-    /// Space kept right of the wire end when scrolled to the end.
     pub(crate) right_padding: f32,
-    /// Circuit-space anchor of the "qN:" labels.
     pub(crate) label_x: f32,
     pub(crate) label_align: egui::Align2,
 }
 
 impl CircuitGutters {
-    /// Gutters along the time axis of a circuit area `length` px long.
     pub(crate) fn for_orientation(orientation: CircuitOrientation, length: f32) -> Self {
         match orientation {
             CircuitOrientation::Horizontal => Self::for_canvas_width(length),
@@ -176,8 +163,6 @@ impl CircuitGutters {
         }
     }
 
-    /// Largest horizontal scroll that still keeps `right_padding` after the
-    /// wire end; `0` when the wires fit.
     pub(crate) fn max_scroll(&self, metrics: &LayoutMetrics, canvas_width: f32) -> f32 {
         (metrics.line_right - self.shift_x + self.right_padding - canvas_width).max(0.0)
     }
@@ -210,8 +195,6 @@ pub(crate) fn layout_metrics(width: f32, qubit_count: usize, min_slots: usize) -
     )
 }
 
-/// `layout_metrics` for a circuit area `length` px long along the time axis
-/// with explicit gutters.
 pub(crate) fn layout_metrics_with_gutters(
     length: f32,
     gutters: CircuitGutters,
@@ -230,9 +213,6 @@ pub(crate) fn layout_metrics_with_gutters(
     } else {
         0
     };
-    // Take whichever is larger: the slots that naturally fit in the
-    // canvas, or the slots demanded by the placed-gate set. Wires +
-    // slot_centers grow with the larger number.
     let slot_count = canvas_slots.max(min_slots);
     let slot_centers = if slot_count > 0 {
         (0..slot_count)
@@ -242,9 +222,6 @@ pub(crate) fn layout_metrics_with_gutters(
         Vec::new()
     };
     let slot_right = slot_centers.last().copied().unwrap_or(slot_left);
-    // Wires terminate one GATE_SIZE past the rightmost slot center so
-    // the last gate's body sits comfortably inside the line, mirroring
-    // the original canvas-width-based formula.
     let line_right = slot_right + GATE_SIZE;
     LayoutMetrics {
         line_left,
@@ -295,7 +272,6 @@ mod tests {
     const NARROW: f32 = 338.0;
     const PANEL_MARGIN: f32 = 8.0;
 
-    /// Screen x of the right edge of the gate in `column`, before scroll.
     fn gate_right_on_screen(column: usize, canvas_width: f32) -> f32 {
         let metrics = layout_metrics(canvas_width, 2, column + 2);
         metrics.slot_centers[column] + GATE_SIZE / 2.0

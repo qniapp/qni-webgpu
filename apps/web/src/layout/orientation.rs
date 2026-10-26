@@ -2,9 +2,6 @@ use eframe::egui;
 
 use crate::tailwind::SCREEN_SM;
 
-/// Which screen axis the circuit's time runs along. `Vertical` is the
-/// phone-portrait layout: wires run top to bottom and qubit 0 sits on the
-/// right.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum CircuitOrientation {
     #[default]
@@ -13,8 +10,6 @@ pub(crate) enum CircuitOrientation {
 }
 
 impl CircuitOrientation {
-    /// Standalone canvases narrower than `SCREEN_SM` and at least as tall as
-    /// they are wide use the vertical layout.
     pub(crate) fn for_canvas(canvas: egui::Vec2) -> Self {
         if canvas.x < SCREEN_SM && canvas.y >= canvas.x {
             Self::Vertical

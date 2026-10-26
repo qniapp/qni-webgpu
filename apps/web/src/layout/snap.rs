@@ -13,8 +13,6 @@ pub(crate) struct SlotSnap {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct InsertSnap {
-    /// Column index that will be created when the gate is dropped. `0` means
-    /// before the first occupied step; `N + 1` means after step `N`.
     pub(crate) index: usize,
     /// Temporary qni-style snap target between step centers.
     pub(crate) center: f32,

@@ -15,25 +15,16 @@ use crate::gates::{
 pub(crate) struct PaletteLayout {
     pub(crate) total_width: f32,
     pub(crate) total_height: f32,
-    /// Divider relative to the palette origin; only present in the full palette.
-    /// 右側: 表示と、見た目のための指示（注釈や空きマス）
     pub(crate) separator: Option<egui::Rect>,
     grid: PaletteGrid,
 }
 
 #[derive(Clone, Copy, Debug)]
 enum PaletteGrid {
-    /// A restricted palette's entries per row.
-    Rows {
-        columns: usize,
-    },
+    Rows { columns: usize },
     Full(FullPaletteGrid),
 }
 
-/// The full palette: the first and second gate rows, each wrapped into
-/// balanced rows of at most `row1_columns` / `row2_columns` entries, and the
-/// right section `right_columns` wide beside the top gate rows.
-/// 右側: 表示と、見た目のための指示（注釈や空きマス）
 #[derive(Clone, Copy, Debug)]
 struct FullPaletteGrid {
     row1_columns: usize,
@@ -42,30 +33,22 @@ struct FullPaletteGrid {
     right_x: f32,
 }
 
-/// A palette gate as it drops into the circuit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct PaletteEntry {
     pub(crate) kind: GateKind,
     pub(crate) angle: Option<ParametricAngle>,
 }
 
-/// One palette cell: a gate, or the comment block that wraps circuit columns.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PaletteItem {
     Gate(PaletteEntry),
     CircuitBlock,
 }
 
-/// Restricted-palette token for the comment block.
 pub(crate) const CIRCUIT_BLOCK_PALETTE_TOKEN: &str = "{}";
 
-/// Flat index of the comment block in the full palette: after every gate,
-/// in the right-section slot right after Spacer.
 pub(crate) const PALETTE_CIRCUIT_BLOCK_INDEX: usize = PALETTE_GATE_COUNT;
 
-/// Which items the palette offers. Indices are stable per palette: the full
-/// palette keeps its historical flat indices, a restricted palette numbers
-/// its entries left to right.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) enum Palette {
     #[default]
@@ -78,8 +61,6 @@ pub(crate) enum Palette {
 }
 
 impl Palette {
-    /// Parses circuit-JSON gate tokens such as `["|0>", "H", "P(π/4)"]`, plus
-    /// `"{}"` for the comment block.
     pub(crate) fn restricted<S: AsRef<str>>(tokens: &[S]) -> Result<Self, String> {
         tokens
             .iter()
@@ -125,8 +106,6 @@ impl Palette {
         }
     }
 
-    /// Whether the comment block can be placed, which also lets existing
-    /// blocks be edited.
     pub(crate) fn offers_circuit_block(&self) -> bool {
         match self {
             Self::Full => true,
@@ -134,7 +113,6 @@ impl Palette {
         }
     }
 
-    /// Layout on a canvas `canvas_width` px wide.
     pub(crate) fn layout(&self, canvas_width: f32) -> PaletteLayout {
         match self {
             Self::Full => full_palette_layout(canvas_width),
@@ -151,7 +129,6 @@ impl Palette {
         }
     }
 
-    /// Gate top-left relative to the palette panel top-left.
     pub(crate) fn local_pos(&self, index: usize, layout: &PaletteLayout) -> Option<egui::Pos2> {
         if index >= self.len() {
             return None;
@@ -162,8 +139,6 @@ impl Palette {
         }
     }
 
-    /// Maps a position relative to the palette origin to the entry under it.
-    /// Gaps, the separator and empty cells hit nothing.
     pub(crate) fn hit_test(&self, local_pos: egui::Pos2, layout: &PaletteLayout) -> Option<usize> {
         (0..self.len()).find(|&index| {
             self.local_pos(index, layout).is_some_and(|min| {
@@ -173,7 +148,6 @@ impl Palette {
         })
     }
 
-    /// Height of the palette panel including its padding; `0` when hidden.
     pub(crate) fn panel_height(&self, canvas_width: f32) -> f32 {
         if self.is_hidden() {
             0.0
@@ -182,19 +156,12 @@ impl Palette {
         }
     }
 
-    /// How far the circuit moves up because this palette is shorter than the
-    /// two-row palette `LINE_Y` leaves room for (negative when a wrapped
-    /// palette is taller). Circuit-space geometry (`LINE_Y`) stays fixed;
-    /// screen conversion subtracts this offset, like the horizontal scroll.
     pub(crate) fn circuit_shift_y(&self, canvas_width: f32) -> f32 {
         palette_column_height(PALETTE_DISPLAY_ROWS) + 2.0 * PALETTE_PADDING_Y
             - self.panel_height(canvas_width)
     }
 }
 
-/// Entries per row of a restricted palette: everything in one row when the
-/// panel fits between the 16px canvas margins, otherwise the fewest
-/// rows that fit, filled evenly (9 entries on a 354 px canvas → 5 + 4).
 fn restricted_columns(count: usize, canvas_width: f32) -> usize {
     if count == 0 {
         return 0;
@@ -205,13 +172,10 @@ fn restricted_columns(count: usize, canvas_width: f32) -> usize {
     balanced_columns(count, fit)
 }
 
-/// Widest palette content that keeps the panel between the canvas margins.
 fn palette_content_width(canvas_width: f32) -> f32 {
     canvas_width - 2.0 * (PALETTE_MARGIN_X + PALETTE_PADDING_X)
 }
 
-/// Entries per row when `count` entries wrap into the fewest rows of at
-/// most `limit`, filled evenly.
 fn balanced_columns(count: usize, limit: usize) -> usize {
     count.div_ceil(count.div_ceil(limit))
 }
@@ -239,11 +203,8 @@ fn palette_row_width(count: usize) -> f32 {
     }
 }
 
-/// Right-section grids in tie-breaking order: 4 × 2, 3 × 3, then 2 × 4.
 const RIGHT_COLUMN_CHOICES: [usize; 3] = [PALETTE_DISPLAY_COLUMNS, 3, 2];
 
-/// Choose the shortest fitting layout. Equal heights prefer the earlier
-/// right grid, then the widest left gate rows (descending column limit).
 fn full_palette_layout(canvas_width: f32) -> PaletteLayout {
     let available = palette_content_width(canvas_width);
     let candidates = RIGHT_COLUMN_CHOICES.into_iter().flat_map(|right_columns| {
@@ -283,9 +244,6 @@ impl FullPaletteGrid {
         (self.spacer_slot() + 2).div_ceil(self.right_columns)
     }
 
-    /// Right-section slot of Spacer, with the comment block right after it:
-    /// directly after the displays, or at the start of the next row when the
-    /// pair would otherwise be split across rows.
     fn spacer_slot(&self) -> usize {
         let displays = PALETTE_RIGHT_GATES.len() - 1;
         if displays % self.right_columns + 2 > self.right_columns {
@@ -295,7 +253,6 @@ impl FullPaletteGrid {
         }
     }
 
-    /// Entry counts of the gate rows from top to bottom.
     fn gate_row_counts(&self) -> impl Iterator<Item = usize> {
         let row_counts = |count: usize, columns: usize| {
             (0..count.div_ceil(columns)).map(move |row| (count - row * columns).min(columns))
@@ -536,7 +493,6 @@ mod tests {
     fn three_row_wrapped_palette_pushes_circuit_down_one_row() {
         let palette = Palette::restricted(&["H"; 7]).unwrap();
 
-        // 7 entries at most 3 per row (a 200 px canvas) → 3 + 3 + 1.
         assert_eq!(
             palette.circuit_shift_y(200.0),
             -(PALETTE_SIZE + PALETTE_ROW_GAP)
