@@ -1,24 +1,9 @@
-//! Shared column grouping for simulation lowering and connector painting.
-//!
-//! A column is identified by a caller-provided slot key: semantic columns use
-//! the editor column index, while render columns use the snap/drag-aware slot
-//! index. Keeping the grouping algorithm here prevents GPU lowering and visual
-//! connector code from growing separate HashMap/sort semantics.
-
 use std::collections::BTreeMap;
 
 use crate::app::PlacedGate;
 use crate::gates::{ColumnControls, GateFlag, GateKind, ParametricAngle};
 use crate::qubit_count::QubitCount;
 
-/// Which multi-controlled phase (CPHASE / CCPHASE) a `P` gate belongs to.
-///
-/// Same-column `P` gates with an equal key act as one operation: `e^{iφ}`
-/// applies only when every one of their wires reads |1⟩ (plus the column's
-/// `•` / `◦` conditions). The key mirrors qni's step serialization
-/// (`circuit-step-element.ts` :1095-1112), which groups phase gates by angle
-/// and then by `if` into one `{type: phase, targets, angle}`. A bare `P`
-/// takes the editor's π/2 default, so it groups with `P(π_2)`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct PhaseGroupKey<'a> {
     angle: ParametricAngle,
@@ -26,7 +11,6 @@ pub(crate) struct PhaseGroupKey<'a> {
 }
 
 impl<'a> PhaseGroupKey<'a> {
-    /// `None` when `gate` is not a `P` gate.
     pub(crate) fn of(gate: &'a PlacedGate) -> Option<Self> {
         (gate.kind == GateKind::Phase).then(|| Self {
             angle: gate.angle.unwrap_or_default(),
