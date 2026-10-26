@@ -1,19 +1,3 @@
-//! Minimal JSON parser scoped to the `{"cols": [[...], ...], "title": "..."}` shape.
-
-// ─────────────────────────────────────────────────────────────────────
-//  Minimal JSON parser scoped to our `{"cols": [[entry, ...], ...]}`
-//  format. Avoids pulling in serde_json (~60 KB wasm). Each entry is
-//  either the integer literal `1` (empty wire) or a JSON string
-//  containing a gate token. Multi-byte UTF-8 chars inside strings
-//  (•, ◦, †, ½, ⟩, …) round-trip verbatim because we accumulate the
-//  raw bytes and re-`String::from_utf8` at the end.
-//
-//  The root object may also carry qni's optional `"title"` string.
-//  Keys may appear in any order (qni reads the payload with
-//  `JSON.parse`); any other key rejects the document.
-// ─────────────────────────────────────────────────────────────────────
-
-/// A parsed circuit document: the raw columns plus qni's circuit title.
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct CircuitDocument {
     /// Outer = columns, inner = per-wire entries, `None` for the `1`
@@ -24,8 +8,6 @@ pub(super) struct CircuitDocument {
     pub(super) title: String,
 }
 
-/// Parse a single `{"cols": [[...], ...], "title": "..."}` document.
-/// `cols` is required; `title` is optional.
 pub(super) fn parse_circuit_document(s: &str) -> Option<CircuitDocument> {
     let bytes = s.as_bytes();
     let mut p = Parser { s: bytes, i: 0 };

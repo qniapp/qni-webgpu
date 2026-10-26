@@ -1,5 +1,3 @@
-//! Circuit JSON encoder (`PlacedGate` → `{"cols":[...]}`).
-
 use crate::app::{CircuitBlocks, PlacedGate};
 use crate::gates::{GateKind, ParametricAngle, SAMPLE_MAX_SPAN};
 use crate::qubit_count::QubitCount;
@@ -50,9 +48,6 @@ pub(crate) fn circuit_to_json(
     }
 }
 
-/// Serialise only the gate columns, without circuit-block markers. This is
-/// the operand list sent to external GPU execution, where blocks have no
-/// meaning.
 pub(crate) fn circuit_columns_to_json(
     placed_gates: &[PlacedGate],
     qubit_count: QubitCount,
@@ -63,16 +58,11 @@ pub(crate) fn circuit_columns_to_json(
     )
 }
 
-/// One JSON array per gate column, padded with empty `[1]` columns up to
-/// at least `min_columns`.
 fn gate_columns_json(
     placed_gates: &[PlacedGate],
     qubit_count: QubitCount,
     min_columns: usize,
 ) -> Vec<String> {
-    // Bucket gates by semantic column. After `compact_empty_steps` the
-    // occupied indices are dense from 0..N-1, but be defensive in case this
-    // is ever called pre-compaction.
     let Some(bucket_count) = placed_gates
         .iter()
         .map(|gate| gate.column.as_usize().checked_add(1))
@@ -87,8 +77,6 @@ fn gate_columns_json(
 
     let mut cols: Vec<String> = Vec::with_capacity(buckets.len());
     for bucket in &buckets {
-        // Build the wire-indexed token vector for this column. Empty
-        // wires are the `1` literal; gates emit their token.
         let mut entries: Vec<String> = (0..qubit_count.get()).map(|_| "1".to_string()).collect();
         for gate in bucket {
             let mut token = gate_token(gate.kind, gate.span.get(), gate.angle.as_ref());
@@ -100,8 +88,6 @@ fn gate_columns_json(
                 entries[gate.wire.as_usize()] = format!("\"{}\"", json_escape(&token));
             }
         }
-        // Strip trailing empties so the JSON stays compact; a column
-        // that turned out fully empty collapses to "[1]" (matches qni).
         while entries.last().is_some_and(|s| s == "1") {
             entries.pop();
         }
@@ -153,10 +139,6 @@ fn gate_token(kind: GateKind, span: usize, angle: Option<&ParametricAngle>) -> S
     }
 }
 
-/// Emit a parametric gate token: `Base(<angle>)` when `angle` is set,
-/// otherwise bare `Base`. The angle string is URL-safed by replacing
-/// the first `/` with `_` to match qni's
-/// `phase-gate-element.ts::toJson` substitution.
 fn format_parametric(base: &str, angle: Option<&ParametricAngle>) -> String {
     match angle {
         Some(angle) => format!("{}({})", base, angle.url_label()),
@@ -164,8 +146,6 @@ fn format_parametric(base: &str, angle: Option<&ParametricAngle>) -> String {
     }
 }
 
-/// Escape free text (block labels, the circuit title) for JSON string
-/// embedding, so `JSON.parse` accepts the output.
 fn json_escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for ch in s.chars() {

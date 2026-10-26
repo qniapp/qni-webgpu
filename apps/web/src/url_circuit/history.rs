@@ -1,5 +1,3 @@
-//! Browser URL writer for the current circuit hash and execution mode query.
-
 use crate::app::ExecMode;
 
 /// Push the serialised circuit into `location.hash`, Quirk-style but
@@ -26,7 +24,6 @@ pub(crate) fn write_circuit_to_url(json: &str) {
         json.to_string()
     };
     let hash = format!("#{payload}");
-    // Compose a full URL so `replaceState` doesn't rewrite the path.
     let location = window.location();
     let base = match (location.origin(), location.pathname(), location.search()) {
         (Ok(o), Ok(p), Ok(s)) => format!("{o}{p}{s}"),
@@ -116,7 +113,6 @@ fn search_with_exec_mode(search: &str, mode: ExecMode) -> String {
     }
 }
 
-/// Non-wasm stub so callers don't need to `cfg`-gate.
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn write_circuit_to_url(_json: &str) {}
 
