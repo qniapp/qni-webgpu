@@ -225,7 +225,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Verify payload names/sizes/hashes against the local manifest before comparing remote metadata.
           node apps/web/scripts/embed-release.mjs verify --output "$STAGING" --source-commit "$GITHUB_SHA"
           gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" > "$RUNNER_TEMP/embed-release-assets.json"
           node <<'NODE'

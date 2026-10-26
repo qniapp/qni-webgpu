@@ -1,6 +1,5 @@
 version: 2
 
-# 依存の更新 PR を定期的に受け取る設定。
 # Dependabot alerts (脆弱性の検出) は別機能で、こちらは更新 PR の生成を制御する。
 # 対象は default branch に実在する manifest / lockfile だけを列挙する。
 # 削除済みアプリを残すと古い alert が滞留するため、アプリを削除したらここからも消す。
@@ -12,7 +11,6 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    # マイナー・パッチ更新をまとめ、メジャー更新は個別の PR にする。
     groups:
       cargo-minor-patch:
         patterns: ["*"]
@@ -25,7 +23,6 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    # マイナー・パッチ更新をまとめ、メジャー更新は個別の PR にする。
     groups:
       npm-minor-patch:
         patterns: ["*"]
@@ -37,7 +34,6 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    # マイナー・パッチ更新をまとめ、メジャー更新は個別の PR にする。
     groups:
       uv-minor-patch:
         patterns: ["*"]
@@ -48,7 +44,6 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    # マイナー・パッチ更新をまとめ、メジャー更新は個別の PR にする。
     groups:
       github-actions-minor-patch:
         patterns: ["*"]

@@ -1,7 +1,5 @@
-# Export the module function if it exists.
 [[ $(type -t module) == "function" ]] && export -f module
 
-# Find available ports for nginx and the local Qiskit backend.
 port=$(find_port)
 backend_port=$(find_port)
 if [[ "${backend_port}" == "${port}" ]]; then

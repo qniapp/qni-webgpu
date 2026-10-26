@@ -9,8 +9,6 @@ umask 077
 : "${QNI_QISKIT_RUNNER:=qiskit-gpu}"
 : "${QNI_QISKIT_ALLOWED_RUNNERS:=qiskit-gpu}"
 : "${QNI_REQUIRE_BASIC_AUTH:=false}"
-# nginx 設定テンプレートの位置。既定はコンテナ内の配置先で、テストからは
-# リポジトリ内のテンプレートを指すために上書きする。
 : "${QNI_NGINX_TEMPLATE:=/etc/qni-webgpu/nginx.conf.template}"
 
 if [[ "${QNI_QISKIT_RUNNER}" != "qiskit-gpu" ]]; then
