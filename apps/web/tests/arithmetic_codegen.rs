@@ -58,6 +58,8 @@ rejects! {
     rejects_const: "pub(crate) fn" => "pub(crate) const fn";
     rejects_async: "pub(crate) fn" => "pub(crate) async fn";
     rejects_unsafe: "pub(crate) fn" => "pub(crate) unsafe fn";
+    // syn rejects top-level `safe fn` during parsing, before signature validation.
+    rejects_explicit_safe: "pub(crate) fn" => "pub(crate) safe fn";
     rejects_missing_argument: "    control_value: u32,\n" => "";
     rejects_extra_argument: "    control_value: u32," => "    control_value: u32, z: u32,";
     rejects_duplicate_argument: "control_value: u32" => "i: u32";

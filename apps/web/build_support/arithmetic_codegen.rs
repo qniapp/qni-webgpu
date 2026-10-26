@@ -121,7 +121,7 @@ pub fn translate(source: &str) -> Result<String> {
         || sig.ident != "source_index"
         || sig.constness.is_some()
         || sig.asyncness.is_some()
-        || sig.unsafety.is_some()
+        || !matches!(sig.safety, syn::Safety::Default)
         || sig.abi.is_some()
         || sig.variadic.is_some()
         || !sig.generics.params.is_empty()
