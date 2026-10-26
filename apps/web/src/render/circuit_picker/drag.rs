@@ -81,7 +81,7 @@ impl QniApp {
         min_scroll_offset: f32,
         max_scroll_offset: Option<f32>,
     ) {
-        if self.picker.dragged_row().is_none() {
+        if self.picker.active_drag_slot().is_none() {
             self.picker.clear_pending_scroll_offset();
             return;
         }
@@ -136,7 +136,7 @@ impl QniApp {
         pointer_pos: egui::Pos2,
         row_rects: &[(usize, egui::Rect)],
     ) {
-        if self.picker.dragged_row().is_none() {
+        if self.picker.active_drag_slot().is_none() {
             return;
         }
         let Some(slot) = target_slot_from_pointer(pointer_pos.y, row_rects) else {
@@ -179,7 +179,7 @@ impl QniApp {
         if let Some(divider_y) = section_divider_y {
             if entry.is_sample() {
                 max_top = max_top.min(divider_y - ITEM_HEIGHT);
-            } else if entry.is_user() {
+            } else {
                 min_top = min_top.max(divider_y);
             }
         }
@@ -195,7 +195,7 @@ impl QniApp {
         paint_dragged_row_background(ui.painter(), colors, rect);
         let text_stop =
             egui::Rect::from_min_size(egui::pos2(rect.right(), rect.center().y), egui::Vec2::ZERO);
-        paint_picker_item_text(ui, colors, rect, text_stop, entry, true, 255);
+        paint_picker_item_text(ui, colors, rect, text_stop, entry, true);
     }
 }
 

@@ -342,28 +342,6 @@ impl PickerState {
         }
     }
 
-    pub(crate) fn dragged_row(&self) -> Option<(usize, f32, f32, f32)> {
-        match self {
-            Self::Open {
-                drag:
-                    PickerDragState::Active {
-                        original_index,
-                        source_row_left,
-                        row_width,
-                        pointer_offset_y,
-                        ..
-                    },
-                ..
-            } => Some((
-                *original_index,
-                *source_row_left,
-                *row_width,
-                *pointer_offset_y,
-            )),
-            _ => None,
-        }
-    }
-
     pub(crate) fn start_drag_pending(
         &mut self,
         entry_index: usize,
