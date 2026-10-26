@@ -15,12 +15,11 @@ use qni_webgpu_tui::{
 fn draw_once(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     state: &mut AppState,
-    debug_line: Option<&str>,
     drag_visual: Option<DragVisual>,
 ) -> io::Result<()> {
     terminal.draw(|frame| {
         let area = frame.area();
-        let buffer = render_to_buffer_with_drag(state, area, debug_line, drag_visual);
+        let buffer = render_to_buffer_with_drag(state, area, drag_visual);
         let frame_buffer = frame.buffer_mut();
         for y in 0..area.height {
             for x in 0..area.width {
@@ -34,7 +33,6 @@ fn draw_once(
 
 fn run() -> io::Result<()> {
     let mut app_state = AppState::new();
-    let debug_line: Option<String> = None;
 
     terminal::enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -52,12 +50,7 @@ fn run() -> io::Result<()> {
                 y,
             })
         });
-        draw_once(
-            &mut terminal,
-            &mut app_state,
-            debug_line.as_deref(),
-            drag_visual,
-        )?;
+        draw_once(&mut terminal, &mut app_state, drag_visual)?;
         if event::poll(std::time::Duration::from_millis(250))? {
             match event::read()? {
                 Event::Key(key) => {

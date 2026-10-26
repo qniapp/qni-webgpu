@@ -146,32 +146,6 @@ pub(crate) fn ensure_slots(state: &mut AppState, counts: &[usize]) {
     }
 }
 
-impl std::str::FromStr for Gate {
-    type Err = ();
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value.trim().to_uppercase().as_str() {
-            "X" => Ok(Self::X),
-            "CTRL" | "CONTROL" | "C" => Ok(Self::Control),
-            "MEASURE" | "MEAS" | "M" => Ok(Self::Measure),
-            "PHASE" | "PHI" | "PHASEGATE" => Ok(Self::Phase),
-            "RX" => Ok(Self::Rx),
-            "RY" => Ok(Self::Ry),
-            "RZ" => Ok(Self::Rz),
-            "H" => Ok(Self::H),
-            "Y" => Ok(Self::Y),
-            "Z" => Ok(Self::Z),
-            "SQRTX" | "SX" | "√X" => Ok(Self::SqrtX),
-            "S" => Ok(Self::S),
-            "S†" | "SDG" | "S_DAGGER" => Ok(Self::Sdg),
-            "T" => Ok(Self::T),
-            "T†" | "TDG" | "T_DAGGER" => Ok(Self::Tdg),
-            "SWAP" | "SW" => Ok(Self::Swap),
-            _ => Err(()),
-        }
-    }
-}
-
 impl std::fmt::Display for Gate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let label = match self {
@@ -756,26 +730,4 @@ fn apply_custom_gate(
         }
     }
     out
-}
-
-pub fn parse_args(args: &[String]) -> Gate {
-    let mut gate_value: Option<String> = None;
-    let mut i = 0;
-    while i < args.len() {
-        let current = &args[i];
-        if current == "--gate" && i + 1 < args.len() {
-            gate_value = Some(args[i + 1].clone());
-            i += 2;
-            continue;
-        }
-        if let Some(rest) = current.strip_prefix("--gate=") {
-            gate_value = Some(rest.to_string());
-        }
-        i += 1;
-    }
-
-    gate_value
-        .as_deref()
-        .and_then(|value| value.parse().ok())
-        .unwrap_or(Gate::H)
 }

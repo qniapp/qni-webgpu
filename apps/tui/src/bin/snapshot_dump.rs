@@ -111,7 +111,7 @@ fn main() -> io::Result<()> {
 
     let area = Rect::new(0, 0, width, height);
     let mut state = AppState::new();
-    let buffer = render_to_buffer(&mut state, area, None);
+    let buffer = render_to_buffer(&mut state, area);
 
     let mut output = String::new();
     output.push_str(&format!("SIZE\t{}\t{}\n", width, height));
