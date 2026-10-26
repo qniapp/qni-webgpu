@@ -46,12 +46,12 @@ eframe = { path = "vendor/eframe" }
 insta = "1.47"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-syn = { version = "2", default-features = false, features = ["full", "parsing"] }
+syn = { version = "3", default-features = false, features = ["full", "parsing"] }
 # Native unit tests need a winit platform; production WebGPU stays unchanged.
 winit = { version = "0.30.13", default-features = false, features = ["x11", "rwh_06"] }
 
 [build-dependencies]
-syn = { version = "2", default-features = false, features = ["full", "parsing"] }
+syn = { version = "3", default-features = false, features = ["full", "parsing"] }
 png = "0.18"
 
 # Size-focused delivery profile, leaving the standalone release profile unchanged.
