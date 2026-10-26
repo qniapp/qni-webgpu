@@ -1,10 +1,3 @@
-//! WebGPU SDF renderer for SVG-derived gate icons.
-//!
-//! The source of truth is still `assets/icons/*.svg`; `build.rs` converts the
-//! generated PNG alpha into a signed distance field. This module owns only the
-//! GPU drawing path. `svg_icon` keeps the tiny alpha-texture fallback for
-//! non-WebGPU contexts.
-
 use eframe::egui;
 use eframe::egui_wgpu;
 use eframe::wgpu;

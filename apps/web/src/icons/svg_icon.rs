@@ -1,12 +1,3 @@
-//! SVG 共有アセットから焼き付けた PNG を、単色アイコンとして描画する。
-//!
-//! `assets/icons/{h,x,y,z,plus,sqrtx,s,sdagger,t,tdagger,p,rx,ry,rz,qft,qftdagger,digit0,digit1}.svg` を正にし、
-//! `p.svg` は Phase ゲートの Φ ラベルを保持する。
-//! `scripts/extract-gate-svg.py` が同じ場所へ 256×256 px の PNG を生成する。
-//! WebGPU 経路では PNG アルファから生成した SDF（符号付き距離場）を
-//! `sdf_icon` のシェーダで描く。WebGPU が無い経路だけ、同じ PNG アルファの
-//! RLE から作った通常テクスチャへ戻す。
-
 use eframe::egui;
 use std::collections::HashMap;
 
@@ -15,12 +6,9 @@ mod tests;
 
 include!(concat!(env!("OUT_DIR"), "/gate_icon_alpha.rs"));
 
-/// Rust から SVG 由来テクスチャで描画する対象のグリフ。
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub(super) enum GateGlyph {
     H,
-    /// 文字 X 用。Qni の X ゲート本体は Plus を描くため本番回路では未使用だが、
-    /// 共有アセットとしてビルド時にラスタ化を検証する。
     X,
     Y,
     Z,
@@ -179,7 +167,6 @@ fn color_image_from_alpha(alpha_rle: &[(u16, u8)]) -> egui::ColorImage {
     egui::ColorImage::new([RASTER_SIZE, RASTER_SIZE], pixels)
 }
 
-/// 指定したゲートグリフを `assets/icons/*.svg` 由来のテクスチャで描画する。
 pub(super) fn draw_glyph(
     painter: &egui::Painter,
     rect: egui::Rect,

@@ -1,5 +1,3 @@
-//! Small helpers for mapping qni SVG viewBox coordinates into egui rects.
-
 use eframe::egui;
 
 #[derive(Clone, Copy)]

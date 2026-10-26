@@ -8,10 +8,6 @@ pub(super) fn draw_bloch_sphere(painter: &egui::Painter, rect: egui::Rect, color
     let center = rect.center();
     let radius = rect.width().min(rect.height()) * 0.5 - 1.0;
     let stroke = egui::Stroke::new(1.0_f32, color);
-    // Decorative wireframe matches the static SVG in
-    // `packages/elements/src/bloch-display-element.ts`:
-    //   horizontal x-axis line, vertical z-axis line, NE/SW diagonal y-axis,
-    //   then a vertical thin ellipse and a horizontal thin ellipse.
     painter.line_segment(
         [
             egui::pos2(center.x - radius, center.y),
@@ -26,7 +22,7 @@ pub(super) fn draw_bloch_sphere(painter: &egui::Painter, rect: egui::Rect, color
         ],
         stroke,
     );
-    let diag = radius * 0.30; // matches qni's 35%/65% endpoints (offset 15%)
+    let diag = radius * 0.30;
     painter.line_segment(
         [
             egui::pos2(center.x - diag, center.y + diag),
@@ -34,7 +30,7 @@ pub(super) fn draw_bloch_sphere(painter: &egui::Painter, rect: egui::Rect, color
         ],
         stroke,
     );
-    let thin = radius * 0.36; // matches qni's rx=18%, ry=18% (radius from cx/cy)
+    let thin = radius * 0.36;
     let ellipse = |rx: f32, ry: f32| -> Vec<egui::Pos2> {
         (0..=48)
             .map(|i| {

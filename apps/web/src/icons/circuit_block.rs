@@ -1,7 +1,3 @@
-//! Comment-block palette icon: the word "block" set above a bold rule that
-//! spans the full cell width, the pair centred as one group in the cell like
-//! a placed block's label above its border.
-
 use eframe::egui;
 
 use crate::colors::Colors;
