@@ -1,23 +1,9 @@
-//! qni の測定変数 (`Measure>aliceX`) と条件付きゲート (`X<aliceX`)。
-//!
-//! qni の対応箇所:
-//! - `packages/elements/src/quantum-circuit-element.ts` の `ifVariable` と
-//!   `Measure` の分岐: `<` / `>` の後ろを trim した文字列を変数名にし、空なら
-//!   通常のゲートとして読む。
-//! - `packages/elements/src/gate-element-helpers.js` の `tI` / `tF`: 変数名が
-//!   あるときだけ `<name` / `>name` を付けて書き出す。
-//! - `packages/simulator/src/simulator.ts` の `runStep`: 測定は
-//!   `flags[name] = (測定値 == 1)` を書き、条件付きゲートは `flags[name]` が
-//!   true のときだけ適用する。一度も書かれていない変数は false。
-
 use super::GateKind;
 
-/// 測定結果を保持する変数の名前。前後の空白を除いた空でない文字列。
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct FlagName(String);
 
 impl FlagName {
-    /// qni と同じく前後の空白を除く。空になる名前は変数なしとみなす。
     pub(crate) fn parse(raw: &str) -> Option<Self> {
         let trimmed = raw.trim();
         (!trimmed.is_empty()).then(|| Self(trimmed.to_owned()))
@@ -28,18 +14,13 @@ impl FlagName {
     }
 }
 
-/// ゲートと測定変数の関係。
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum GateFlag {
-    /// 測定ゲートが測定値 (0 / 1) をこの変数に書き込む (`Measure>name`)。
     Set(FlagName),
-    /// 変数の値が 1 のときだけゲートを適用する (`X<name`)。
     If(FlagName),
 }
 
 impl GateFlag {
-    /// `kind` がこの関係を持てるか。`Set` は測定ゲートだけ、`If` は qni の
-    /// 回路 JSON で条件を書ける 1 量子ビットゲートだけが持てる。
     pub(crate) fn fits(&self, kind: GateKind) -> bool {
         match self {
             Self::Set(_) => kind == GateKind::Measurement,
@@ -47,10 +28,6 @@ impl GateFlag {
         }
     }
 
-    /// 回路上でゲートの上に表示するラベルの接頭辞。qni の CSS
-    /// (`.operation-flaggable` / `.operation-ifable`) と同じく、測定ゲートは
-    /// 変数名だけ、条件付きゲートは `if` と変数名を細いスペース (U+2009) で
-    /// つないで表示する。
     pub(crate) fn label_prefix(&self) -> Option<&'static str> {
         match self {
             Self::Set(_) => None,
@@ -64,7 +41,6 @@ impl GateFlag {
         }
     }
 
-    /// 回路 JSON のトークンに付ける接尾辞 (`>name` / `<name`)。
     pub(crate) fn token_suffix(&self) -> String {
         match self {
             Self::Set(name) => format!(">{}", name.as_str()),
@@ -72,10 +48,6 @@ impl GateFlag {
         }
     }
 
-    /// `token` から変数の接尾辞を切り離し、残りのトークンと変数を返す。
-    /// 接尾辞の形が `token` の種類に合わない (`Measure<a` / `X>a` など) ときは
-    /// `None` を返し、呼び出し側で未知のトークンとして扱わせる。変数名が
-    /// 空白だけのとき (`Measure>`) は qni と同じく変数なしの通常ゲートになる。
     pub(crate) fn split_token(token: &str) -> Option<(&str, Option<Self>)> {
         if let Some(name) = token.strip_prefix("Measure>") {
             return Some(("Measure", FlagName::parse(name).map(Self::Set)));

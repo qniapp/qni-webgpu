@@ -2,12 +2,6 @@ use std::num::NonZeroUsize;
 
 use super::GateKind;
 
-/// ゲートが縦方向に占めるワイヤ本数（スパン）。
-///
-/// 通常の 1 量子ビットゲートは [`GateSpan::SINGLE`]。確率・振幅・密度行列の表示ブロックと
-/// QFT / QFT† はホバーで現れるハンドルで伸縮できる。内部値を `NonZeroUsize` で持ち
-/// 「1 以上」を型で保証する。種類別の上限とワイヤ残数による切り詰めは [`GateSpan::clamped_for`]
-/// に集約する。
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct GateSpan {
     value: NonZeroUsize,
@@ -19,7 +13,6 @@ pub(crate) enum GateSpanError {
 }
 
 impl GateSpan {
-    /// 1 量子ビットゲートのスパン（= 1）。
     pub(crate) const SINGLE: Self = Self {
         value: match NonZeroUsize::new(1) {
             Some(value) => value,

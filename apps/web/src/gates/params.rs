@@ -1,5 +1,3 @@
-//! Gate matrix packing.
-
 use super::ColumnControls;
 use super::GateKind;
 use crate::gpu::{Measurement, SlotIndex};
@@ -165,11 +163,6 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
     }
 }
 
-// `GateParams` is the on-wire layout of a single gate operation handed to the
-// WGSL compute shader (`STATE_COMPUTE_SHADER` in
-// `gpu/shaders/state_compute.wgsl`). Each placed gate is linearised into one
-// of these so the GPU can apply it via per-pair matrix multiply or, for
-// Write1, a per-pair conditional swap. Write0 is lowered into measurement + X.
 pub(crate) const GATE_MODE_MATRIX: u32 = 0;
 pub(crate) const GATE_MODE_WRITE1: u32 = 2;
 
@@ -197,9 +190,6 @@ pub(crate) struct GateParams {
 pub(crate) const GATE_UNCONDITIONAL: u32 = 4294967295;
 
 impl GateParams {
-    /// Apply this gate only when the measurement sampled into `slot` is 1.
-    /// The GPU reads the outcome straight from the measurement aux buffer;
-    /// the CPU never sees it.
     pub(crate) fn conditioned_on(mut self, slot: SlotIndex<Measurement>) -> Self {
         self.condition_slot = slot.as_u32();
         self
@@ -280,11 +270,6 @@ pub(crate) fn gate_params_controlled(
     }
 }
 
-/// Parametric `P(φ)` phase gate: `diag(1, e^{iφ})`. Mirrors qni's
-/// `gate-matrices.ts::PHASE` (`/packages/simulator/src/gate-matrices.ts:116`).
-/// `control_mask` / `control_value` follow the standard control-mask
-/// convention — pass `0`/`0` for an uncontrolled phase, or a bit mask
-/// for a controlled-phase as part of a CZ-style column.
 pub(crate) fn phase_params(
     phase: f32,
     bit: QubitBit,
@@ -306,10 +291,6 @@ pub(crate) fn phase_params(
     }
 }
 
-/// Parametric `Rx(θ)` rotation gate: `[[cos(θ/2), -i sin(θ/2)],
-/// [-i sin(θ/2), cos(θ/2)]]`. Mirrors qni's
-/// `gate-matrices.ts::RX` family. `control_mask` / `control_value`
-/// follow the standard convention (pass `0`/`0` for uncontrolled).
 pub(crate) fn rx_params(
     theta: f32,
     bit: QubitBit,
@@ -334,8 +315,6 @@ pub(crate) fn rx_params(
     }
 }
 
-/// Parametric `Ry(θ)` rotation gate: `[[cos(θ/2), -sin(θ/2)],
-/// [sin(θ/2), cos(θ/2)]]`.
 pub(crate) fn ry_params(
     theta: f32,
     bit: QubitBit,
@@ -360,7 +339,6 @@ pub(crate) fn ry_params(
     }
 }
 
-/// Parametric `Rz(θ)` rotation gate: `diag(e^{-iθ/2}, e^{iθ/2})`.
 pub(crate) fn rz_params(
     theta: f32,
     bit: QubitBit,
