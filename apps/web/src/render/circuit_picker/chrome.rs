@@ -171,7 +171,6 @@ pub(super) fn paint_picker_item_text(
     kebab_rect: egui::Rect,
     entry: &CircuitEntry,
     active: bool,
-    alpha: u8,
 ) {
     let font = egui::FontId::new(crate::tailwind::TEXT_SM, egui::FontFamily::Proportional);
     let name_rect = egui::Rect::from_min_max(
@@ -181,7 +180,7 @@ pub(super) fn paint_picker_item_text(
             rect.bottom(),
         ),
     );
-    let color = with_alpha(colors.text_strong, alpha);
+    let color = colors.text_strong;
     if entry.locked() {
         paint_row_lock(
             ui.painter(),
@@ -189,7 +188,7 @@ pub(super) fn paint_picker_item_text(
                 rect.left() + ITEM_PAD_X + ROW_ICON_SIZE / 2.0,
                 rect.center().y,
             ),
-            with_alpha(colors.text_strong, alpha),
+            colors.text_strong,
         );
     }
     let mut text = egui::RichText::new(entry.name.clone())

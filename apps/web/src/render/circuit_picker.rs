@@ -245,7 +245,7 @@ impl QniApp {
                                     kebab_rects[index] = Some(rects.kebab);
                                     if entry.is_sample() {
                                         sample_row_rects.push((index, rects.row));
-                                    } else if entry.is_user() {
+                                    } else {
                                         user_row_rects.push((index, rects.row));
                                     }
                                 }
@@ -431,8 +431,7 @@ impl QniApp {
                 suppress_click: submenu_open,
             });
         }
-        if (entry.is_user() || entry.is_sample())
-            && response.is_pointer_button_down_on()
+        if response.is_pointer_button_down_on()
             && !self.picker_drag_suppressed_until_release
             && !kebab.hovered()
             && !kebab.is_pointer_button_down_on()
@@ -460,8 +459,6 @@ impl QniApp {
             ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::PointingHand);
         } else if self.picker.drag_in_progress() {
             ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::Grabbing);
-        } else if pointer_hovered && entry.is_sample() {
-            ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::PointingHand);
         } else if pointer_hovered {
             ui.output_mut(|output| output.cursor_icon = egui::CursorIcon::PointingHand);
         }
@@ -475,7 +472,7 @@ impl QniApp {
                     colors.background,
                 );
             }
-            paint_picker_item_text(ui, colors, visual_rect, kebab_rect, entry, active, 255);
+            paint_picker_item_text(ui, colors, visual_rect, kebab_rect, entry, active);
         }
         if (hovered || submenu_open) && !dragging_source && !drag_active {
             paint_kebab(
@@ -541,13 +538,11 @@ impl QniApp {
                     if submenu_item(ui, colors, "Duplicate", true, false).clicked() {
                         actions.push(PickerAction::Duplicate(index));
                     }
-                    if entry.is_user() || entry.is_sample() {
-                        if submenu_item(ui, colors, "Move up", can_up, false).clicked() {
-                            actions.push(PickerAction::MoveUp(index));
-                        }
-                        if submenu_item(ui, colors, "Move down", can_down, false).clicked() {
-                            actions.push(PickerAction::MoveDown(index));
-                        }
+                    if submenu_item(ui, colors, "Move up", can_up, false).clicked() {
+                        actions.push(PickerAction::MoveUp(index));
+                    }
+                    if submenu_item(ui, colors, "Move down", can_down, false).clicked() {
+                        actions.push(PickerAction::MoveDown(index));
                     }
                     paint_divider(ui, colors);
                     if submenu_item(ui, colors, "Delete", can_delete, true).clicked() {
