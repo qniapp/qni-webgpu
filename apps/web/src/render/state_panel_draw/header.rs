@@ -11,10 +11,6 @@ pub(super) fn paint_header_strip(
     state_rect: egui::Rect,
     handle_height: f32,
 ) -> egui::Rect {
-    // G-2 header strip: zinc-100 bar with qubit count on the left and
-    // "cols × rows = N states" on the right. Top corners follow the
-    // panel's corner radius; the bottom edge is flat where the strip
-    // meets the white panel body.
     let handle_rect = egui::Rect::from_min_size(
         state_rect.min,
         egui::vec2(state_rect.width(), handle_height.max(6.0)),
@@ -44,12 +40,7 @@ fn paint_header_text(
     layout: &StatePanelLayout,
     handle_rect: egui::Rect,
 ) {
-    // Strip text starts past the corner resize-handle area (panel rounded R +
-    // breathing). Keeps "16 qubits" / "256 × 256 = …" from touching the
-    // curved handle marks at the top corners.
     let strip_padding_x = STATE_PANEL_CORNER_RADIUS + 6.0;
-    // Matches the popup header so both
-    // "card chrome" text sits at the same step on the type scale.
     let strip_font = egui::FontId::monospace(crate::tailwind::TEXT_SM);
     let qubits_label = if layout.qubits == 1 {
         "qubit"
@@ -63,7 +54,6 @@ fn paint_header_text(
     };
     let qubits_text = format!("{} {}", layout.qubits, qubits_label);
     let rows = layout.state_count / layout.columns.max(1);
-    // " ▾" indicates the dimensions text opens the aspect popover.
     let states_text = format!(
         "{} × {} = {} {} ▾",
         layout.columns, rows, layout.state_count, states_label
@@ -78,7 +68,6 @@ fn paint_header_text(
                 .size()
                 .x
     });
-    // 16px gap. Narrow opt-in embeds prioritize states + restart.
     if labels_width + strip_padding_x * 2.0 + layout.restart_space() + crate::tailwind::SPACING_4
         <= handle_rect.width()
     {
@@ -90,8 +79,6 @@ fn paint_header_text(
             colors.surface,
         );
     }
-    // Extremely narrow hosts may not fit even the states label. Clip it
-    // inside the strip, leaving the restart action unobstructed.
     let text_painter =
         painter.with_clip_rect(painter.clip_rect().intersect(egui::Rect::from_min_max(
             handle_rect.min,

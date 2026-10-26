@@ -1,8 +1,3 @@
-//! State-vector panel geometry facade.
-//!
-//! Submodules own panel sizing/origin, aspect popover rows, hit rects, and
-//! offset clamps. Pure geometry, no `Painter` calls.
-
 mod aspect;
 mod clamp;
 mod geometry;
@@ -21,7 +16,6 @@ pub(crate) struct StatePanelLayout {
     pub(super) radius: f32,
     pub(super) stroke: f32,
     pub(super) inner_radius: f32,
-    /// Total pixel size of the circle grid (cols × cell_pitch, rows × cell_pitch).
     pub(super) grid_size: egui::Vec2,
     /// Inner area below the header strip where circles render. Fixed size;
     /// when the grid is smaller it gets centred, when larger it pans inside.
@@ -32,7 +26,6 @@ pub(crate) struct StatePanelLayout {
 }
 
 impl StatePanelLayout {
-    /// 32px: a 24px button and 8px label gap.
     pub(crate) fn restart_space(&self) -> f32 {
         if self.show_restart_button {
             crate::tailwind::SPACING_8

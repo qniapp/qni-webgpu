@@ -47,7 +47,7 @@ impl QniApp {
                 .layout(egui::Layout::left_to_right(egui::Align::Center)),
         );
         edit_ui.set_min_size(edit_rect.size());
-        edit_ui.visuals_mut().selection.stroke = egui::Stroke::new(0.0_f32, colors.text_strong); // selected glyphs use near-black.
+        edit_ui.visuals_mut().selection.stroke = egui::Stroke::new(0.0_f32, colors.text_strong);
         let output = egui::TextEdit::singleline(&mut draft)
             .id(text_id)
             .font(egui::FontId::new(

@@ -33,9 +33,6 @@ fn paint_aspect_popover(
     offset: egui::Vec2,
     state_rect: egui::Rect,
 ) {
-    // Aspect popover — only draw when open. Its chrome mirrors the Circuit
-    // picker, opens below the dimensions trigger, and its right edge aligns
-    // with the state-vector panel right edge.
     if !app.state_panel.aspect_popover_open {
         return;
     }
@@ -65,11 +62,6 @@ fn paint_resize_handles(
     colors: &Colors,
     state_rect: egui::Rect,
 ) {
-    // Resize handles — 4 corner arcs concentric with the panel's rounded
-    // corners (G 案 / 内側配置). Drawn after the GPU pass so they sit on top of
-    // the circle grid at all zoom levels. Color follows the local background:
-    // sky-tone for the top handles (on the sky-500 strip), neutral gray for
-    // the bottom handles (on the white panel).
     for corner in [
         ResizeCorner::TopLeft,
         ResizeCorner::TopRight,

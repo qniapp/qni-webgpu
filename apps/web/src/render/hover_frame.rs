@@ -1,5 +1,3 @@
-//! Shared hover-frame corner policy for circuit and palette gate hosts.
-
 use eframe::egui;
 
 use crate::gates::GateKind;
@@ -14,11 +12,6 @@ fn display_block_has_square_body(kind: GateKind) -> bool {
     )
 }
 
-/// Outer hover frame around a gate host.
-///
-/// Probability / Amplitude / Density Matrix displays have square bodies, so
-/// their host hover frames keep 90° corners instead of inheriting the 10 px
-/// rounded-gate frame.
 pub(crate) fn hover_frame_corner_radius(kind: GateKind) -> egui::CornerRadius {
     if display_block_has_square_body(kind) {
         egui::CornerRadius::ZERO

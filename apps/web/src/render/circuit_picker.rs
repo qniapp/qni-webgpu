@@ -170,8 +170,6 @@ impl QniApp {
         if !self.picker.is_open() {
             return None;
         }
-        // Attach the picker to the topbar bottom with no gap below the bar.
-        // The trigger sits inside the toolbar's 6px vertical padding.
         let pos = trigger_rect.left_bottom() + egui::vec2(0.0, TOPBAR_BOTTOM_OFFSET);
         let entries = self.library.entries.clone();
         let display_rows = picker_display_rows(&entries);
@@ -216,7 +214,7 @@ impl QniApp {
                     };
                     let scroll_output = scroll_area.show(ui, |ui| {
                         ui.set_style(previous_style.clone());
-                        ui.spacing_mut().item_spacing.y = crate::tailwind::SPACING_0; // Content cap equals row stack height.
+                        ui.spacing_mut().item_spacing.y = crate::tailwind::SPACING_0;
                         ui.add_space(ITEMS_CONTENT_PADDING_Y);
                         let mut my_section_divider_y = None;
                         for row in &display_rows {

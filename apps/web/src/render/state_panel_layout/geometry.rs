@@ -37,22 +37,16 @@ impl QniApp {
         // out cells still get a visible outline rather than collapsing into
         // pure fill.
         let embed = matches!(self.mode, AppMode::Embed { .. });
-        // Fit the initial state vector inside narrow embeds. User zoom is
-        // relative to this fit, so all states are visible before interaction.
         let natural_width =
             qni.size * qni.cols as f32 + (qni.line_width + 1.0) * qni.cols.saturating_sub(1) as f32;
         let natural_height =
             qni.size * qni.rows as f32 + (qni.line_width + 1.0) * qni.rows.saturating_sub(1) as f32;
-        // qni-style header strip (G-2): fixed-height zinc-100 bar showing
-        // qubit count + grid dims. Drag-to-move is the only interaction
-        // attached to the strip for now (resize handles are TBD).
         let handle_height = STATE_HANDLE_HEIGHT;
 
         // Make sure the panel is wide enough that the strip's left/right
         // labels never overlap. Geist Mono at 14px is ≈ 9 px /
         // glyph; budget a bit extra for the multiplication sign.
         const STRIP_CHAR_WIDTH: f32 = 9.0;
-        // 12px padding, 16px gap between labels.
         const STRIP_PADDING_X: f32 = crate::tailwind::SPACING_3;
         const STRIP_LABEL_GAP: f32 = crate::tailwind::SPACING_4;
         let qubits_label = if qubits == 1 { "qubit" } else { "qubits" };
@@ -68,16 +62,10 @@ impl QniApp {
             + STRIP_PADDING_X * 2.0
             + STRIP_LABEL_GAP;
 
-        // Panel size is user-controlled (resize via the corner L-handles).
-        // Strip-text minimum is the only thing that can force `panel_width`
-        // above the user's choice — practically a no-op for ≤16 qubits
-        // since min viewport width already covers the widest label.
         let vertical = self.orientation.is_vertical();
         let viewport_width = if vertical {
             vertical_panel_width(rect.width())
         } else if embed {
-            // Narrow embeds (phone-width tutorial pages) keep the panel inside
-            // the canvas with the same 16px side margin.
             self.state_panel
                 .viewport_size
                 .x
@@ -86,8 +74,6 @@ impl QniApp {
             self.state_panel.viewport_size.x
         };
         let panel_width = if embed || vertical {
-            // Keep narrow tutorial panels inside the canvas. The header omits
-            // the redundant qubit label when both labels no longer fit.
             viewport_width
         } else {
             viewport_width.max(strip_min_width)
@@ -192,8 +178,6 @@ impl QniApp {
     }
 }
 
-/// Panel width of the vertical layout, which spans the screen inside the
-/// shared inset.
 fn vertical_panel_width(screen_width: f32) -> f32 {
     (screen_width - 2.0 * VERTICAL_SCREEN_INSET).max(1.0)
 }
@@ -454,8 +438,6 @@ mod tests {
     #[test]
     fn resize_in_shrunk_embed_starts_from_visible_viewport() {
         let mut app = embed_app(r#"{"cols":[["|0>","|0>"],["H"],["•","X"]]}"#, None);
-        // Leave room to shrink by 10px above the minimum viewport height,
-        // even when the full palette wraps after adding the comment block.
         let mut rect = small_embed_rect();
         rect.max.y += 16.0;
         let layout = app.state_panel_layout(rect, 4);

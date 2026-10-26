@@ -10,7 +10,7 @@ const TUTORIAL_URL: &str = "https://qniapp.github.io/qni-tutorial-webgpu/";
 const TUTORIAL_TOOLTIP: &str = "Open tutorial in a new tab";
 
 const TOOL_SIZE: egui::Vec2 = egui::vec2(crate::tailwind::SPACING_8, crate::tailwind::SPACING_8);
-const ICON_SIZE: egui::Vec2 = egui::vec2(18.0, 18.0); // Lucide 24×24 viewBox scaled to 18px.
+const ICON_SIZE: egui::Vec2 = egui::vec2(18.0, 18.0);
 
 #[derive(Clone, Copy)]
 enum ToolbarIcon {
@@ -251,7 +251,6 @@ impl QniApp {
         compact: bool,
     ) -> DensityMeasurements {
         let (_, spacing, _, icon) = density(compact);
-        // Picker + five editing buttons; GPU adds divider, Run and optional status.
         let mut left = self.picker_trigger_width(ui, colors, compact) + 5.0 * icon + 5.0 * spacing;
         let mut left_dot = left;
         if self.exec_mode == ExecMode::Gpu {
@@ -499,7 +498,7 @@ impl QniApp {
             .show(ctx, |ui| {
                 ui.set_min_width(viewport.width());
                 toolbar_frame(colors, padding_x).show(ui, |ui| {
-                    ui.set_min_width((viewport.width() - 2.0 * padding_x).max(0.0)); // Padding on both sides.
+                    ui.set_min_width((viewport.width() - 2.0 * padding_x).max(0.0));
                     ui.set_min_height(crate::tailwind::SPACING_8);
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing = egui::vec2(item_spacing, 0.0);
@@ -627,7 +626,6 @@ impl QniApp {
     fn clear_circuit(&mut self, ctx: &egui::Context) {
         self.placed_gates.clear();
         self.circuit_blocks.clear();
-        // qni's clear() resets the circuit to `{"cols":[]}`, title included.
         self.circuit_title.clear();
         self.write_document_title();
         self.update_qubit_count();
@@ -810,7 +808,7 @@ fn toolbar_frame(colors: &Colors, padding_x: f32) -> egui::Frame {
         inner_margin: egui::Margin::symmetric(padding_x as i8, crate::tailwind::SPACING_1_5 as i8),
         fill: colors.surface,
         stroke: egui::Stroke::NONE,
-        corner_radius: egui::CornerRadius::ZERO, // Full-width header strip: all 4 corners square.
+        corner_radius: egui::CornerRadius::ZERO,
         outer_margin: egui::Margin::ZERO,
         shadow: egui::epaint::Shadow {
             offset: [0, 4],
@@ -1012,21 +1010,20 @@ fn paint_toolbar_divider(ui: &mut egui::Ui, colors: &Colors) {
         egui::vec2(
             SECTION_DIVIDER_WIDTH + 2.0 * crate::tailwind::SPACING_0_5,
             24.0,
-        ), // Divider plus margin on each side.
+        ),
         egui::Sense::hover(),
     );
     let divider_rect = egui::Rect::from_center_size(
         rect.center(),
         egui::vec2(SECTION_DIVIDER_WIDTH, rect.height()),
     );
-    // Match the gate-palette section separator: 2px solid rect.
     ui.painter()
         .rect_filled(divider_rect, egui::CornerRadius::ZERO, colors.line);
 }
 
 fn paint_icon(painter: &egui::Painter, rect: egui::Rect, icon: ToolbarIcon, color: egui::Color32) {
     let icon_rect = egui::Rect::from_center_size(rect.center(), ICON_SIZE);
-    let stroke = egui::Stroke::new(crate::tailwind::STROKE_2, color); // Lucide icon stroke, scaled to 18px.
+    let stroke = egui::Stroke::new(crate::tailwind::STROKE_2, color);
     match icon {
         ToolbarIcon::More => {
             for x in [5.0, 12.0, 19.0] {

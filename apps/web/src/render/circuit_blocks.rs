@@ -1,9 +1,3 @@
-//! Circuit-block drawing (qni `circuit-block`): a tinted band behind the
-//! block's columns, ruled top and bottom, with the label centred above and
-//! below it, as in qni's desktop (`min-width: 768px`) layout. The vertical
-//! layout rules the band left and right and puts one label left of it.
-//! In the editor, hovering reveals resize handles and labels open an inline editor.
-
 use eframe::egui;
 
 use crate::app::{
@@ -15,7 +9,6 @@ use crate::constants::{
     CIRCUIT_BLOCK_BORDER_WIDTH, CIRCUIT_BLOCK_LABEL_FONT_SIZE, CIRCUIT_BLOCK_LABEL_LINE_HEIGHT,
     CIRCUIT_BLOCK_MARGIN_Y, CIRCUIT_BLOCK_PADDING_Y, LINE_GAP, SLOT_SPACING,
 };
-/// Vertical layout: gap between a block's label and its left rule.
 pub(crate) const CIRCUIT_BLOCK_LABEL_GAP_X: f32 = crate::tailwind::SPACING_2;
 
 use crate::icons::{draw_circuit_block_palette_icon, draw_span_resize_handle};
@@ -45,7 +38,6 @@ pub(crate) fn circuit_block_rect(
     circuit_block_columns_rect(block.start(), block.end(), metrics)
 }
 
-/// [`circuit_block_rect`] for a block that would wrap `[start, end)`.
 pub(crate) fn circuit_block_columns_rect(
     start: CircuitColumnIndex,
     end: CircuitColumnIndex,
@@ -62,9 +54,6 @@ pub(crate) fn circuit_block_columns_rect(
     ))
 }
 
-/// Centres of the upper and lower labels of a block `body`. As in qni, each
-/// label's line box starts at the outer edge of the margin beyond its rule
-/// and the text is centred in it.
 fn circuit_block_label_centers(body: egui::Rect) -> [egui::Pos2; 2] {
     let offset = CIRCUIT_BLOCK_MARGIN_Y - CIRCUIT_BLOCK_LABEL_LINE_HEIGHT * 0.5;
     [
@@ -112,8 +101,6 @@ pub(crate) fn circuit_block_vertical_label_rect(body: egui::Rect, text_width: f3
     )
 }
 
-/// The rest box of a resize handle: the span-resize pill turned upright,
-/// centred on the block's left or right edge.
 pub(crate) fn circuit_block_handle_rect(body: egui::Rect, edge: CircuitBlockEdge) -> egui::Rect {
     let x = match edge {
         CircuitBlockEdge::Left => body.left(),
@@ -132,7 +119,6 @@ pub(crate) fn circuit_block_handle_hit_rect(
     circuit_block_handle_rect(body, edge).expand2(CIRCUIT_BLOCK_HANDLE_HIT_PAD)
 }
 
-/// Circuit-local x of the boundary before column `boundary`.
 pub(crate) fn circuit_block_boundary_x(metrics: &LayoutMetrics, boundary: usize) -> f32 {
     metrics.slot_left + (boundary as f32 - 0.5) * SLOT_SPACING
 }
@@ -210,8 +196,6 @@ impl QniApp {
         })
     }
 
-    /// The hovered block part, while no gesture or editor hides the hover
-    /// affordances.
     fn circuit_block_hover_shown(&self) -> Option<CircuitBlockHover> {
         self.hovered_circuit_block.filter(|_| {
             self.circuit_block_drag.is_none()
@@ -333,8 +317,6 @@ impl QniApp {
         }
     }
 
-    /// Resize handles of the hovered or resized block, painted above the
-    /// gates and the step bar that share the block edge.
     pub(super) fn draw_circuit_block_handles(
         &self,
         painter: &egui::Painter,
@@ -388,9 +370,6 @@ impl QniApp {
         }
     }
 
-    /// Foreground pieces of a block gesture: the palette icon under the
-    /// pointer while carrying a new block, and the label of a block being
-    /// dragged out of the circuit.
     pub(crate) fn draw_circuit_block_drag_overlay(
         &self,
         painter: &egui::Painter,
@@ -437,9 +416,6 @@ impl QniApp {
 
 pub(crate) const CIRCUIT_BLOCK_PLACEHOLDER: &str = "コメントを入力";
 
-/// Underline just below the glyphs of a label whose text box is `text_rect`.
-/// The upper label ends 2 px above the block's top rule, so the line hugs
-/// the em box rather than the taller line box.
 pub(crate) fn paint_circuit_block_underline(
     painter: &egui::Painter,
     text_rect: egui::Rect,
@@ -474,8 +450,6 @@ mod tests {
     fn block_rect_spans_its_columns_and_all_wires() {
         let metrics = layout_metrics(1200.0, 2, 4);
         let block = first_block(r#"{"cols":[["H"],["{a"],["X"],["Z"],["}"]]}"#);
-        // Half a wire gap to the step-preview bar end, qni's 32 px padding,
-        // then the 2 px rule.
         let pad_y = 28.0 + 32.0 + 2.0;
 
         assert_eq!(
@@ -499,7 +473,6 @@ mod tests {
 
     #[test]
     fn upper_label_centres_its_line_box_in_the_margin_above() {
-        // qni: a 28 px line box at the top of the 24 px margin.
         assert_eq!(
             circuit_block_label_centers(body())[0],
             egui::pos2(200.0, 200.0 - 24.0 + 14.0)
@@ -543,7 +516,6 @@ mod tests {
 
     #[test]
     fn blocks_extend_the_scrollable_circuit_height_by_their_outset() {
-        // A short screen so the content height is not clamped up to it.
         let short = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(960.0, 100.0));
         let growth = app(BELL_BLOCK).circuit_content_height(2, short)
             - app(BELL).circuit_content_height(2, short);
@@ -698,7 +670,6 @@ mod tests {
 
     #[test]
     fn block_beyond_the_laid_out_slots_has_no_rect() {
-        // Too narrow for any slot beyond the one `min_slots` forces.
         let metrics = layout_metrics(120.0, 2, 1);
         let block = first_block(r#"{"cols":[["H"],["{a"],["X"],["}"]]}"#);
 

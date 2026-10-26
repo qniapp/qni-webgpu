@@ -57,8 +57,6 @@ impl QniApp {
         }
         draw_drag_gate_body(painter, body_rect, gate.kind, colors);
         if gate.kind == GateKind::BlochDisplay {
-            // While dragging the gate isn't snapped, so we can't compute a
-            // Bloch vector. Render the center dot at the sphere center.
             draw_bloch_center_dot(painter, gate_rect, colors);
         }
     }

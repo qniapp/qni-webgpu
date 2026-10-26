@@ -66,9 +66,6 @@ pub(super) fn layout_popup(
     let cell_center = cell_center_for(layout, grid_origin, display_index);
     let popup_h = amplitude_popover::height();
 
-    // Prefer above the cell — the state panel anchors to the bottom of the
-    // screen, so "above" usually lands in the empty page area. Only flip below
-    // if going above would push the popup past the viewport padding.
     let above_top = cell_center.y - layout.radius - popover::ANCHOR_GAP - popover::TAIL_H - popup_h;
     let prefer_above = above_top >= bounds_rect.top() + popover::VIEWPORT_PAD;
     let (popup_rect, tail_apex_y, tail_base_y) = if prefer_above {
