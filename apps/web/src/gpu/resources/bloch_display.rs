@@ -11,12 +11,6 @@
 //!
 //! `output_buffer` is the bridge between the two: written by the
 //! compute pipeline, read by the overlay's fragment stage.
-//!
-//! Bug fix vs the previous monolithic `update_render_pipeline`: this
-//! module's `update_target_format` *also* rebuilds the overlay
-//! pipeline, not just the state-vector render pipeline. The earlier
-//! code silently kept the overlay pipeline pinned to the original
-//! surface format.
 
 mod overlay;
 mod pipeline;

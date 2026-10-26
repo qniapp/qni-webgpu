@@ -14,9 +14,6 @@
 //! Probability popup raw/log values. The resulting greyscale buffer is uploaded
 //! to a GPU texture sampled by the popup-value fragment shaders.
 //!
-//! Sibling of `digit_atlas` (which handles the measurement-gate "0/1"
-//! glyphs) — same approach, larger glyph set.
-//!
 //! Atlas layout (left → right):
 //!   index 0..=9   : '0' .. '9'
 //!   index 10      : '.'
@@ -52,8 +49,7 @@ pub(super) const POPUP_GLYPHS: [char; 20] = [
 ];
 
 /// PxScale calibrated so the rasterised glyph height matches what egui
-/// renders for `FontId::monospace(12.0)`. The factor of ~1.2 mirrors
-/// the calibration in `digit_atlas`: egui internally upscales mono past
+/// renders for `FontId::monospace(12.0)`: egui internally upscales mono past
 /// the raw em-size that `ab_glyph::PxScale::from(12.0)` would give.
 const POPUP_GLYPH_PX_SCALE: f32 = 14.4;
 

@@ -1,10 +1,6 @@
 //! `StateVectorResources` — the kitchen-sink GPU resource bag, split
 //! by subsystem.
 //!
-//! The original `gpu/resources.rs` was a single 1391-line file that
-//! held every pipeline, bind group, and buffer side by side. The
-//! per-subsystem boundaries are now explicit:
-//!
 //! * [`common`] — shared state-vector ping-pong buffers + ground-state
 //!   seed + the `[-1, 1]²` unit quad used by every render pipeline.
 //! * [`state`]  — state-vector compute (gate dispatch) + render
@@ -24,15 +20,6 @@
 //!   `measure::aux_buffer`.
 //! * [`popup_value`] — popup numeric-row render pipeline. Reads the
 //!   active `common::state_buffers`.
-//!
-//! ## Latent bug fixed by the split
-//!
-//! The pre-refactor `update_render_pipeline` only rebuilt the
-//! state-vector render pipeline on a surface-format change; the bloch
-//! overlay, Probability bars, measurement digit, and popup-value pipelines silently
-//! stayed pinned to the original format. This module's
-//! [`StateVectorResources::update_target_format`] now fans the call
-//! out to every render-bearing subsystem.
 
 mod amplitude_display;
 mod arithmetic;
@@ -141,11 +128,6 @@ impl StateVectorResources {
 
     /// Rebuild every render pipeline whose colour target depends on
     /// the surface format. No-op when the format hasn't changed.
-    ///
-    /// Pre-refactor name was `update_render_pipeline`, but it only
-    /// rebuilt one pipeline. Now genuine — touches `state`, `bloch`,
-    /// `probability`, `amplitude`, `density`, `digit`,
-    /// `conditional_gate_body`, and `popup_value`.
     pub(crate) fn update_target_format(
         &mut self,
         device: &wgpu::Device,

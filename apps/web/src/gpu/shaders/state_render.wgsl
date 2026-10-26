@@ -68,14 +68,11 @@ fn vs_main(input: VsIn) -> VsOut {
 // pixel. Returns zero outside everything the cell renders (i.e. outside
 // the outline, outside the fill, off the needle). The egui `rect_filled`
 // panel surface is drawn underneath in a separate pass, so the cell does
-// NOT need to fill its interior with `params.surface`; doing so produced a
-// halo of alpha-1 white that occluded neighbouring cells' strokes through
-// the 2x2 "over" composite.
+// NOT need to fill its interior with `params.surface`.
 //
 // `edge` is the pixel-sized fwidth value pre-computed by the caller in
 // uniform control flow — must not be re-derived inside this function
-// because the 2x2 neighbourhood loop in fs_main already breaks uniform
-// flow before reaching here.
+// because the bounds checks in fs_main break uniform flow before reaching here.
 fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> vec4<f32> {
   let cell_origin = vec2<f32>(f32(col), f32(row)) * params.cell_pitch;
   let cell_center = cell_origin + vec2<f32>(params.radius);
@@ -138,9 +135,7 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
 
   // Layer 3: outline ring at radius=params.radius, width=stroke. AA is
   // symmetric on inner / outer edges (both straddle their nominal radii
-  // with `edge` half-width); rounder/cleaner than a one-sided fringe. To
-  // avoid the cell-cell gap boundary going to ~50 % alpha, fs_main samples
-  // a 2x2 neighbourhood and composes the contributions.
+  // with `edge` half-width); rounder/cleaner than a one-sided fringe.
   let outline_rgba = select(params.outline_zero, params.outline, has_visible_phase);
   let outline_inner =
     1.0 - smoothstep(params.radius - half_stroke - edge, params.radius - half_stroke + edge, dist);
