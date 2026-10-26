@@ -10,19 +10,14 @@ use crate::gates::{PALETTE_GATES_ROW1_INDICES, PALETTE_GATES_ROW2_INDICES, PALET
 use super::palette::PALETTE_CIRCUIT_BLOCK_INDEX;
 use super::Palette;
 
-/// What a press on the palette carousel lands on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum CarouselHit {
-    /// Palette entry index of the gate under the pointer.
     Gate(usize),
     Prev,
     Next,
     Dot(usize),
 }
 
-/// The vertical layout's palette: a card fixed to the bottom of the screen
-/// showing `CAROUSEL_GATES_PER_PAGE` gates per page, with arrows and page
-/// dots. Pages stop at both ends.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct PaletteCarousel {
     rect: egui::Rect,
@@ -30,8 +25,6 @@ pub(crate) struct PaletteCarousel {
 }
 
 impl PaletteCarousel {
-    /// Carousel for `entry_count` palette entries at the bottom of
-    /// `screen_rect`.
     pub(crate) fn new(screen_rect: egui::Rect, entry_count: usize) -> Self {
         let size = egui::vec2(
             screen_rect.width() - 2.0 * VERTICAL_SCREEN_INSET,
@@ -63,7 +56,6 @@ impl PaletteCarousel {
         self.page_count
     }
 
-    /// Arrows and dots only appear when there is more than one page.
     pub(crate) fn paged(&self) -> bool {
         self.page_count > 1
     }
@@ -80,8 +72,6 @@ impl PaletteCarousel {
         self.clamp_page(page + 1)
     }
 
-    /// Screen rect of slot `slot` (`0..CAROUSEL_GATES_PER_PAGE`) on the
-    /// shown page. The row is centred in the card.
     pub(crate) fn slot_rect(&self, slot: usize) -> egui::Rect {
         let count = CAROUSEL_GATES_PER_PAGE as f32;
         let row_width = count * CAROUSEL_GATE_SIZE + (count - 1.0) * CAROUSEL_GATE_GAP;
@@ -125,8 +115,6 @@ impl PaletteCarousel {
         )
     }
 
-    /// Tap area of a page dot: the dot plus half the gap on each side and
-    /// the whole bottom band of the card.
     fn dot_rect(&self, page: usize) -> egui::Rect {
         let center = self.dot_center(page);
         egui::Rect::from_center_size(
@@ -138,7 +126,6 @@ impl PaletteCarousel {
         )
     }
 
-    /// Hit test a screen position on `page`.
     pub(crate) fn hit_test(
         &self,
         palette: &Palette,
@@ -169,7 +156,6 @@ impl PaletteCarousel {
             .map(CarouselHit::Dot)
     }
 
-    /// Page shown after pressing `hit` on `page`.
     pub(crate) fn page_after(&self, page: usize, hit: CarouselHit) -> usize {
         match hit {
             CarouselHit::Prev => self.prev_page(page),
@@ -181,10 +167,6 @@ impl PaletteCarousel {
 }
 
 impl Palette {
-    /// Palette entry index at carousel position `position`. The full
-    /// palette follows its desktop reading order: the first gate row, the
-    /// second gate row, then the right section.
-    /// 右側: 表示と、見た目のための指示（注釈や空きマス）
     pub(crate) fn carousel_entry(&self, position: usize) -> Option<usize> {
         match self {
             Self::Full => PALETTE_GATES_ROW1_INDICES

@@ -14,7 +14,6 @@ pub(crate) struct CircuitProjection {
 }
 
 impl CircuitProjection {
-    /// `origin` is the screen position of the circuit-space origin.
     pub(crate) fn new(orientation: CircuitOrientation, origin: egui::Pos2) -> Self {
         Self {
             orientation,
@@ -49,8 +48,6 @@ impl CircuitProjection {
         }
     }
 
-    /// Screen rect covering a circuit-space rect. Width and height swap in
-    /// the vertical layout.
     pub(crate) fn to_screen_rect(self, local: egui::Rect) -> egui::Rect {
         match self.orientation {
             CircuitOrientation::Horizontal => local.translate(self.origin.to_vec2()),
@@ -60,7 +57,6 @@ impl CircuitProjection {
         }
     }
 
-    /// `to_screen_rect` of the circuit-space rect at `min` with `size`.
     pub(crate) fn to_screen_rect_from_min_size(
         self,
         min: egui::Pos2,
@@ -74,7 +70,6 @@ impl CircuitProjection {
         }
     }
 
-    /// Screen direction in which time advances.
     pub(crate) fn time_axis(self) -> egui::Vec2 {
         self.to_screen_vec(egui::Vec2::X)
     }
