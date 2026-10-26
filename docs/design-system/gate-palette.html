@@ -12,8 +12,6 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- カスタム要素化済みのゲート / 表示ブロックを使う箇所向けに読み込む。
-       本体描画は各カスタム要素に集約し、gp-gate ラップ側はパレット専用のクロム (ホバー枠 / ツールチップ / ドラッグ開始カーソル) を提供する。 -->
   <script src="components/h-gate.js"></script>
   <script src="components/x-gate.js"></script>
   <script src="components/swap-gate.js"></script>
@@ -220,7 +218,6 @@
 
 
 <div id="preview">
-  <!-- Gates row の代表的な 5 個 -->
   <div class="gp-stage" style="padding: 0; background: transparent; border: none; min-height: auto;">
     <div class="gp-row" style="margin: 0;">
       <div class="gp-gate"><h-gate></h-gate></div>
@@ -250,7 +247,6 @@
   </p>
 </div>
 
-<!-- ─────── § 01 動くモック ─────── -->
 <section class="block">
   <h2>§ 01 動くモック</h2>
   <div class="card">
@@ -263,7 +259,6 @@
     </p>
     <div class="gp-stage">
       <div class="gp-palette gp-palette--split">
-        <!-- 操作ゲート領域 (1 行目 15 個 / 2 行目 17 個) -->
         <div class="gp-section">
           <div class="gp-row">
             <div class="gp-gate" data-tip="H · Hadamard"><h-gate></h-gate><span class="tip">H · Hadamard</span></div>
@@ -302,9 +297,7 @@
             <div class="gp-gate gp-stub" data-tip="事後選択 |−⟩"><span aria-hidden="true">⟨−|</span><span class="tip">事後選択 |−⟩</span></div>
           </div>
         </div>
-        <!-- 2 行高の垂直ディバイダ -->
         <div class="gp-sep vertical-divider" aria-hidden="true"></div>
-        <!-- 表示と指示の領域 (4 × 2 グリッド; 表示 5 個 + Spacer + コメントブロック + 空き 1 マス) -->
         <div class="gp-section gp-grid">
           <div class="gp-gate" data-tip="Bloch · ブロッホ球表示ブロック"><bloch-display icon no-popover></bloch-display><span class="tip">ブロッホ球表示ブロック</span></div>
           <div class="gp-gate" data-tip="Probability · 確率表示ブロック"><probability-display icon height="40" probs="30,75,55,20" no-popup></probability-display><span class="tip">確率表示ブロック (resizable)</span></div>
@@ -324,7 +317,6 @@
   </div>
 </section>
 
-<!-- ─────── § 02 レイアウト ─────── -->
 <section class="block">
   <h2>§ 02 レイアウト</h2>
   <div class="card">
@@ -353,7 +345,6 @@
   </div>
 </section>
 
-<!-- ─────── § 03 パレット要素一覧 ─────── -->
 <section class="block">
   <h2>§ 03 パレット要素一覧</h2>
   <div class="card">
@@ -442,7 +433,6 @@
   </div>
 </section>
 
-<!-- ─────── § 04 描画タイプ ─────── -->
 <section class="block">
   <h2>§ 04 描画タイプ</h2>
   <div class="card">
@@ -510,7 +500,6 @@
   </div>
 </section>
 
-<!-- ─────── § 05 ホバー / ツールチップ ─────── -->
 <section class="block">
   <h2>§ 05 ホバー / ツールチップ</h2>
   <div class="card">
@@ -533,7 +522,6 @@
   </div>
 </section>
 
-<!-- ─────── § 06 ドラッグ挙動 ─────── -->
 <section class="block">
   <h2>§ 06 ドラッグ挙動</h2>
   <div class="card">
@@ -564,7 +552,6 @@
   </div>
 </section>
 
-<!-- ─────── § 07 関連定数とファイル ─────── -->
 <section class="block">
   <h2>§ 07 関連トークンと仕様</h2>
   <div class="card">
@@ -594,7 +581,6 @@
   </div>
 </section>
 
-<!-- ─────── § 08 検討事項 ─────── -->
 <section class="block">
   <h2>§ 08 検討事項</h2>
   <div class="card">
