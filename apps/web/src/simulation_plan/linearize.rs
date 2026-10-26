@@ -1,12 +1,3 @@
-//! Column-by-column lowering from editor gates into GPU dispatch ops.
-//!
-//! qni references for the per-column semantics:
-//! - `packages/simulator/src/simulator.ts:runStep` — controls + targets in
-//!   each step, then any measurement / display readouts on the post-step
-//!   state.
-//! - `packages/simulator/src/state-vector.ts` and `matrix.ts` — the math each
-//!   shader implements (kept in `gpu/*`).
-
 use std::collections::HashMap;
 
 use super::arithmetic_field::ArithmeticField;
@@ -20,18 +11,6 @@ use crate::gpu::{Amplitude, Bloch, Density, Measurement, Probability, SlotAlloca
 use crate::qubit_bit::QubitBit;
 use crate::qubit_count::QubitCount;
 
-/// Walks placed gates column by column and emits ops in the exact order the
-/// GPU should run them. Non-mutating decoration (Spacer / Swap) is dropped.
-/// Within each column the order is: column unitaries / writes → measurements
-/// (reduce-sample then collapse) → bloch captures, mirroring qni's
-/// `simulator.ts:runStep` semantics — bloch reads the post-collapse state.
-/// A conditional gate (`X<name`) reads the measurement `FlagSources` picks:
-/// the GPU applies it only if that measurement's aux slot sampled 1, and the
-/// op is dropped when no earlier measurement writes `name`.
-/// `snapshot_slot_count`: number of semantic step snapshots to cache for the
-/// state panel. Slot `k` stores the state after circuit step `k`; empty steps
-/// copy the previous state. Hovering later switches to the cached slot via GPU
-/// copy only, matching qni's worker-side per-step result cache.
 pub(crate) fn linearize_ops(
     placed_gates: &[PlacedGate],
     qubits: QubitCount,
@@ -89,9 +68,7 @@ pub(crate) fn linearize_ops(
                 GateKind::Control | GateKind::AntiControl | GateKind::ZDetectControlReset => {}
                 GateKind::ZParityControl | GateKind::XParityControl => parity_targets.push(gate),
                 GateKind::Swap => swap_targets.push(gate),
-                GateKind::Spacer => {
-                    // Non-mutating decoration.
-                }
+                GateKind::Spacer => {}
                 GateKind::Measurement | GateKind::XDetector | GateKind::YDetector => {
                     measurement_targets.push(gate);
                 }
@@ -157,14 +134,6 @@ pub(crate) fn linearize_ops(
             push_detector_basis(&mut ops, detector, qubits, state_count, false);
         }
 
-        // Swap step → `push_swap_3cnot` (the 3-CNOT decomposition qni uses,
-        // mirroring `simulator.ts::swap`). Column-level controls (Fredkin /
-        // controlled-SWAP) ride along through `controls`.
-        //
-        // Two-target swap only; if the user dropped a single Swap with
-        // no partner, or three+ Swaps in one column, the column is
-        // skipped (qni dispatches only the first two `targets` and
-        // disables stray swaps via `updateSwapConnections`).
         swap_targets.sort_by_key(|a| a.id);
         if swap_targets.len() == 2 {
             let bit_a = swap_targets[0]
@@ -203,12 +172,6 @@ pub(crate) fn linearize_ops(
                 );
                 continue;
             }
-            // Parametric gates carry an optional normalized angle. When
-            // present we route through the matching `*_params(θ, …)` builder
-            // so the matrix carries that angle; when absent we fall back to
-            // the editor's pre-parametric π/2 default (the gate's hard-coded
-            // matrix in `gate_matrix`). qni would instead error out at
-            // simulate time for a bare `P` / `Rx` / `Ry` / `Rz`.
             type ParametricBuilder =
                 fn(f32, QubitBit, ColumnControls, u32) -> crate::gates::GateParams;
             let parametric_builder: Option<ParametricBuilder> = match target.kind {
@@ -279,21 +242,11 @@ pub(crate) fn linearize_ops(
             let target_bit = controls
                 .highest_control()
                 .expect("control_count >= 2 guarantees a value bit");
-            // Match qni and drop anti-control bits entirely: only the
-            // remaining `Control` wires gate the Z. `controls_only` keeps
-            // just the value (Control) bits, then `without` removes the Z
-            // target. (Mixing anti-control bits into the mask would change
-            // the semantics from qni's `{type:'•', targets:[control bits]}` form.)
             let cz_controls = controls.controls_only().without(target_bit);
             let params = gate_params_controlled(GateKind::Z, target_bit, cz_controls, state_count);
             ops.push(SimulationOp::ApplyGate(params));
         }
 
-        // Register gates share QFT's ordering after ordinary targets and
-        // before measurements. Internal controls are excluded from each span.
-        // Arithmetic is one permutation dispatch; QFT expands to H/phase ops.
-        // Row order is stable across editor insertion order and URL/Qiskit
-        // serialization, including controls hidden inside another span.
         register_gates.sort_by_key(|a| (a.wire, a.id));
         for gate in &register_gates {
             if matches!(gate.kind, GateKind::Increment | GateKind::Decrement) {
@@ -325,8 +278,6 @@ pub(crate) fn linearize_ops(
             ));
         }
 
-        // Measurements run after the column's unitaries: reduce + sample,
-        // then collapse. Each consumes one aux slot.
         for measurement in &measurement_targets {
             let measurement_controls = if measurement.kind == GateKind::Measurement {
                 ColumnControls::NONE
@@ -348,7 +299,6 @@ pub(crate) fn linearize_ops(
             push_detector_basis(&mut ops, detector, qubits, state_count, true);
         }
 
-        // Bloch captures see the post-measurement state.
         bloch_targets.sort_by_key(|a| a.id);
         for display in &bloch_targets {
             let qubit_bit = display
@@ -363,9 +313,6 @@ pub(crate) fn linearize_ops(
             });
         }
 
-        // Probability displays are also read-only displays. They capture the
-        // current GPU state into a per-display probability buffer; rendering
-        // samples that buffer directly, no CPU-side probabilities.
         probability_targets.sort_by_key(|a| a.id);
         for display in &probability_targets {
             if !display.wire.is_within(qubits) {
@@ -497,7 +444,6 @@ fn push_measurement(
     slot
 }
 
-/// A reset samples the controlled target-one projector, then flips only a click.
 fn push_reset(
     ops: &mut Vec<SimulationOp>,
     gate: &PlacedGate,
@@ -543,12 +489,8 @@ fn push_detector_basis(
     }
 }
 
-/// How a `P` gate takes part in its column's multi-controlled phase.
 enum PhaseRole {
-    /// The top-most gate of a group carries the phase, controlled by the
-    /// other members' wires. Lone `P` gates are targets with no partners.
     Target { partner_bits: Vec<QubitBit> },
-    /// Folded into its group's target as a control.
     Partner,
 }
 
@@ -584,8 +526,6 @@ fn phase_group_roles(targets: &[&PlacedGate], qubits: QubitCount) -> HashMap<Gat
     roles
 }
 
-/// Return only controls outside a register-gate span. This mirrors QFT's
-/// existing rule for decoded control tokens hidden under a multi-wire body.
 fn register_external_controls(
     gate: &PlacedGate,
     qubits: QubitCount,
@@ -659,11 +599,6 @@ fn linearize_qft(
     let reversal = qft_reversal_swap_ops(gate, qubits, span, state_count, controls);
 
     if !dagger {
-        // QFT: bit-reversal swaps FIRST, then the H/phase ladder — for i in
-        // 0..span: H(i), then controlled-Phase π/2^j with control=(i+j) for
-        // j in 1..span-i. The bare ladder realizes F·BR (the DFT acting on
-        // bit-reversed input), so feeding it the reversed input lands the
-        // true symmetric DFT (Quirk's FourierTransformGates reverses first too).
         ops.extend(reversal);
         for i in 0..span {
             ops.push(SimulationOp::ApplyGate(qft_h_params(
@@ -683,9 +618,6 @@ fn linearize_qft(
             }
         }
     } else {
-        // QFT† is the adjoint of "swaps then ladder", i.e. "inverse ladder
-        // then swaps": the inverse ladder (reverse loop, negated phases, H
-        // after the phases) comes first, then the trailing bit-reversal swaps.
         for i in (0..span).rev() {
             for j in (1..(span - i)).rev() {
                 let phase = -std::f32::consts::PI / (1u32 << j) as f32;
@@ -708,11 +640,6 @@ fn linearize_qft(
     ops
 }
 
-/// Bit-reversal SWAP network for a QFT register: `swap(wire i, wire span−1−i)`
-/// for the first half of the span. Each swap expands to the same 3-CNOT
-/// sequence as a column `Swap` (`X b ctrl a`, `X a ctrl b`, `X b ctrl a`),
-/// and any external `controls` ride along so a controlled-QFT gates the
-/// swaps too.
 fn qft_reversal_swap_ops(
     gate: &PlacedGate,
     qubits: QubitCount,
@@ -739,10 +666,6 @@ fn qft_reversal_swap_ops(
     ops
 }
 
-/// Expand one `SWAP(bit_a, bit_b)` into the 3-CNOT sequence qni uses
-/// (mirroring `simulator.ts::swap`): `X b ctrl a`, `X a ctrl b`, `X b ctrl a`.
-/// Any column-level `controls` (Fredkin / controlled-SWAP) ride along on each
-/// CX. Shared by the column `Swap` step and the QFT bit-reversal network.
 fn push_swap_3cnot(
     ops: &mut Vec<SimulationOp>,
     bit_a: QubitBit,
@@ -1415,9 +1338,6 @@ mod tests {
 
     #[test]
     fn two_controls_emit_controlled_z() {
-        // 3 qubits, Controls on the top two wires (no target gate) → CCZ.
-        // wire 0 → bit 0; wire 1 → bit 1 (highest set bit = Z target). The
-        // remaining Control (bit 0) gates the Z.
         let gates = [
             PlacedGate::new(
                 crate::app::GateId::from_u32(1),
@@ -1447,10 +1367,6 @@ mod tests {
 
     #[test]
     fn controlled_z_drops_anti_control_bits() {
-        // 3 qubits: Controls on wires 0, 1 (bits 0, 1) and an AntiControl on
-        // wire 2 (bit 2). The Z target is the highest Control bit (bit 1) and
-        // it keeps only the remaining Control (bit 0); the anti-control (bit 2)
-        // must not leak into the Z's control mask.
         let gates = [
             PlacedGate::new(
                 crate::app::GateId::from_u32(1),
@@ -1613,11 +1529,6 @@ mod tests {
 
     #[test]
     fn qft_emits_leading_bit_reversal_swap() {
-        // The forward QFT begins with a leading bit-reversal SWAP network,
-        // then the H/phase ladder (true symmetric DFT = swaps + ladder).
-        // For a span-2 QFT on wires 0,1 op[0] is the first CNOT of the leading
-        // swap(bit0, bit1): X on bit 1 controlled by bit 0; the ladder H, P, H
-        // follows at op[3..6].
         let gates = [PlacedGate::new(
             crate::app::GateId::from_u32(1),
             GateKind::QftGate,
@@ -1658,7 +1569,6 @@ mod tests {
         );
     }
 
-    // 列や表示に依存する ID・スロットを除き、測定も含めた操作順を残す。
     #[derive(Debug, PartialEq, Eq)]
     enum PhysicsOp {
         Apply(u32, u32, u32, u32, [i64; 8]),
@@ -1820,8 +1730,6 @@ mod tests {
 
     #[test]
     fn decomposed_qft4_matches_native_qft4_ops() {
-        // 分解版 QFT4 サンプルは、同じ周期 2 の入力 + ネイティブ `QFT4` と同一の ApplyGate 列
-        // （同じ行列・対象ビット・制御）へ展開される = 数学的に等価。
         let native = physics_summary(r#"{"cols":[[1,"H","H","H"],["QFT4"]]}"#, 4);
         let decomposed = physics_summary(qni_web_circuit_library_model::QFT4_DECOMPOSED_JSON, 4);
 
@@ -1860,8 +1768,6 @@ mod tests {
 
     #[test]
     fn probability_display_base_bit_is_span_top() {
-        // 3 qubits, top wire, span 2 → base_bit = top wire = 0 (q0=LSB),
-        // exercising `wire.to_qubit_bit(qubits)` (span's lowest bit).
         let gates = [PlacedGate::new(
             crate::app::GateId::from_u32(1),
             GateKind::ProbabilityDisplay,
@@ -1941,8 +1847,6 @@ mod tests {
 
     #[test]
     fn density_display_caps_span_at_eight() {
-        // A density display stored with span 10 lowers with span clamped to the
-        // GateKind cap of 8 via `GateSpan::clamped_for`, even at 16 qubits.
         let gates = [PlacedGate::new(
             crate::app::GateId::from_u32(1),
             GateKind::DensityMatrixDisplay,
@@ -1992,8 +1896,6 @@ mod tests {
 
     #[test]
     fn bloch_display_op_carries_gate_id() {
-        // 線形化 op ストリームはゲートの同一性を GateId のまま運び、u32 へ落として
-        // 採番し直す往復を作らない。
         let gates = [PlacedGate::new(
             crate::app::GateId::from_u32(5),
             GateKind::BlochDisplay,
@@ -2153,8 +2055,6 @@ mod tests {
         );
     }
 
-    /// qni JSON cannot carry a condition on `P` (`GateKind::is_ifable`), so
-    /// attach the flags directly to exercise the grouping key.
     fn conditional_phase_ops(
         json: &str,
         qubits: usize,

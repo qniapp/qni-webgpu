@@ -1,36 +1,17 @@
-//! Which measurement each conditional gate (`X<name`) reads.
-//!
-//! qni's `simulator.ts::runStep` keeps one `flags` map per run: every
-//! `Measure>name` overwrites `flags[name]` and every `X<name` reads the
-//! current value, treating a never-written flag as false. qni-webgpu runs a
-//! column's unitaries before its measurements (see `linearize_ops`), so a
-//! conditional gate reads the last `Measure>name` in an *earlier* column.
-//! Within one column, the bottom-most `Measure>name` wins, matching the wire
-//! order in which qni serialises a step's measurement targets.
-//!
-//! Only gate structure is resolved here. The measured values themselves stay
-//! on the GPU: the state compute shader and the gate body overlay read them
-//! from the measurement aux buffer.
-
 use std::collections::HashMap;
 
 use super::SimulationColumnAnalysis;
 use crate::app::GateId;
 use crate::gates::{FlagName, GateFlag};
 
-/// Conditional gate → the measurement gate whose outcome it reads.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct FlagSources {
     sources: HashMap<GateId, FlagSource>,
 }
 
-/// What a conditional gate reads.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum FlagSource {
-    /// The outcome sampled by this measurement gate.
     Measurement(GateId),
-    /// No earlier measurement writes the flag, so it is false and the gate
-    /// never applies.
     NeverSet,
 }
 
@@ -63,7 +44,6 @@ impl FlagSources {
         Self { sources }
     }
 
-    /// `None` when `gate_id` is not a conditional gate of the analysed plan.
     pub(crate) fn source(&self, gate_id: GateId) -> Option<FlagSource> {
         self.sources.get(&gate_id).copied()
     }
