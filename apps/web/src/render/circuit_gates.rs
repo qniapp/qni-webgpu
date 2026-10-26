@@ -21,7 +21,7 @@ use crate::gpu::{
 };
 use crate::grid_cell::GridCell;
 use crate::icons::{
-    conditional_gate_body_shape, draw_bloch_vector, draw_drag_gate_body, draw_gate_body,
+    conditional_gate_body_shape, draw_bloch_center_dot, draw_drag_gate_body, draw_gate_body,
     draw_gate_body_filled, draw_gate_glyph, draw_sample_placeholder_tiles,
     draw_sampled_measurement_icon,
 };
@@ -379,7 +379,7 @@ impl QniApp {
                 // Not yet captured by a recompute (placed mid-drag, unsnapped,
                 // or before the first frame's GPU dispatch). Show the
                 // inactive center dot via egui until the GPU overlay takes over.
-                draw_bloch_vector(painter, gate_rect, [0.0, 0.0, 0.0], colors);
+                draw_bloch_center_dot(painter, gate_rect, colors);
             }
         }
         if let Some((id, _)) = insert_preview {

@@ -8,7 +8,8 @@ use crate::constants::{
 };
 use crate::gates::GateKind;
 use crate::icons::{
-    draw_bloch_vector, draw_circuit_block_palette_icon, draw_density_palette_icon, draw_gate_body,
+    draw_bloch_center_dot, draw_circuit_block_palette_icon, draw_density_palette_icon,
+    draw_gate_body,
 };
 use crate::layout::{palette_start_x, PaletteCarousel, PaletteItem};
 
@@ -115,7 +116,7 @@ impl QniApp {
         }
         if gate == GateKind::BlochDisplay {
             // Palette has no associated state: render the inactive |v|=0 center dot.
-            draw_bloch_vector(painter, gate_rect, [0.0, 0.0, 0.0], colors);
+            draw_bloch_center_dot(painter, gate_rect, colors);
         }
     }
 
