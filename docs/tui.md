@@ -88,7 +88,8 @@ cargo test
 
 ```
 cd apps/tui
-INSTA_UPDATE=always cargo test --test snapshots
+cargo test --test snapshots
+cargo insta review
 ```
 
 ### スナップショットの目視（PNG化）
