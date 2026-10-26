@@ -1,4 +1,3 @@
-"""Physical Write0 channels, checked with CPU Aer only as a test reference."""
 import unittest
 
 try:
@@ -20,7 +19,6 @@ def density(circuit, qubits):
 
 
 def expected_reset(state, target, controls=(), antis=()):
-    """K0 = I-P, K1 = X_target P, with one joint click projector."""
     no_click = np.array(state, dtype=complex)
     click = np.zeros_like(no_click)
     for index, amplitude in enumerate(state):

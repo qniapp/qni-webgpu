@@ -1,8 +1,3 @@
-"""Parity contracts: primitive order and an independent odd-predicate oracle.
-
-The oracle interprets column predicates, never the compiler's CX reduction.
-CPU arithmetic here is test-only, as in test_axis_detectors. Aer is optional.
-"""
 import cmath
 import itertools
 import math
@@ -28,7 +23,6 @@ def column_ops(column, qubits=None):
 
 
 def shell(parity, body):
-    """Literal contract: topmost retained wire is the anchor."""
     xs = [wire for wire, axis in parity if axis == "xpar"]
     anchor = parity[0][0]
     reduction = [("cx", wire, anchor) for wire, _ in parity[1:]]
@@ -91,8 +85,6 @@ class ParityFakeTests(unittest.TestCase):
                  "ZDetectControlReset", "X", "QFT1"], 8, [0] * 8,
             save_displays=lambda: qc.append(("display",)),
         )
-        # The ordinary detect-control is sampled first, preserving its existing
-        # column contract; its disjoint measurement commutes with parity setup.
         self.assertEqual(qc.ops, [("measure", 5, 5)] + shell([(0, "xpar"), (2, "zpar")], [
             ("h", 1), ("sdg", 3), ("h", 3),
             ("mcx", [5, 0], 6), ("controlled", ("H", None), [5, 0], [7]),
@@ -129,7 +121,6 @@ class ParityFakeTests(unittest.TestCase):
                          [("h", 0), ("mcx", [0], 1), ("h", 0)])
 
     def test_qft_span_drops_covered_parity_before_choosing_anchor(self):
-        # Covered xpar must not get an H; the external pair anchors at wire 2.
         self.assertEqual(column_ops(["QFT2", "xpar", "zpar", "xpar"]), shell(
             [(2, "zpar"), (3, "xpar")], [
                 ("mcx", [2, 0], 1), ("mcx", [2, 1], 0), ("mcx", [2, 0], 1),
@@ -202,7 +193,6 @@ for _token in ("Bloch", "Probability", "Amps1", "Density"):
     setattr(ParityFakeTests, f"test_display_inside_shell_no_cz_{_token}", display_case(_token))
 
 
-# Independent exact column/branch oracle. No numpy, no compiler helpers.
 GATES = {key.upper(): value for key, value in MATRICES.items()}
 GATES.update({"S†": MATRICES["sdg"], "T†": ((1, 0), (0, cmath.exp(-1j * math.pi / 4))),
               "Y": ((0, -1j), (1j, 0))})

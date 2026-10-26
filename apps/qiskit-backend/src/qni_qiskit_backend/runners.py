@@ -46,7 +46,7 @@ def load_qiskit() -> tuple[Any, Any, Any, Any]:
         from qiskit import QuantumCircuit, transpile
         from qiskit.quantum_info import Pauli
         from qiskit_aer import AerSimulator
-    except Exception as exc:  # pragma: no cover - depends on local env
+    except Exception as exc:  # pragma: no cover
         raise RunnerUnavailable(
             "qiskit and qiskit-aer are required for this runner"
         ) from exc
@@ -65,7 +65,6 @@ class MockRunner:
     name: str = "mock"
 
     def run(self, request: RunRequest) -> dict[str, Any]:
-        # Transport/UI smoke runner only. It intentionally does not simulate.
         qubits = request.qubits.value
         key = "0" * qubits
         response = histogram_response(
@@ -109,7 +108,7 @@ class QiskitRunner:
                 shots=request.shots,
                 seed_simulator=request.seed,
             ).result()
-        except Exception as exc:  # pragma: no cover - depends on local env
+        except Exception as exc:  # pragma: no cover
             raise RunnerUnavailable(f"{self.name} execution failed: {exc}") from exc
 
         counts = normalize_qiskit_counts(result.get_counts())

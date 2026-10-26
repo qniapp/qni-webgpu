@@ -1,8 +1,3 @@
-"""Postselection operation contracts and WebGPU parity fixtures.
-
-Numerical fixtures cite apps/web/tests/web-postselection.spec.ts. The reference
-uses projector + renormalization, without numpy or simulator dependencies.
-"""
 import math
 import unittest
 
@@ -29,7 +24,6 @@ def project(state, target, token, controls=(), antis=()):
 
 
 def write(state, target, value, controls=(), antis=()):
-    """state_compute.wgsl: compare squared magnitudes separately in each pair."""
     result = state[:]
     for i in range(len(state)):
         if i & (1 << target) or not all(i & (1 << c) for c in controls) or any(i & (1 << c) for c in antis):
@@ -42,11 +36,6 @@ def write(state, target, value, controls=(), antis=()):
 
 
 def measure(state, target, basis="Measure", controls=(), antis=()):
-    """Definite branches only; controlled click is controls AND target=1.
-
-    No RNG: an ambiguous nonempty state is an invalid reference fixture.
-    Basis changes are unconditional, matching the detector shaders.
-    """
     if basis == "Measure":
         controls, antis = (), ()
     rotated = state[:]
@@ -60,7 +49,6 @@ def measure(state, target, basis="Measure", controls=(), antis=()):
               for outcome in (0, 1)]
     if sum(masses) <= 1e-12:
         return [0j] * len(state), -1
-    # Only basis-rotation roundoff is tolerated, not a second sampled branch.
     if min(masses) > 1e-28 * sum(masses):
         raise ValueError("ambiguous measurement fixture")
     outcome = int(masses[1] > masses[0])
@@ -74,7 +62,6 @@ def measure(state, target, basis="Measure", controls=(), antis=()):
 
 
 def display(state, kind):
-    """Numeric full-register fixtures (Bloch is one qubit), not UI rendering."""
     norm = sum(abs(a) ** 2 for a in state)
     denominator = max(norm, 1e-12)
     if kind == "Probability":
@@ -172,7 +159,6 @@ def fake_case(token, control):
         apply_column_to_qiskit(circuit, column, len(column), [None] * len(column),
                               save_displays=lambda: circuit.append(("display",)))
         ops = circuit.ops
-        # Full ordering and the exact projector/control tuple in one assertion.
         if not control:
             expected = [("sdg", 0), ("h", 0), ("swap", 1, 2),
                         ("postselect", 3, token, [], []), ("measure", 0, 0),
@@ -196,7 +182,6 @@ for _i, _token in enumerate(TOKENS):
 
 
 class WebGPUParityTests(unittest.TestCase):
-    """Numerical expectations from web-postselection.spec.ts (not screenshots)."""
     def test_four_conditional_states(self):
         actual = [rounded(exact([[before], [token]])[0]) for before, token in zip(("H", "H", "H", "X"), TOKENS)]
         self.assertEqual(actual, [[1, 0], [0, 1], [0.70711, 0.70711], [-0.70711, 0.70711]])
@@ -277,7 +262,6 @@ class WebGPUParityTests(unittest.TestCase):
         self.assertEqual(write([0, 0.001], 0, 0), [0, 0.001])
 
     def test_inactive_detector_keeps_coherent_target(self):
-        # Inactive control means even an arbitrary target is definite no-click.
         state = exact([["H"], ["S"]], 2)[0]
         actual, outcome = measure(state, 0, "YDetector", controls=(1,))
         self.assertEqual((rounded(actual), rounded([a.imag for a in actual]), outcome),
@@ -365,7 +349,6 @@ class WebGPUParityTests(unittest.TestCase):
                          [[1, 0], [(0, 1, 1), (0, 0, 0)], [0, 0, 1], ([1, 0, 0, 0], 4)])
 
     def test_survival_label_fixture_small_kept(self):
-        # Numeric rates only: no label text, placement, or screenshot modeling.
         self.assertAlmostEqual(exact([["Ry(π/32)"], [TOKENS[1]]])[1][0], 0.002407636663901557, places=14)
 
     def test_survival_label_fixture_tiny_loss(self):
@@ -384,7 +367,6 @@ def measurement_case(basis, control, outcome):
         if outcome == -1:
             state = exact([[TOKENS[1]]], 2)[0]
         else:
-            # Eigenstates of Z, X, Y, prepared with postselection and phase.
             prepare = [["H"], [TOKENS[0 if outcome == 0 else 1]]]
             if basis != "Measure":
                 prepare.append(["H"])

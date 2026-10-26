@@ -1,9 +1,3 @@
-"""Sample uses probability saves; CPU oracles below are strictly test-only.
-
-Exact branch references interpret columns, not emitted primitives. The seeded
-sampler ports probability_render.wgsl with explicit u32 wrap and f32 rounding;
-it is not a backend sampling implementation or a GPU execution test.
-"""
 import math
 import struct
 import unittest
@@ -52,7 +46,6 @@ def sample_reference(columns, qubits):
 
 
 def marginal(branches, span, base_bit, mask=0, value=0):
-    """Direct conditional marginal over full indices, including overlap controls."""
     masses = [0.0] * (1 << span)
     for weight, _, state in branches:
         for index, amplitude in enumerate(state):
@@ -63,7 +56,6 @@ def marginal(branches, span, base_bit, mask=0, value=0):
 
 
 def saved_marginal(branches, spec, qubits):
-    """Emulate only Aer save qarg packing, then use the production response path."""
     qargs = probability_save_qargs(spec, qubits)
     packed = [0.0] * (1 << len(qargs))
     for weight, _, state in branches:
@@ -89,7 +81,6 @@ INVALID = 0xffffffff
 
 
 def sampled_outcome(probabilities, span, seed):
-    """Literal probability_render.wgsl sampler (probability_prob clamps input)."""
     if span == 0 or span > SAMPLE_DISPLAY_MAX_SPAN:
         return INVALID
     probabilities = [f32(min(1.0, max(0.0, p))) for p in probabilities[:1 << span]]
@@ -204,7 +195,6 @@ for _token in ("Sample", "Sample0", "Sample9", "Sample16", "Sample1<a"):
 SampleFakeTests.test_reject_huge_span = rejected_case("Sample" + "1" * 5000)
 
 
-# These fixtures are deliberately small; exact branch arithmetic needs no numpy.
 CASES = {
     "positive_control": ([["H", "H"], ["•", "Sample1"]], 2, 1, 1, 1, 1),
     "negative_control": ([["H", "H"], ["◦", "Sample1"]], 2, 1, 1, 1, 0),

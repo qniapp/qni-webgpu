@@ -1,4 +1,3 @@
-"""Phase-sensitive controlled gates and sparse controlled-detector regressions."""
 import cmath
 import math
 import unittest
@@ -14,7 +13,6 @@ R = math.sqrt(.5)
 
 
 def matrix(gate, theta=math.pi / 2):
-    """Independent transcription of apps/web/src/gates/params.rs (including phases)."""
     c, s = math.cos(theta / 2), math.sin(theta / 2)
     return {
         "H": ((R, R), (R, -R)),
@@ -34,7 +32,6 @@ def matrix(gate, theta=math.pi / 2):
 
 
 def apply(state, target, gate, controls=(), antis=(), theta=math.pi / 2):
-    """Sparse little-endian reference; one joint mask/value predicate."""
     m = matrix(gate, theta)
     bit = 1 << target
     mask = sum(1 << wire for wire in (*controls, *antis))
@@ -50,7 +47,6 @@ def apply(state, target, gate, controls=(), antis=(), theta=math.pi / 2):
 
 
 def detector(state, target, axis, controls=(), antis=()):
-    """Unconditional axis rotation, {C*|1><1|, I-P}, inverse rotation."""
     rotated = apply(state, target, "S†") if axis == "Y" else state
     rotated = apply(rotated, target, "H")
     mask = sum(1 << wire for wire in (target, *controls, *antis))
@@ -77,7 +73,6 @@ def rounded(state):
 
 
 def distance(actual, expected):
-    """Absolute amplitudes, NOT equivalence up to global phase."""
     if len(actual) != len(expected):
         return math.inf
     return max((abs(complex(a)-complex(b)) for a, b in zip(actual, expected)), default=0)
@@ -330,7 +325,6 @@ for _qubits in (10, 11):
 
 
 def sharing_columns(axis, order, same):
-    """Nine predicate wires plus a disjoint postselection target."""
     detector_column = ["•"]*8 + [axis+"Detector", 1]
     projection = [1]*9 + ["|0⟩⟨0|"]
     if same:

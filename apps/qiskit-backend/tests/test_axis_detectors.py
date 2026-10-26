@@ -1,4 +1,3 @@
-"""Axis detector contracts, with a dependency-free exact branch reference."""
 import cmath
 import math
 import unittest
@@ -112,7 +111,6 @@ for _axis in ("X", "Y"):
 
 
 def single_gate(state, wire, matrix):
-    """Little-endian statevector, without importing numpy or Qiskit."""
     result = state[:]
     bit = 1 << wire
     for index in range(len(state)):
@@ -135,11 +133,6 @@ MATRICES = {
 
 
 def exact_branches(ops, qubits):
-    """Interpret emitted primitive operations; projector's no-click is I-P.
-
-    Each result is (probability, outcome history, normalized pure state).
-    In particular no-click must NOT measure the controls separately.
-    """
     branches = [(1.0, (), [1 + 0j] + [0j] * ((1 << qubits) - 1))]
     for op in ops:
         updated = []
@@ -175,7 +168,6 @@ def exact_branches(ops, qubits):
 
 
 def flat(state):
-    # Match the WebGPU spec's interleaved real/imaginary arrays, including phase.
     return [round(part, 4) if abs(part) > 0.00005 else 0
             for value in state for part in (complex(value).real, complex(value).imag)]
 
@@ -202,7 +194,6 @@ def joint_expected(axis, control, outcome):
                 [0.4082, 0, 0.8165, 0, 0.4082, 0, 0, 0])
 
 
-# WebGPU parity fixtures: apps/web/tests/web-detector.spec.ts.
 class AxisDetectorWebGpuParityTests(unittest.TestCase):
     pass
 
