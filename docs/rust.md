@@ -45,20 +45,15 @@ cd apps/tui
 cargo audit
 ```
 
-ライセンス/依存ポリシー:
+ライセンス/依存ポリシー（リポジトリ直下で実行）:
 
 ```
-cd apps/tui
-cargo deny check --config ../../deny.toml
+cargo deny --manifest-path apps/tui/Cargo.toml check
 ```
 
 ## ワンコマンド
 
-```
-./scripts/check.sh
-```
-
-または:
+リポジトリ直下で実行する:
 
 ```
 make check

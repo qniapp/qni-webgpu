@@ -3,7 +3,7 @@
 check: fmt lint test snapshots audit deny
 
 fmt:
-	cd apps/tui && cargo fmt
+	cd apps/tui && cargo fmt --check
 
 lint:
 	cd apps/tui && cargo clippy -- -D warnings
