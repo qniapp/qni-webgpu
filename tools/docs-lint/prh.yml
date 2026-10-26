@@ -35,7 +35,6 @@ rules:
       - /ディテクター/
       - /ディテクタ(?!ー)/
 
-  # ── 表示ブロック (Display blocks) 用語統一 ──
   - expected: 確率表示ブロック
     patterns:
       - /Probability display/
@@ -63,7 +62,6 @@ rules:
       - /sample display/
       - /サンプル表示ゲート/
 
-  # ── パリティ制御 (Parity controls) 用語統一 ──
   - expected: パリティ制御
     patterns:
       - /Parity Control/
@@ -77,7 +75,6 @@ rules:
       - /display gate/
       - /表示ゲート/
 
-  # ── レイアウトの向き (docs/mobile-layout.md) ──
   - expected: 縦レイアウト
     patterns:
       - /縦向きレイアウト/
@@ -98,12 +95,10 @@ rules:
       - /パレットカルーセル/
       - /[Pp]alette carousel/
 
-  # ── 回路要素の呼び名 ──
   - expected: 測定ゲート
     patterns:
       - /計測ゲート/
 
-  # ── コメントブロック (qni の circuit-block、コード上は CircuitBlock) 用語統一 ──
   - expected: コメントブロック
     patterns:
       - /回路コメントブロック/
@@ -114,7 +109,6 @@ rules:
       - /回路コメントブロック/
       - /サーキットブロック/
 
-  # ── ブロッホ + 和語 ──
   - expected: ブロッホ球
     pattern: /Bloch 球/
   - expected: ブロッホベクトル
@@ -132,7 +126,6 @@ rules:
   - expected: ブロッホ値
     pattern: /Bloch 値/
 
-  # ── qubit → 量子ビット (助詞付き narrative のみ; 識別子は誤検出しない) ──
   - expected: 量子ビットを
     pattern: /qubit を/
   - expected: 量子ビットの
@@ -160,7 +153,6 @@ rules:
   - expected: 量子ビットマーカ
     pattern: /qubit マーカ/
 
-  # ── outcome → 測定結果 (Japanese 助詞 / 接頭辞付き narrative のみ) ──
   - expected: 各測定結果
     pattern: /各 outcome/
   - expected: 全測定結果
@@ -178,7 +170,6 @@ rules:
   - expected: 測定結果数
     pattern: /outcome 数/
 
-  # ── ルー語の典型パターン (日本語+英語+助詞) ──
   - expected: シェーダを
     pattern: /shader を/
   - expected: バッファを

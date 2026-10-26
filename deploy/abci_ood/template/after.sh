@@ -1,4 +1,3 @@
-# Wait for the QNI WebGPU server to start.
 echo "Waiting for QNI WebGPU server to open port ${port}..."
 echo "TIMING - Starting wait at: $(date)"
 if wait_until_port_used "${host}:${port}" 90; then
