@@ -1,5 +1,3 @@
-//! Gate body fill, special bodies, and fallback label drawing.
-
 use eframe::egui;
 
 use crate::colors::{lerp_color, with_alpha, Colors};
@@ -20,8 +18,6 @@ pub(crate) fn draw_gate_body(
     draw_gate_body_with_fill(painter, gate_rect, kind, colors, colors.box_fill, false);
 }
 
-/// Paint a gate body with an explicit fill, e.g. qni's disabled fill for a
-/// conditional gate that can never apply.
 pub(crate) fn draw_gate_body_filled(
     painter: &egui::Painter,
     gate_rect: egui::Rect,
@@ -32,10 +28,6 @@ pub(crate) fn draw_gate_body_filled(
     draw_gate_body_with_fill(painter, gate_rect, kind, colors, fill, false);
 }
 
-/// Body outline of a conditional gate (`GateKind::is_ifable`) as
-/// `(half_size, corner_radius)`; X is a circle, the rest share the 6px gate
-/// corner radius. The GPU paints this shape for conditional gates whose fill
-/// depends on a measured outcome; `draw_gate_glyph` paints the glyph on top.
 pub(crate) fn conditional_gate_body_shape(gate_rect: egui::Rect, kind: GateKind) -> (f32, f32) {
     let half_size = gate_rect.width().min(gate_rect.height()) / 2.0;
     let corner_radius = if kind == GateKind::X {
@@ -46,7 +38,6 @@ pub(crate) fn conditional_gate_body_shape(gate_rect: egui::Rect, kind: GateKind)
     (half_size, corner_radius)
 }
 
-/// Paint only the glyph of a gate whose body was painted elsewhere.
 pub(crate) fn draw_gate_glyph(
     painter: &egui::Painter,
     gate_rect: egui::Rect,
@@ -57,7 +48,6 @@ pub(crate) fn draw_gate_glyph(
 }
 
 const GATE_CORNER_RADIUS: u8 = 6;
-/// How far the lit Sample tile's outermost glow ring reaches past the tile.
 const SAMPLE_TILE_HALO: f32 = 2.0;
 
 pub(crate) fn draw_drag_gate_body(
@@ -118,10 +108,6 @@ fn draw_gate_body_with_fill(
         kind,
         GateKind::QftGate | GateKind::QftDaggerGate | GateKind::Increment | GateKind::Decrement
     ) {
-        // Register gates share the unitary body and delegate their glyph
-        // to `draw_gate_icon`. For multi-qubit
-        // spans the icon is anchored to a GATE_SIZE square at the vertical
-        // centre so the lettering stays put even when the body is taller.
         painter.rect_filled(gate_rect, egui::CornerRadius::same(6), fill);
         let cx = gate_rect.center().x;
         let cy = gate_rect.center().y;
@@ -133,8 +119,6 @@ fn draw_gate_body_with_fill(
         draw_gate_icon(painter, icon_rect, kind, colors.label, colors, grabbed);
         return;
     } else if kind == GateKind::BlochDisplay {
-        // qni renders the bloch display as a stand-alone sphere — bg-green-50
-        // background with a gray-400 border (`packages/elements/css/bloch_display.css`).
         let radius = gate_rect.width().min(gate_rect.height()) * 0.5 - 1.0;
         let outline = if grabbed {
             egui::Stroke::new(STROKE_2, fill)
@@ -186,15 +170,10 @@ fn draw_gate_icon_with_fallback(
     } else if kind == GateKind::BlochDisplay {
         colors.bloch_sphere_lines
     } else if kind.is_sampled_measurement() {
-        // qni `measurement_gate.css`: icon color is semantic-color-intermediate (purple).
         colors.semantic_intermediate
     } else if kind == GateKind::Spacer {
-        // qni `spacer_gate.css`: text-neutral-900 (#171717).
         colors.spacer_dots
     } else if kind == GateKind::Write0 || kind == GateKind::Write1 || kind.is_postselection() {
-        // qni `write_gate.css`: ::part(icon) (the brackets) is
-        // semantic-fill-color-disabled (zinc-500). Only the digit itself
-        // is red/blue — handled inside draw_gate_icon.
         colors.semantic_disabled
     } else {
         colors.label
@@ -223,8 +202,6 @@ pub(crate) fn draw_sample_drag_outline(
     );
 }
 
-/// Static unlit tiles for a placed Sample that has no GPU slot yet. Live
-/// samples are drawn by WebGPU; the CPU never decides which tile is lit.
 pub(crate) fn draw_sample_placeholder_tiles(
     painter: &egui::Painter,
     body_rect: egui::Rect,
@@ -243,8 +220,6 @@ pub(crate) fn draw_sample_placeholder_tiles(
     }
 }
 
-/// Palette icon: one lit tile filling the gate body, inset so the halo stays
-/// inside the palette cell.
 fn draw_sample_palette_icon(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
     let size = rect.width().min(rect.height()) - 2.0 * SAMPLE_TILE_HALO;
     let tile = egui::Rect::from_center_size(rect.center(), egui::Vec2::splat(size));
@@ -291,8 +266,6 @@ fn draw_amplitude_preview_body(
     // rendered by WebGPU; the CPU draws no amplitude values.
     painter.rect_filled(rect, egui::CornerRadius::ZERO, background);
 
-    // Palette icons are square: 40px in the palette panel, 48px in the
-    // vertical layout's carousel.
     if (rect.width() - rect.height()).abs() <= 1.0
         && rect.width() <= crate::constants::CAROUSEL_GATE_SIZE + 1.0
     {
@@ -309,8 +282,6 @@ fn draw_amplitude_preview_body(
 }
 
 fn draw_amplitude_palette_icon(painter: &egui::Painter, rect: egui::Rect, colors: &Colors) {
-    // docs/design-system/amplitude-display.html §02: 40×40 mini preview, one cell with
-    // mag²≈50% and phase=5π/4, producing a Q-like lower-right tail.
     let center = rect.center();
     let stroke_width = 2.0;
     let half_stroke = stroke_width * 0.5;
@@ -327,7 +298,6 @@ fn draw_amplitude_palette_icon(painter: &egui::Painter, rect: egui::Rect, colors
         egui::Stroke::new(stroke_width, colors.state_outline),
     );
     painter.circle_filled(center, disk_radius, colors.state_fill);
-    // state_fill disk inset border, matching the spec mock.
     painter.circle_stroke(
         center,
         (disk_radius - 0.5).max(0.0),
@@ -363,9 +333,6 @@ pub(crate) fn draw_density_palette_icon(
     rect: egui::Rect,
     colors: &Colors,
 ) {
-    // docs/design-system/density-matrix-display.html §02: compact 2×2
-    // density preview. Diagonal cells omit the phase needle; off-diagonal
-    // cells keep the same outline + disk grammar with a phase needle.
     let cell = rect.width().min(rect.height()) * 0.5;
     for row in 0..2 {
         for col in 0..2 {
@@ -409,9 +376,6 @@ fn draw_probability_preview_body(
     // GPU Probability render callback, directly from `probability_output`.
     painter.rect_filled(rect, egui::CornerRadius::ZERO, background);
 
-    // docs/design-system/probability-display.html §02: 4 行のガウス風 mini preview。
-    // 本体と同じく右端マーカー、区切り線は
-    // 隣接 2 行の広いバーの右端から右端までだけ引く。
     let row_h = rect.height() / PROBABILITY_PREVIEW_BAR_WIDTHS.len() as f32;
     for (row, &width_ratio) in PROBABILITY_PREVIEW_BAR_WIDTHS.iter().enumerate() {
         let bar_y = rect.top() + row_h * row as f32;

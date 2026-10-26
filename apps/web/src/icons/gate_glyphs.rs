@@ -1,5 +1,3 @@
-//! Gate icon glyphs translated from qni SVG primitives.
-
 use eframe::egui;
 
 use crate::colors::Colors;
@@ -19,8 +17,6 @@ const ANTI_CONTROL_RADIUS: f32 = CONTROL_RADIUS - ANTI_CONTROL_STROKE_WIDTH;
 const DETECTOR_CONTROL_RADIUS: f32 = 5.0;
 const DETECTOR_DIGIT_SCALE: f32 = 0.7;
 
-/// Draws the qni meter icon (half-arc + needle + pivot dot) in `color`. Used
-/// both by the un-fired gate body and the fired overlay (different color).
 pub(crate) fn draw_meter_icon(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {
     let viewbox = VIEWBOX;
     let scale = rect.width() / viewbox;
@@ -144,10 +140,6 @@ pub(super) fn draw_gate_icon(
             true
         }
         GateKind::BlochDisplay => {
-            // Stand-alone sphere with crossed axes drawn directly on the wire,
-            // matching qni's bloch-display element. The dynamic Bloch vector is
-            // overlaid by `render::draw_bloch_display` so it can read the
-            // current state.
             draw_bloch_sphere(painter, rect, color);
             true
         }
@@ -180,7 +172,6 @@ pub(super) fn draw_gate_icon(
             true
         }
         GateKind::Measurement | GateKind::XDetector | GateKind::YDetector => {
-            // qni reference: packages/elements/icon/measurement-gate.svg
             let axis_color = if grabbed {
                 colors.label
             } else {
@@ -190,8 +181,6 @@ pub(super) fn draw_gate_icon(
             true
         }
         GateKind::Spacer => {
-            // qni reference: packages/elements/icon/spacer-gate.svg
-            // Three filled 6×6 squares at x=9, 21, 33 (y=21–27 in viewbox).
             let rect_at = |x: f32| {
                 egui::Rect::from_min_max(
                     map_svg_point_in_rect(rect, SvgPoint::new(x, 21.0), viewbox),
@@ -204,7 +193,6 @@ pub(super) fn draw_gate_icon(
             true
         }
         GateKind::Write0 | GateKind::Write1 => {
-            // qni reference: packages/elements/icon/write-gate.svg
             painter.line_segment([p(6.0, 5.0), p(6.0, 43.0)], stroke);
             painter.line_segment([p(37.4516, 5.0), p(43.5, 24.0)], stroke);
             painter.line_segment([p(43.5, 24.0), p(37.4516, 43.0)], stroke);
@@ -353,9 +341,6 @@ fn draw_arithmetic_icon(
     }
 }
 
-/// SVG 起点でテクスチャ描画するゲートに対する `GateGlyph` への対応。
-/// ここに登録された GateKind は `painter.text` を介さず
-/// `assets/icons/*.svg` から作ったテクスチャで描く。
 fn svg_glyph_for(kind: GateKind) -> Option<super::svg_icon::GateGlyph> {
     use super::svg_icon::GateGlyph;
     Some(match kind {
