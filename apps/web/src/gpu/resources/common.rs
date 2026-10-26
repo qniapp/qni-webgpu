@@ -14,8 +14,6 @@
 //!   initialise the state vector to `|0…0⟩` entirely on the GPU.
 //! * `unit_quad_*` — the `[-1, 1]²` quad geometry used by the state
 //!   render, the bloch overlay, and the measurement digit overlay.
-//!   Identical buffers were duplicated three times in the original
-//!   monolithic file; this module owns one shared pair.
 //!
 //! Each pipeline submodule borrows what it needs through `&Common`
 //! during its `build()` call.

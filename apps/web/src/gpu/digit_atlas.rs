@@ -8,8 +8,7 @@
 use crate::icons::{digit_sdf_rle, DIGIT_SDF_PX_RANGE, DIGIT_SDF_SIZE};
 
 /// Atlas geometry for the measurement digit texture: a 1×2 grid of full
-/// SVG-viewBox SDF cells. The shader draws each cell into a 32 px quad so
-/// Measurement digits match the Write gate digits exactly.
+/// SVG-viewBox SDF cells.
 pub(super) const DIGIT_ATLAS_CELL: u32 = DIGIT_SDF_SIZE as u32;
 pub(super) const DIGIT_ATLAS_WIDTH: u32 = DIGIT_ATLAS_CELL;
 pub(super) const DIGIT_ATLAS_HEIGHT: u32 = DIGIT_ATLAS_CELL * 2;
