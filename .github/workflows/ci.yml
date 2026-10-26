@@ -357,27 +357,3 @@ jobs:
 
       - name: Backend tests
         run: PYTHONPATH=apps/qiskit-backend/src python3 -m unittest discover apps/qiskit-backend/tests
-
-  tui:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Cache Rust artifacts
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-bin: "true"
-          cache-all-crates: "true"
-          workspaces: |
-            apps/tui
-          cache-directories: ~/.cargo/advisory-db
-
-      - name: Install cargo audit/deny/insta
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-audit,cargo-deny,cargo-insta
-
-      - name: TUI check
-        run: make check

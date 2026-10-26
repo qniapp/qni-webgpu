@@ -9,7 +9,6 @@ apps/web/.trunk-generated
 apps/web/output
 apps/web/playwright-report
 apps/web/test-results
-apps/tui/vendor
 .playwright-mcp
 .claude
 .venv

@@ -33,6 +33,3 @@ rm -rf "$qiskit_backend_venv"
 
 echo "==> Qiskit backend tests"
 PYTHONPATH="$ROOT_DIR/apps/qiskit-backend/src" python3 -m unittest discover "$ROOT_DIR/apps/qiskit-backend/tests"
-
-echo "==> TUI: make check"
-make -C "$ROOT_DIR" check

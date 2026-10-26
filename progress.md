@@ -3,21 +3,18 @@ Started: 2026-01-08
 
 ## Codebase Patterns
 - **Monorepo structure**: `apps/`, `docs/`, `scripts/`
-- **Primary apps**: `apps/web`, `apps/tui`, `apps/qiskit-backend`
+- **Primary apps**: `apps/web`, `apps/qiskit-backend`
 - **Top-level verification**: `./scripts/check-all.sh`
-- **TUI lint**: `cd apps/tui && cargo clippy -- -D warnings`
 - **web prerequisites**: `rustup target add wasm32-unknown-unknown` and `cargo install trunk --locked`
 - **確認用サーバ**: Web 側の確認では `trunk serve` を使う
 
 ## Key Projects
 - `apps/web` - egui + WebGPU frontend (Trunk, Playwright tests)
-- `apps/tui` - Terminal UI (ratatui, snapshot/E2E tests)
 - `apps/qiskit-backend` - external GPU execution backend for Qiskit Aer
 
 ## Build Commands
 - web: `cd apps/web && trunk serve --address 127.0.0.1 --port 4174 --no-autoreload`
 - web test: `cd apps/web && pnpm exec playwright test`
-- tui: `cd apps/tui && cargo run`
 - qiskit-backend: `PYTHONPATH=apps/qiskit-backend/src python3 -m qni_qiskit_backend --port 4184 --runner mock`
 
 ---
@@ -48,5 +45,4 @@ Started: 2026-01-08
 ## Review
 - What's correct: README / docs are aligned with current code and config for tool availability, gate sets, and check commands.
 - Fixed: `progress.md` の web 実行コマンドを現行設定（`--address ... --no-autoreload`）に合わせた。
-- Fixed: `docs/tui.md` のコードフェンス崩れを修正し、手順セクションが正しくレンダリングされるようにした。
 - Note: 上記以外の対象ドキュメントは、現行コード/設定との事実不整合は確認されなかった。

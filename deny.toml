@@ -1,8 +1,3 @@
-[advisories]
-ignore = [
-  { id = "RUSTSEC-2017-0008", reason = "ratatui-testlib depends on portable-pty which pulls serial; no maintained replacement yet" },
-]
-
 [licenses]
 allow = [
   "Apache-2.0",

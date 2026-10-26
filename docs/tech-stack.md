@@ -1,9 +1,8 @@
 # Tech Stack
 
-このプロジェクトは **Rust を中心にしたモノレポ** で、用途ごとに Web / TUI / Qiskit backend を持ちます。
+このプロジェクトは **Rust を中心にしたモノレポ** で、用途ごとに Web と Qiskit backend を持ちます。
 
-- **Web PoC**: ブラウザ上で動く量子回路 UI
-- **TUI PoC**: ターミナル上で動く確認用 UI
+- **Web**: ブラウザ上で動く量子回路 UI
 - **Qiskit backend**: 外部 GPU 実行パスを受けるローカル API
 
 ## 全体像
@@ -19,7 +18,7 @@
 
 ### 1. `apps/web` — Web フロントエンド
 
-ブラウザで動く WebGPU PoC です。
+ブラウザで動く WebGPU アプリです。
 
 - 言語: **Rust 2021**
 - UI: **egui / eframe**
@@ -39,22 +38,7 @@
 - `web-sys`
 - `@playwright/test = 1.57.0`
 
-### 2. `apps/tui` — ターミナル UI
-
-Web 版とは別に、ローカルで素早く確認できる TUI PoC です。
-
-- 言語: **Rust 2021**
-- UI: **ratatui**
-- 端末入出力: **crossterm**
-- テスト: **cargo test** + **insta** + **ratatui-testlib**
-
-主な依存関係:
-
-- `ratatui = 0.26`
-- `crossterm = 0.27`
-- `insta = 1`
-
-### 3. `apps/qiskit-backend` — Qiskit backend
+### 2. `apps/qiskit-backend` — Qiskit backend
 
 Web UI の外部 GPU 実行パスを受けるローカル API です。
 
@@ -80,8 +64,7 @@ Web UI の外部 GPU 実行パスを受けるローカル API です。
 - `cargo fmt`
 - `cargo clippy -- -D warnings`
 - `cargo test`
-- `cargo audit`
-- `cargo deny`
+- `cargo insta pending-snapshots`
 
 ### Web 側
 
@@ -114,10 +97,9 @@ GitHub Actions では以下を使って検証します。
 ## 実際のビルド/実行単位
 
 - Web UI を動かす: `apps/web`
-- TUI を動かす: `apps/tui`
 - Qiskit backend を動かす: `apps/qiskit-backend`
 - 全体チェック: `./scripts/check-all.sh`
 
 ## ひとことで言うと
 
-このプロジェクトは、**Rust を中心に、Web は egui + wgpu + WebAssembly + Trunk、TUI は ratatui、外部 GPU 実行は Python 製 Qiskit backend で構成されたモノレポ**です。
+このプロジェクトは、**Rust を中心に、Web は egui + wgpu + WebAssembly + Trunk、外部 GPU 実行は Python 製 Qiskit backend で構成されたモノレポ**です。
