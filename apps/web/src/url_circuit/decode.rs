@@ -1,5 +1,3 @@
-//! URL decoder (`location.hash` / qni path payload → `PlacedGate`s).
-
 use crate::app::{CircuitBlocks, CircuitColumnIndex, GateId, GateIdAllocator, PlacedGate};
 use crate::gates::GateSpan;
 use crate::gates::{GateFlag, GateKind, ParametricAngle, SAMPLE_MAX_SPAN};
@@ -7,28 +5,6 @@ use crate::layout::gate_width_cols;
 
 use super::parser::{parse_circuit_document, CircuitDocument};
 
-// ─────────────────────────────────────────────────────────────────────
-//  URL → circuit decoder. Restores a circuit on page load so the URL
-//  is shareable: copy the URL → paste into a new tab → same circuit.
-//  Two URL shapes are accepted:
-//
-//    * Our native format: `#{"cols":[...]}` (or `#circuit={...}` for
-//      Quirk URLs the user pasted in).
-//    * qni's path format: `/{...}` with the JSON percent-encoded.
-//
-//  Tokens (`"H"`, `"•"`, `"QFT3"`, …) are mapped back to `GateKind`
-//  via `token_to_gate`. The semantic column index (= qni step index)
-//  and wire index (= qubit number) are restored from the grid. Columns
-//  colliding with earlier wide displays, and all later columns, shift right.
-//
-//  qni circuit-block markers are split out before that: a column holding
-//  only `"{<label>"` (or qni's `"[<label>"`) opens a block and `"}"` (or
-//  `"]"`) closes it. Marker columns are not circuit steps, so the gate
-//  columns after them are renumbered as if they were absent.
-// ─────────────────────────────────────────────────────────────────────
-
-/// A decoded circuit: placed gates with sequential ids plus the circuit
-/// blocks drawn around them and qni's (trimmed, possibly empty) title.
 #[derive(Debug, Default)]
 pub(crate) struct DecodedCircuit {
     pub(crate) gates: Vec<PlacedGate>,
@@ -37,15 +13,12 @@ pub(crate) struct DecodedCircuit {
     pub(crate) title: String,
 }
 
-/// Decode the URL. Returns an empty circuit (with `next_gate_id = 1`) if no
-/// circuit payload was found.
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn parse_circuit_from_url() -> DecodedCircuit {
     let Some(window) = web_sys::window() else {
         return DecodedCircuit::default();
     };
     let location = window.location();
-    // 1. Hash fragment (our native write path).
     if let Ok(hash) = location.hash() {
         if let Some(circuit) = try_decode(hash.strip_prefix('#').unwrap_or(&hash)) {
             return circuit;
@@ -92,10 +65,6 @@ pub(crate) fn current_url_has_circuit_payload() -> bool {
     false
 }
 
-/// Decode one canonical circuit JSON checkpoint. Unlike URL parsing,
-/// `{"cols":[]}` is a valid empty circuit and returns no gates with
-/// `next_gate_id = 1`. Malformed JSON (including malformed block markers)
-/// also decodes to the empty circuit.
 pub(crate) fn parse_circuit_json(json: &str) -> DecodedCircuit {
     let Some((mut columns, title)) = parse_circuit_document(json).and_then(split_document) else {
         return DecodedCircuit::default();
@@ -111,9 +80,6 @@ pub(crate) struct CircuitJsonSummary {
     pub(crate) gate_count: usize,
 }
 
-/// Summarise a canonical circuit JSON payload without simulating it.
-/// Used by browser-local persistence metadata; state-vector / Bloch /
-/// measurement values remain GPU-only.
 pub(crate) fn summarize_circuit_json(json: &str) -> Option<CircuitJsonSummary> {
     let mut parsed = split_block_markers(parse_circuit_document(json)?.cols)?;
     let cols = &parsed.cols;
@@ -181,13 +147,11 @@ fn split_document(document: CircuitDocument) -> Option<(SplitColumns, String)> {
     Some((split_block_markers(document.cols)?, document.title))
 }
 
-/// Gate columns with the circuit-block marker columns removed.
 struct SplitColumns {
     cols: Vec<Vec<Option<String>>>,
     blocks: CircuitBlocks,
 }
 
-/// What a raw `cols` entry means for circuit blocks.
 enum ColumnRole {
     Gates,
     OpenBlock(String),
@@ -288,9 +252,6 @@ fn build_gates(
             let Some(token) = token_to_gate(token) else {
                 continue;
             };
-            // 0 は不正なスパン。`GateSpan::try_new` を唯一の下限ゲートにし、
-            // `unwrap_or(SINGLE)` のような暗黙の 0 → 1 丸めは置かない（不正な
-            // トークンは復元せず読み飛ばす）。
             let Ok(span) = GateSpan::try_new(token.span) else {
                 continue;
             };
@@ -347,12 +308,6 @@ fn build_gates(
     (gates, cols.len() + offset)
 }
 
-/// Decodes one palette entry token with the circuit JSON vocabulary, so an
-/// embed palette accepts what a circuit cell accepts: `H`, `|0>`, `•`,
-/// `Bloch`, and parametric `P(π/4)`. Span suffixes (`QFT3`) are rejected
-/// because palette gates always start with their default span.
-/// Measurement variables and conditions (`Measure>a`, `X<a`) are rejected
-/// too: a palette gate is a template without per-circuit variable names.
 pub(crate) fn palette_token_to_gate(token: &str) -> Option<(GateKind, Option<ParametricAngle>)> {
     match token_to_gate(token) {
         Some(DecodedToken {
@@ -366,7 +321,6 @@ pub(crate) fn palette_token_to_gate(token: &str) -> Option<(GateKind, Option<Par
     }
 }
 
-/// One decoded `cols` entry.
 #[derive(Debug, PartialEq)]
 struct DecodedToken {
     kind: GateKind,
@@ -379,11 +333,6 @@ struct DecodedToken {
     flag: Option<GateFlag>,
 }
 
-/// Reverse of `gate_token`. Handles the qni measurement variable suffixes
-/// (`Measure>a`, `X<a`), the `QFT<n>` / `QFT†<n>` span suffixes, and the
-/// parametric `P(<angle>)` / `Rx(<angle>)` / `Ry(<angle>)` / `Rz(<angle>)`
-/// forms. Returns `None` for unrecognised tokens (e.g. tokens emitted by a
-/// future qni version we don't yet know about).
 fn token_to_gate(token: &str) -> Option<DecodedToken> {
     let (base, flag) = GateFlag::split_token(token)?;
     let (kind, span, angle) = base_token_to_gate(base)?;
@@ -406,7 +355,6 @@ fn chance_span(suffix: &str) -> Option<usize> {
     suffix.parse().ok().filter(|span| (2..=16).contains(span))
 }
 
-/// Decode a token without its measurement variable suffix.
 fn base_token_to_gate(token: &str) -> Option<(GateKind, usize, Option<ParametricAngle>)> {
     for (prefix, kind) in [("inc", GateKind::Increment), ("dec", GateKind::Decrement)] {
         if let Some(rest) = token.strip_prefix(prefix) {
@@ -461,10 +409,6 @@ fn base_token_to_gate(token: &str) -> Option<(GateKind, usize, Option<Parametric
         }
         return Some((GateKind::DensityMatrixDisplay, span, None));
     }
-    // Parametric `P(...)` / `Rx(...)` / `Ry(...)` / `Rz(...)` —
-    // mirrors qni's `quantum-circuit-element.ts::angleParameter`:
-    // strip the outer parens, trim, replace the first `_` with `/`
-    // so the URL-safe `"π_2"` becomes the canonical `"π/2"`.
     for (prefix, kind) in [
         ("P(", GateKind::Phase),
         ("Rx(", GateKind::Rx),
@@ -482,8 +426,6 @@ fn base_token_to_gate(token: &str) -> Option<(GateKind, usize, Option<Parametric
     GateKind::from_url_token(token).map(|kind| (kind, 1, None))
 }
 
-/// Assign sequential gate ids starting from 1 and keep the allocator so
-/// `QniApp` can resume without collision.
 fn with_gate_ids(
     mut gates: Vec<PlacedGate>,
     blocks: CircuitBlocks,
@@ -811,7 +753,6 @@ mod tests {
 
     #[test]
     fn zero_span_qft_token_is_ignored() {
-        // スパン 0 は不正。`GateSpan::try_new` が弾き、暗黙に 1 へ丸めず読み飛ばす。
         let gates = parse_circuit_json(r#"{"cols":[["QFT0"]]}"#).gates;
 
         assert_eq!(gates.len(), 0);
@@ -819,7 +760,6 @@ mod tests {
 
     #[test]
     fn qft_span_decodes() {
-        // `.max(1)` 削除後も正常スパンはそのまま復元される。
         let gates = parse_circuit_json(r#"{"cols":[["QFT3"]]}"#).gates;
 
         assert_eq!(
@@ -830,7 +770,6 @@ mod tests {
 
     #[test]
     fn probability_span_over_max_clamps_to_sixteen() {
-        // `clamp(1, 16)` → `min(16)` 変更後も上限 16 への切り詰めは保たれる。
         let gates = parse_circuit_json(r#"{"cols":[["Probability20"]]}"#).gates;
 
         assert_eq!(
@@ -841,7 +780,6 @@ mod tests {
 
     #[test]
     fn probability_zero_span_is_ignored() {
-        // スパン 0 は `GateSpan::try_new` が弾き、暗黙に 1 へ丸めず読み飛ばす。
         let gates = parse_circuit_json(r#"{"cols":[["Probability0"]]}"#).gates;
 
         assert_eq!(gates.len(), 0);
@@ -1394,7 +1332,6 @@ mod tests {
         );
     }
 
-    /// qni `apps/tutorial/bb84_circuit.html` (qniapp/qni@acf87bf).
     const BB84_JSON: &str = r#"{"cols":[["{送信内容を決める2つの乱数を生成"],["|0>"],["H"],["Measure>aliceX"],["|0>"],["H"],["Measure>aliceH"],["}"],["|0>"],["{|1⟩をセット"],["X<aliceX"],["}"],["Bloch"],["{Hを適用"],["H<aliceH"],["}"],["Bloch"],["Swap","Swap"],["{🕶イブ"],[1,"Measure>eveX"],[1,"|0>"],[1,"X<eveX"],[1,"Bloch"],["}"],[1],["{Hのための乱数を生成"],[1,1,"|0>"],[1,1,"H"],[1,1,"Measure>bobH"],["}"],[1,"Swap","Swap"],["{Hを適用"],[1,1,"H<bobH"],["}"],[1,1,"Bloch"],["{測定"],[1,1,"Measure"],["}"],[1]]}"#;
 
     #[test]
