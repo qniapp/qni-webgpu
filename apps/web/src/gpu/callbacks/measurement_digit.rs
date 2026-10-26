@@ -6,13 +6,8 @@ use eframe::{egui_wgpu, wgpu};
 use super::super::params::{MeasurementDigitInstance, MeasurementDigitParams};
 use super::super::resources::StateVectorResources;
 
-/// Renders the 0/1 measurement digit straight from
-/// `measurement_aux_buffer.z` (the GPU-sampled outcome). Static meter icon
-/// (purple or zinc-200 ring) is still painted by egui — only the digit is
-/// quantum-state-derived.
 pub(crate) struct MeasurementDigitCallback {
     pub(crate) instances: Arc<[MeasurementDigitInstance]>,
-    /// See `BlochOverlayCallback::viewport_min`.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) zero_color: [f32; 4],
@@ -72,8 +67,6 @@ impl egui_wgpu::CallbackTrait for MeasurementDigitCallback {
         }
         render_pass.set_pipeline(&resources.digit.pipeline);
         render_pass.set_bind_group(0, &resources.digit.bind_group, &[]);
-        // Reuse the bloch overlay's quad geometry — both render full-rect
-        // quads with `[-1..1]` corners.
         render_pass.set_vertex_buffer(0, resources.common.unit_quad_vertex_buffer.slice(..));
         render_pass.set_vertex_buffer(1, resources.digit.instance_buffer.slice(..));
         render_pass.set_index_buffer(

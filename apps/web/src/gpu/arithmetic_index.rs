@@ -1,5 +1,3 @@
-// Shared only with host verification and build-time WGSL generation.
-// Controls are external to the contiguous target field; shifts must be < 32.
 pub(crate) fn source_index(
     i: u32,
     target_shift: u32,

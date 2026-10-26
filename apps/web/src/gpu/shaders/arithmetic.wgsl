@@ -1,5 +1,3 @@
-// Out-of-place inverse lookup for a modular basis permutation.
-// Controls must be external to the target field (enforced by the plan).
 struct ArithmeticParams {
     state_count: u32,
     target_shift: u32,

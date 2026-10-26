@@ -1,16 +1,3 @@
-//! Measurement reduce (sample) + collapse compute pipelines.
-//!
-//! * `reduce_pipeline` reads the state vector and writes
-//!   `(pZero, r, outcome, sqrt_p_kept)` into `aux_buffer`. Two bind
-//!   groups so we can read from either ping-pong state buffer.
-//! * `collapse_pipeline` reads `aux_buffer` plus the state-in buffer
-//!   and writes the renormalised post-measurement state to the
-//!   state-out buffer. Layout has *four* bindings (state_in,
-//!   state_out, aux, params).
-//!
-//! No render pipelines here — the on-screen digit lives in `digit.rs`
-//! and only reads `aux_buffer`.
-
 mod buffers;
 mod collapse;
 mod reduce;

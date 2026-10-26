@@ -1,9 +1,7 @@
 
 struct ProbabilityPopupParams {
-  // Egui callback viewport in CSS pixels.
   viewport_min: vec2<f32>,
   viewport_size: vec2<f32>,
-  // Top-left of the row-0 (`raw`) value text, in egui pixels.
   value_anchor: vec2<f32>,
   row_pitch: f32,
   _pad_row: f32,
@@ -30,7 +28,7 @@ const GLYPH_B: u32 = 17u;
 const GLYPH_INFINITY: u32 = 18u;
 const GLYPH_BLANK: u32 = 0xFFFFu;
 
-const VALUE_CHARS: u32 = 12u;  // fixed value column width; raw/log strings are right-aligned
+const VALUE_CHARS: u32 = 12u;
 
 fn row_char_count(_row: u32) -> u32 {
   return VALUE_CHARS;
@@ -75,12 +73,9 @@ fn int_digit_count_3(value_abs: f32) -> u32 {
 }
 
 fn glyph_raw(idx: u32, prob_01: f32) -> u32 {
-  // Quirk: 'raw: ' + (p * 100).toFixed(4) + '%'. CSS spec uses
-  // margin-left:auto for the value span, so align the formatted text to the
-  // right edge of the fixed value column instead of padding after it.
   let pct = round_to(clamp(prob_01, 0.0, 1.0) * 100.0, 4u);
   let int_digits = int_digit_count_3(pct);
-  let text_len = int_digits + 6u; // integer + '.' + four decimals + '%'
+  let text_len = int_digits + 6u;
   let start = VALUE_CHARS - text_len;
   if (idx < start) { return GLYPH_BLANK; }
   let local = idx - start;
@@ -92,8 +87,6 @@ fn glyph_raw(idx: u32, prob_01: f32) -> u32 {
 }
 
 fn glyph_negative_infinity(idx: u32) -> u32 {
-  // Quirk's Math.log10(0).toFixed(1) yields '-Infinity'. In qni-webgpu,
-  // render the same mathematical value in compact human-readable form: '-∞ dB'.
   let start = VALUE_CHARS - 5u;
   if (idx < start) { return GLYPH_BLANK; }
   let local = idx - start;
@@ -105,15 +98,13 @@ fn glyph_negative_infinity(idx: u32) -> u32 {
 }
 
 fn glyph_log(idx: u32, prob_01: f32) -> u32 {
-  // Quirk: 'log: ' + (Math.log10(p) * 10).toFixed(1) + ' dB'. Keep the
-  // visible text right-aligned in the same value column as RAW.
   if (prob_01 <= 0.0) { return glyph_negative_infinity(idx); }
 
-  let db = round_to(log(prob_01) * 4.342944819, 1u); // 10 / ln(10)
+  let db = round_to(log(prob_01) * 4.342944819, 1u);
   let db_abs = abs(db);
   let int_digits = int_digit_count_3(db_abs);
   let sign_chars = select(0u, 1u, db < 0.0);
-  let text_len = sign_chars + int_digits + 5u; // sign + integer + '.' + tenth + ' dB'
+  let text_len = sign_chars + int_digits + 5u;
   let start = VALUE_CHARS - text_len;
   if (idx < start) { return GLYPH_BLANK; }
   var local = idx - start;

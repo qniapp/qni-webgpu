@@ -13,9 +13,6 @@ use super::super::readback::PROBABILITY_SLOT_MAP;
 use super::super::readback::{ProbabilityGpuHandle, PROBABILITY_GPU_HANDLE};
 use super::super::resources::StateVectorResources;
 
-/// Renders Probability display bars straight from the GPU probability buffer
-/// produced during recompute. The CPU supplies only geometry, colors, and the
-/// hovered row index; probabilities never leave GPU memory in production.
 pub(crate) struct ProbabilityDisplayCallback {
     pub(crate) instances: Arc<[ProbabilityInstance]>,
     pub(crate) use_drag_preview_buffer: bool,

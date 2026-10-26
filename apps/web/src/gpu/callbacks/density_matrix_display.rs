@@ -11,8 +11,6 @@ use super::super::readback::DENSITY_SLOT_MAP;
 use super::super::readback::{DensityGpuHandle, DENSITY_GPU_HANDLE};
 use super::super::resources::StateVectorResources;
 
-/// Renders Density Matrix display cells straight from the GPU density buffer.
-/// The CPU supplies only geometry, colours, render mode, and hovered cell index.
 pub(crate) struct DensityMatrixDisplayCallback {
     pub(crate) instances: Arc<[DensityInstance]>,
     pub(crate) viewport_min: [f32; 2],

@@ -2,11 +2,6 @@ use eframe::wgpu;
 
 use super::super::resources::StateVectorResources;
 
-/// Issue C: GPU-only |0…0⟩ initialization. `clear_buffer` zeros the active
-/// state range, then `copy_buffer_to_buffer` writes the ground-state amplitude
-/// into slot 0. Both live in the same encoder as the gate dispatches, so the
-/// auto-inserted memory barriers make the first ApplyGate read this fresh
-/// |0…0⟩ vector.
 pub(super) fn encode_ground_state_init(
     encoder: &mut wgpu::CommandEncoder,
     resources: &StateVectorResources,

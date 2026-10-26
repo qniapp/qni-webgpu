@@ -9,9 +9,6 @@ use super::super::params::{
 };
 use super::super::resources::StateVectorResources;
 
-/// Per-variant params packed in the same order each op variant appears in the
-/// linear op stream. The dispatch encoder later copies each packed slot into
-/// the tiny uniform buffer immediately before its dispatch.
 pub(super) struct PackedRecomputeParams {
     gate: Vec<GateParams>,
     arithmetic: Vec<super::super::params::ArithmeticParams>,
@@ -169,10 +166,6 @@ impl PackedRecomputeParams {
         packed
     }
 
-    /// Issue A pre-pass: upload all per-op params in at most one
-    /// `queue.write_buffer` per variant. The recompute encoder then sources
-    /// these staging slots via `copy_buffer_to_buffer`, so all dispatches can
-    /// stay in one encoder + one submit.
     pub(super) fn upload(&self, queue: &wgpu::Queue, resources: &StateVectorResources) {
         if !self.postselection.is_empty() {
             queue.write_buffer(

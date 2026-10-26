@@ -1,10 +1,3 @@
-//! Probability display probability reduce + gate-body render pipeline.
-//!
-//! The compute pass marginalizes the current state vector into a per-display
-//! probability buffer. The render pass samples that storage buffer directly to
-//! paint Quirk-style bars inside each placed Probability display. No production
-//! GPU→CPU readback is involved.
-
 use eframe::wgpu;
 
 use super::super::params::{

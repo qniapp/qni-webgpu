@@ -1,23 +1,3 @@
-//! Resources shared across every GPU subsystem.
-//!
-//! * `state_buffers` — the two ping-pong state-vector buffers. Every
-//!   pipeline (compute, render, bloch, measure, popup-value) reads or
-//!   writes them, so they live here rather than inside any one
-//!   subsystem.
-//! * `state_preview_buffer` — state-panel snapshot currently selected by
-//!   hover / breakpoint. It is populated by GPU copy from the step cache.
-//! * `state_snapshot_cache_buffer` — GPU-resident per-column snapshots,
-//!   qni-style. Hovering a column copies one cached slot into
-//!   `state_preview_buffer` without rerunning the simulation.
-//! * `state_seed_buffer` — 8-byte (1.0, 0.0) read-only seed copied
-//!   into `state_buffers[0]` at the start of every recompute to
-//!   initialise the state vector to `|0…0⟩` entirely on the GPU.
-//! * `unit_quad_*` — the `[-1, 1]²` quad geometry used by the state
-//!   render, the bloch overlay, and the measurement digit overlay.
-//!
-//! Each pipeline submodule borrows what it needs through `&Common`
-//! during its `build()` call.
-
 use eframe::wgpu;
 use wgpu::util::DeviceExt;
 

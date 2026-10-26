@@ -1,12 +1,8 @@
 
 struct RenderParams {
-  // Egui callback viewport in CSS pixels. NDC -1..1 maps to this rect, NOT
-  // the full canvas — see BLOCH_OVERLAY_SHADER for the explanation.
   viewport_min: vec2<f32>,
   viewport_size: vec2<f32>,
-  // Top-left of the state-circle grid (egui pixels).
   panel_origin: vec2<f32>,
-  // Total grid extent (cols * cell_pitch, rows * cell_pitch).
   panel_size: vec2<f32>,
   cell_pitch: f32,
   radius: f32,
@@ -29,25 +25,16 @@ struct RenderParams {
 @group(0) @binding(2) var<storage, read> selected_state_norm: array<vec4<f32>>;
 
 struct VsIn {
-  @location(0) position: vec2<f32>,  // unit quad in -1..1
+  @location(0) position: vec2<f32>,
 };
 
 struct VsOut {
   @builtin(position) clip: vec4<f32>,
-  @location(0) panel_local: vec2<f32>,  // 0..panel_size in egui pixels
+  @location(0) panel_local: vec2<f32>,
 };
 
-// Single quad covering the entire grid. The fragment shader figures out
-// which (col, row) cell each pixel belongs to and draws the corresponding
-// state circle. This replaces an N-instance instanced draw (one quad per
-// cell) — N == 2^qubits, up to 65 536 — and avoids the per-instance
-// dispatch overhead that dominates frame time on contended GPUs.
 @vertex
 fn vs_main(input: VsIn) -> VsOut {
-  // Expand the quad outward by `pad` so the edge cells' stroke + 1 px AA
-  // fringe (which sits half_stroke past the cell box, plus an fwidth-worth
-  // of edge fade) has somewhere to render. Without this the top / left
-  // pixels of the (col=0, row=0) cell get clipped at panel_origin.
   let pad = params.stroke * 0.5 + 1.0;
   let pad_v = vec2<f32>(pad);
   let panel_local =
@@ -64,12 +51,6 @@ fn vs_main(input: VsIn) -> VsOut {
   return out;
 }
 
-// Pre-multiplied colour contribution from a single (col, row) cell at this
-// pixel. Returns zero outside everything the cell renders (i.e. outside
-// the outline, outside the fill, off the needle). The egui `rect_filled`
-// panel surface is drawn underneath in a separate pass, so the cell does
-// NOT need to fill its interior with `params.surface`.
-//
 // `edge` is the pixel-sized fwidth value pre-computed by the caller in
 // uniform control flow — must not be re-derived inside this function
 // because the bounds checks in fs_main break uniform flow before reaching here.
@@ -84,8 +65,6 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
     return vec4<f32>(0.0);
   }
   let display_index = row * params.cols + col;
-  // q0=LSB（リトルエンディアン）なので、表示セル |b_{n-1}..b_0⟩ の整数値 display_index が
-  // そのまま state バッファの添字になる。内部 state index も q0=bit0 で格納するため reverseBits は不要。
   let amp = state[display_index];
   let prob = clamp(amp.x * amp.x + amp.y * amp.y, 0.0, 1.0);
   // Match the 1e-6 amplitude cutoff used by Amplitude / Density Display.
@@ -93,18 +72,12 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
   // Suppress their phase decoration, without changing the GPU state or fill.
   let has_visible_phase = prob > 1.0e-12;
 
-  // Hover darken — qni's `:host(:hover) #border { filter: brightness(0.9) }`
-  // extended to fill + needle + outline in one go. -1 = no hovered cell.
   let hover_mult = select(1.0, 0.9, i32(display_index) == params.hovered_cell);
 
-  // Layer 1: probability fill — solid disc whose radius is √prob × inner_radius.
   let fill_radius = params.inner_radius * sqrt(prob);
   let fill_alpha = 1.0 - smoothstep(fill_radius - edge, fill_radius + edge, dist);
   var color = vec4<f32>(params.fill.rgb * hover_mult * fill_alpha, fill_alpha);
   if (fill_radius >= 1.5) {
-    // Match Amplitude / Density Display: blue-400 1px inset rim whose
-    // outer edge is clamped to the fill radius, so the probability area
-    // does not grow when the darker rim is added.
     let disk_border_radius = fill_radius - 0.5;
     let disk_border_inner = 1.0 - smoothstep(
       disk_border_radius - 0.5 - edge,
@@ -121,7 +94,6 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
     color = disk_border_pre + color * (1.0 - disk_border_pre.a);
   }
 
-  // Layer 2: phase needle (only above the display cutoff).
   if (has_visible_phase) {
     let phase = atan2(amp.y, amp.x);
     let dir = vec2<f32>(-sin(phase), -cos(phase));
@@ -133,9 +105,6 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
     color = needle_pre + color * (1.0 - needle_pre.a);
   }
 
-  // Layer 3: outline ring at radius=params.radius, width=stroke. AA is
-  // symmetric on inner / outer edges (both straddle their nominal radii
-  // with `edge` half-width); rounder/cleaner than a one-sided fringe.
   let outline_rgba = select(params.outline_zero, params.outline, has_visible_phase);
   let outline_inner =
     1.0 - smoothstep(params.radius - half_stroke - edge, params.radius - half_stroke + edge, dist);
@@ -150,22 +119,9 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
 
 @fragment
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
-  // Single-cell sampling: each pixel maps to exactly one (col, row) and
-  // evaluates that cell only. The (col, row) lookup is shifted by half a
-  // gap so the cell-cell boundary falls at the *centre* of the panel
-  // surface seam, not at the start of the next cell's slot. Without the
-  // shift, the right-hand cell's left-edge AA fringe would fall inside
-  // the left-hand cell's slot and never get drawn; the result is an
-  // asymmetric outline with a fading right side and a sharp left side,
-  // visible as a "halo" between adjacent circles. With the shift each
-  // cell renders its own outer AA on its own side of the gap, producing
-  // a symmetric 0.5 / 0.5 pair that reads as a continuous gradient.
-  //
   // `edge` is computed once here in uniform control flow and passed down
   // to `cell_contribution`; the per-cell function must not call fwidth
-  // itself because the bounds-check below would break uniform flow. Match
-  // Amplitude / Density Display's tightened SDF AA width so the state panel
-  // circles read with the same sharpness.
+  // itself because the bounds-check below would break uniform flow.
   let edge = max(0.5, length(fwidth(input.panel_local)) * 0.65);
   if (!(selected_state_norm[0].x > 0.000000000001)) {
     if (any(input.panel_local < vec2<f32>(0.0)) || any(input.panel_local >= params.panel_size)) {
