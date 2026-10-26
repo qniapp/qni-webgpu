@@ -51,9 +51,6 @@ impl DragController {
             next_pos.y = line_y - GATE_SIZE / 2.0;
             next_wire = WireIndex::new(line_index);
             let center_x = next_pos.x + GATE_SIZE / 2.0;
-            // Keep horizontal snapping sticky, not magnetic: outside the
-            // snap radius the dragged gate must keep following the pointer
-            // so dropping left/right of the circuit can remove it.
             if let Some(snap) = nearest_circuit_snap(
                 center_x,
                 line_index,

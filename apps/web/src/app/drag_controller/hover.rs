@@ -28,10 +28,6 @@ impl DragController {
         ctx: &egui::Context,
     ) {
         if let Some(cursor) = pointer.local_pos {
-            // Editing-locked circuits must not show edit affordances: no gate
-            // hover ring, resize handles, display-cell hover, palette hover, or
-            // grab cursor. Step preview remains available because it is an
-            // inspection aid, not an editing affordance.
             let edit_hover_allowed = !app.library.active_locked();
             let circuit_hit_allowed = geometry.circuit_hit_allowed(pointer.screen_pos);
             let upright = geometry.upright();

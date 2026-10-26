@@ -28,11 +28,11 @@ impl QniApp {
                 let mut steps: i32 = 0;
                 while self.state_panel.aspect_wheel_accum >= ASPECT_WHEEL_PER_STEP {
                     self.state_panel.aspect_wheel_accum -= ASPECT_WHEEL_PER_STEP;
-                    steps -= 1; // positive scroll → taller (cols −1)
+                    steps -= 1;
                 }
                 while self.state_panel.aspect_wheel_accum <= -ASPECT_WHEEL_PER_STEP {
                     self.state_panel.aspect_wheel_accum += ASPECT_WHEEL_PER_STEP;
-                    steps += 1; // negative scroll → wider (cols +1)
+                    steps += 1;
                 }
                 if steps != 0 {
                     let new_aspect = (self.state_panel.aspect_index as i32 + steps)

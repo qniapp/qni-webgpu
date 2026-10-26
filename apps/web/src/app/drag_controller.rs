@@ -93,7 +93,6 @@ impl CircuitInputGeometry {
         }
     }
 
-    /// Input geometry for the app's current orientation.
     pub(super) fn for_app(app: &QniApp, content_rect: egui::Rect, screen_rect: egui::Rect) -> Self {
         match app.orientation {
             CircuitOrientation::Horizontal => Self::new(

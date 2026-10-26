@@ -39,7 +39,6 @@ pub(crate) struct ResizeDrag {
 
 #[derive(Clone, Debug)]
 pub(crate) struct StatePanelState {
-    /// In-flight drag offset for moving the whole panel by its header strip.
     pub(crate) drag: Option<egui::Vec2>,
     /// Whole-panel offset from its auto bottom-centred layout position.
     pub(crate) offset: egui::Vec2,
