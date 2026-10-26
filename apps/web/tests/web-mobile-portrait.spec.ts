@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readStateVector, waitForStartupReady, waitForValue } from './support/web-spec-helpers'
+import { collectBrowserErrors } from '../test-support/browser-errors'
+import { writeFile } from 'node:fs/promises'
 
 type Rect = { left: number; top: number; right: number; bottom: number }
 type Point = { x: number; y: number }
@@ -57,7 +59,7 @@ const mouseDrag = async (page: Page, from: Point, to: Point): Promise<void> => {
   await page.mouse.up()
 }
 
-const touchDrag = async (page: Page, from: Point, to: Point): Promise<void> => {
+const touchDrag = async (page: Page, from: Point, to: Point, end: 'touchEnd' | 'touchCancel' = 'touchEnd'): Promise<void> => {
   const client = await page.context().newCDPSession(page)
   await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] })
   await page.waitForTimeout(32)
@@ -70,7 +72,8 @@ const touchDrag = async (page: Page, from: Point, to: Point): Promise<void> => {
     await page.waitForTimeout(16)
   }
   await page.waitForTimeout(32)
-  await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await client.send('Input.dispatchTouchEvent', { type: end, touchPoints: [] })
+  await client.detach()
 }
 
 const amplitudes = (state: unknown[]): number[] => state.map(Number)
@@ -236,6 +239,25 @@ test('swiping up on empty space pans the circuit along time', async ({ page }) =
   const last = layout.cells.length - 1
   await touchDrag(page, { x: 60, y: layout.circuitRect.bottom - 40 }, { x: 60, y: layout.circuitRect.top + 40 })
   await expect.poll(async () => (await readLayout(page)).cells[last][0].y).toBeLessThan(layout.circuitRect.bottom)
+})
+
+test('standalone touch pan and cancellation have no console errors or interventions', async ({ page }, testInfo) => {
+  const { messages, cdp } = await collectBrowserErrors(page)
+  const layout = await openPhone(page, LONG)
+  await touchDrag(page, { x: 60, y: layout.circuitRect.bottom - 40 }, { x: 60, y: layout.circuitRect.top + 40 })
+  await touchDrag(page, { x: 60, y: layout.circuitRect.top + 40 }, { x: 60, y: layout.circuitRect.top + 40 }, 'touchCancel')
+  await writeFile(testInfo.outputPath('touch-browser-log.json'), JSON.stringify(messages, null, 2))
+  await testInfo.attach('touch-browser-log', { path: testInfo.outputPath('touch-browser-log.json'), contentType: 'application/json' })
+  await cdp.detach()
+  expect(messages).toEqual([])
+})
+
+test('standalone palette remains usable after explicit touch cancellation', async ({ page }) => {
+  const layout = await openPhone(page, EMPTY)
+  await touchDrag(page, { x: 60, y: layout.circuitRect.top + 40 }, { x: 60, y: layout.circuitRect.top + 40 }, 'touchCancel')
+  const next = center(carouselOf(layout).next)
+  await page.touchscreen.tap(next.x, next.y)
+  await expect.poll(() => readPage(page)).toBe(1)
 })
 
 test('swiping across a step does not select it', async ({ page }) => {
