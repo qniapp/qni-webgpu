@@ -6,24 +6,21 @@ Ralph は、寝ている間に機能を実装してくれる自律型 AI コー�
 
 ```
 /
-├── tasks.md           # タスクリスト
-├── progress.md        # 学習ログ
+├── tasks.md
+├── progress.md
 └── scripts/ralph/
-    ├── ralph.sh       # メインループ
-    ├── prompt.md      # 各イテレーションの指示
-    └── README.md      # このファイル
+    ├── ralph.sh
+    ├── prompt.md
+    └── README.md
 ```
 
 ## 使い方
 
 ```bash
-# 1. タスクを編集
 vim tasks.md
 
-# 2. フィーチャーブランチを作成
 git checkout -b ralph/feature
 
-# 3. Ralph を実行（最大10イテレーション）
 ./scripts/ralph/ralph.sh 10
 ```
 
@@ -48,10 +45,8 @@ git checkout -b ralph/feature
 ## 進捗確認
 
 ```bash
-# 学習ログ
 cat progress.md
 
-# コミット履歴
 git log --oneline -10
 ```
 

@@ -1,14 +1,4 @@
 #!/usr/bin/env bash
-#
-# docs/* 配下の HTML / Markdown と AGENTS.md を一括 lint する。
-#
-# - textlint + prh: 用語ゆれ / ルー語の検出 (用語集は tools/docs-lint/prh.yml)
-# - html-validate: HTML 構造の検証
-# - markdownlint-cli2: Markdown スタイル
-#
-# Usage: scripts/lint-docs.sh
-#
-# 依存は tools/docs-lint/ に集約されている。初回は `pnpm install` が必要。
 
 set -euo pipefail
 

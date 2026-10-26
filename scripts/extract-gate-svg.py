@@ -173,7 +173,6 @@ def single_glyph_svg(char: str) -> str:
     target_w = (box.xMax - box.xMin) * scale
     target_h = (box.yMax - box.yMin) * scale
 
-    # グリフ外接矩形の中心を viewBox 中心 (24, 24) に持っていく。
     left = (VIEWBOX - target_w) / 2.0
     top = (VIEWBOX - target_h) / 2.0
     body = path_element(char, weight, scale, left, top)
