@@ -447,7 +447,11 @@ test('Rename action accepts Japanese circuit names', async ({ page }) => {
   await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
   await page.waitForTimeout(300)
   await clickCanvas(page, { x: SUBMENU_X, y: 100 })
-  await page.waitForTimeout(300)
+  await page.waitForFunction(() => {
+    const geometry = Reflect.get(window, '__qniCircuitPickerRenameGeometryJson')
+    return typeof geometry === 'string' && geometry.length > 0
+      && document.activeElement?.tagName === 'INPUT'
+  })
   await page.keyboard.type('量子回路')
   await page.keyboard.press('Enter')
 
