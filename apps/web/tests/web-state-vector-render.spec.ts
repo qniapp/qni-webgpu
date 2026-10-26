@@ -9,7 +9,7 @@ import {
   type Point,
 } from './support/web-spec-helpers'
 
-const FLEXOKI_BLUE_400: CanvasPixel = [67, 133, 190, 255] // Flexoki blue-400 #4385BE.
+const FLEXOKI_BLUE_400: CanvasPixel = [67, 133, 190, 255]
 
 const defaultFilledStateCircleCenter = (cssWidth: number, cssHeight: number): Point => {
   const EGUI_PANEL_MARGIN = 8

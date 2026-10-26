@@ -68,7 +68,6 @@ export type CircularBodySignature = {
   samples: Record<string, CanvasPixel>
 }
 
-// Flexoki purple-600 — drag preview / semantic-intermediate fill.
 export const DRAG_PREVIEW_FILL: CanvasPixel = [94, 64, 157, 255]
 
 export const pixelRgbDistance = (left: CanvasPixel, right: CanvasPixel): number =>
@@ -96,9 +95,6 @@ const waitUntil = async (
   throw new Error(failureMessage)
 }
 
-// 描画やアニメーションの完了待ちに使う。回数を数える待ち方 (50 回 x 50 ms など) は
-// CPU が飽和すると「進んでいるのに時間切れ」になるため、時間で区切る。
-// 既定は 15 秒。Playwright のテスト上限 (60 秒) より十分短くしてある。
 export const waitForValue = async <Value>(
   read: () => Promise<Value>,
   done: (value: Value) => boolean,

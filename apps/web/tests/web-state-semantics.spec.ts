@@ -100,7 +100,6 @@ test('CNOT with control on q1 yields bell state', async ({ page }) => {
 
   await dragPointer(page, hSource, { x: targetX, y: targetY1 })
 
-  // q0=LSB: H on wire1 superposes bit1 → amplitudes on index 0 and index 2.
   const expectedAfterH = [1 / Math.sqrt(2), 0, 0, 0, 1 / Math.sqrt(2), 0, 0, 0]
   await waitForStateVectorApprox(page, expectedAfterH)
 
@@ -145,7 +144,6 @@ test('anti-control with a zero control wire applies the target gate', async ({ p
   await waitForStateVectorApprox(page, [1, 0, 0, 0])
 
   await dragPointer(page, xSource, { x: targetX, y: targetY1 })
-  // q0=LSB: X on wire1 sets bit1 → state index 2 (|q1=1, q0=0⟩).
   await waitForStateVectorApprox(page, [0, 0, 0, 0, 1, 0, 0, 0])
 })
 
@@ -185,10 +183,6 @@ test('anti-control does not apply when the control wire is one', async ({ page }
 
   await dragPointer(page, antiControlSource, { x: targetX2, y: targetY0 })
   await dragPointer(page, xSource, { x: targetX2, y: targetY1 })
-  // anti-control(q0) sees q0=1, so it does not fire and the X on q1 is
-  // suppressed. The state vector still grows to two qubits because q1 has a
-  // placed gate; the final amplitude is on |q0=1, q1=0⟩ (state index 1 with
-  // q0 as the LSB: bit0=1, bit1=0).
   await waitForStateVectorApprox(page, [0, 0, 1, 0, 0, 0, 0, 0])
 })
 
@@ -214,8 +208,6 @@ test('Control lets QFT run when the control wire is one', async ({ page }) => {
   await page.mouse.click(226, await getCircuitOriginY(page) - 32)
   await page.mouse.move(1000, 450)
 
-  // q0=LSB: |1> on wire0 fixes bit0=1; QFT2 on wires 1,2 spreads bits 1,2
-  // uniformly → state indices 1, 3, 5, 7 (positions 2, 6, 10, 14).
   const expected = Array(16).fill(0)
   expected[2] = 0.5
   expected[6] = 0.5
@@ -263,7 +255,6 @@ test('Control does not affect gates in other columns', async ({ page }) => {
 
   await dragPointer(page, xSource, { x: targetX3, y: targetY1 })
 
-  // q0=LSB: X on wire1 fixes bit1=1; H on wire0 spreads bit0 → indices 2, 3.
   const expected = [0, 0, 0, 0, 1 / Math.sqrt(2), 0, 1 / Math.sqrt(2), 0]
   await waitForStateVectorApprox(page, expected)
 })
@@ -368,7 +359,6 @@ test('|0> after H resets the superposition to |0>', async ({ page }) => {
   await waitForStateVectorApprox(page, superposition)
 
   await dragPointer(page, write0Source, { x: targetX2, y: targetY })
-  // Write0 samples a Z measurement branch and flips the 1 branch to zero.
   await waitForStateVectorApprox(page, [1, 0, 0, 0])
 })
 
@@ -406,7 +396,6 @@ test('Bloch display does not alter the state vector', async ({ page }) => {
   await waitForStateVectorApprox(page, superposition)
 
   await dragPointer(page, blochSource, { x: targetX2, y: targetY })
-  // BlochDisplay only reads the state; it must not mutate it.
   await waitForStateVectorApprox(page, superposition)
 })
 
@@ -443,8 +432,6 @@ test('Measurement after X collapses the qubit to |1>', async ({ page }) => {
   await waitForStateVectorApprox(page, [0, 0, 1, 0])
 
   await dragPointer(page, measureSource, { x: targetX2, y: targetY })
-  // Measurement collapses to a basis state. Since the pre-measurement
-  // amplitude is fully on |1>, the only valid post-measurement vector is |1>.
   await waitForStateVectorApprox(page, [0, 0, 1, 0])
 })
 
