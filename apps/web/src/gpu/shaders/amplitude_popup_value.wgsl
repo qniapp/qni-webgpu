@@ -35,7 +35,6 @@ struct VertexOut {
 @group(0) @binding(1) var<storage, read> amplitude_meta: array<vec4<f32>>;
 @group(0) @binding(2) var<uniform> params: PopupParams;
 @group(0) @binding(3) var glyph_tex: texture_2d<f32>;
-@group(0) @binding(4) var glyph_sampler: sampler;
 
 fn glyph_digit(value: u32) -> u32 { return min(value, 9u); }
 fn glyph_dot() -> u32 { return 10u; }
