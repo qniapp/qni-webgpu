@@ -359,8 +359,6 @@ fn svg_glyph_for(kind: GateKind) -> Option<super::svg_icon::GateGlyph> {
         GateKind::QftGate => GateGlyph::Qft,
         GateKind::QftDaggerGate => GateGlyph::QftDagger,
         // X ゲートの本体は qni の慣例で "+" (CNOT ターゲットと同じ)。
-        // 文字 "X" 用の SVG はパレットや将来の単独使用向けに別管理だが、
-        // ここでは Plus を返す。
         GateKind::X => GateGlyph::Plus,
         _ => return None,
     })
