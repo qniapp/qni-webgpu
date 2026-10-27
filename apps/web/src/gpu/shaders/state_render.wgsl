@@ -16,7 +16,6 @@ struct RenderParams {
   rows: u32,
   qubits: u32,
   hovered_cell: i32,
-  surface: vec4<f32>,
   fill: vec4<f32>,
   disk_border: vec4<f32>,
   outline: vec4<f32>,
@@ -68,7 +67,7 @@ fn vs_main(input: VsIn) -> VsOut {
 // pixel. Returns zero outside everything the cell renders (i.e. outside
 // the outline, outside the fill, off the needle). The egui `rect_filled`
 // panel surface is drawn underneath in a separate pass, so the cell does
-// NOT need to fill its interior with `params.surface`.
+// NOT need to fill its interior.
 //
 // `edge` is the pixel-sized fwidth value pre-computed by the caller in
 // uniform control flow — must not be re-derived inside this function

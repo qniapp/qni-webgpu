@@ -55,7 +55,6 @@ pub(crate) struct RenderParams {
     /// matching cell — qni's `:host(:hover) #border { filter: brightness(0.9) }`
     /// style extended to all four state-circle layers.
     pub(crate) hovered_cell: i32,
-    pub(crate) surface: [f32; 4],
     pub(crate) fill: [f32; 4],
     pub(crate) disk_border: [f32; 4],
     pub(crate) outline: [f32; 4],
@@ -65,7 +64,6 @@ pub(crate) struct RenderParams {
 
 #[derive(Clone, Copy)]
 pub(crate) struct RenderColors {
-    pub(crate) surface: [f32; 4],
     pub(crate) fill: [f32; 4],
     pub(crate) disk_border: [f32; 4],
     pub(crate) outline: [f32; 4],
@@ -81,7 +79,6 @@ impl RenderColors {
         // convert to linear and the GPU-rendered circles would come out
         // visibly darker than the egui-painted handle / palette colours.
         Self {
-            surface: colors.surface.to_normalized_gamma_f32(),
             fill: colors.state_fill.to_normalized_gamma_f32(),
             disk_border: colors.amplitude_disk_border.to_normalized_gamma_f32(),
             outline: colors.state_outline.to_normalized_gamma_f32(),
@@ -567,7 +564,6 @@ pub(crate) struct SurvivalLabelParams {
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) zero_color: [f32; 4],
-    pub(crate) one_color: [f32; 4],
 }
 
 #[repr(C)]
@@ -640,6 +636,21 @@ pub(crate) struct PopupValueParams {
     pub(crate) hovered_display_index: u32,
     pub(crate) qubits: u32,
     pub(crate) _pad: [u32; 2],
+}
+
+#[cfg(test)]
+mod uniform_layout_tests {
+    use super::{RenderParams, SurvivalLabelParams};
+
+    #[test]
+    fn render_params_matches_uniform_size() {
+        assert_eq!(std::mem::size_of::<RenderParams>(), 144);
+    }
+
+    #[test]
+    fn survival_label_params_matches_uniform_size() {
+        assert_eq!(std::mem::size_of::<SurvivalLabelParams>(), 32);
+    }
 }
 
 #[cfg(test)]
