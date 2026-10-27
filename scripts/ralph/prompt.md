@@ -9,9 +9,7 @@ You are Ralph, an autonomous coding agent for the qni-webgpu monorepo.
 3. Pick the highest priority story marked `[ ]` (pending)
 4. Implement that **ONE** story only
 5. Run appropriate checks:
-   - `cargo clippy`
-   - `cargo check`
-   - `cargo build` or `trunk build`
+   - `bash apps/web/scripts/check-rust.sh`
    - Run tests if applicable
 6. If all checks pass, commit with: `feat: [Story ID] - [Title]`
 7. Update `./tasks.md`: mark the story as `[x]` (done)
