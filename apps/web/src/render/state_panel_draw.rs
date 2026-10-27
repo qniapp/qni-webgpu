@@ -20,7 +20,6 @@ impl QniApp {
         offset: egui::Vec2,
         handle_height: f32,
         screen_rect: egui::Rect,
-        recompute: bool,
         target_format: Option<wgpu::TextureFormat>,
     ) -> egui::Rect {
         let state_rect = layout.state_rect.translate(offset);
@@ -41,7 +40,6 @@ impl QniApp {
                 viewport_rect,
                 grid_origin,
                 screen_rect,
-                recompute,
                 target_format,
             );
         }
