@@ -5,7 +5,6 @@ import {
   waitForBlochVectorsApprox,
   waitForStartupReady,
   pollForValue,
-  waitForValue,
 } from './support/web-spec-helpers'
 
 const EGUI_PANEL_MARGIN = 8
