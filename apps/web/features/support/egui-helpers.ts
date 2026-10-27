@@ -36,10 +36,6 @@ type CanvasContentStats = { nonBackground: number; sampledPixels: number }
 type ReadCanvasContentStatsOptions = { path?: string; background?: readonly number[]; threshold?: number; step?: number }
 type WaitForCanvasContentOptions = ReadCanvasContentStatsOptions & { timeout?: number; minNonBackground?: number }
 type ScreenshotWithRetryOptions = NonNullable<Parameters<Locator['screenshot']>[0]> & { waitForStateVector?: boolean }
-type DragPreviewProbeOptions = {
-  gateIndex?: number; gateSize?: number
-  stateCircleBottomMargin?: number; stateCount?: number; rem?: number
-}
 type ArtifactWorld = { artifactDir?: string } | null | undefined
 
 // 起動が固まった場合、`bootstrap.ts` の監視が 15 秒後に一度だけ自動で読み込み
@@ -53,34 +49,6 @@ export const DEFAULT_MIN_NON_BACKGROUND_PIXELS = 40
 const DEFAULT_NON_BACKGROUND_THRESHOLD = 20
 const DEFAULT_CANVAS_SAMPLE_STEP = 4
 const DEFAULT_BACKGROUND_RGB = [255, 255, 255]
-const DEFAULT_REM = UI_CONSTANTS.REM
-const DEFAULT_GATE_SIZE = UI_CONSTANTS.GATE_SIZE
-const DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN = UI_CONSTANTS.STATE_CIRCLE_BOTTOM_MARGIN
-const DEFAULT_STATE_COUNT = 4
-
-// qni circle-notation desktop layout, mirroring
-// `circle-notation-element.ts:updateDimension/qubitCircleSizePx/qubitCircleLineWidth`.
-// Keep this table in sync with `state_circle_layout` in `apps/web/src/constants.rs`.
-const QNI_CIRCLE_LAYOUT: Record<number, { cols: number; rows: number; size: number; lineWidth: number }> = {
-  1:  { cols: 2,   rows: 1,   size: 64, lineWidth: 2 },
-  2:  { cols: 4,   rows: 1,   size: 64, lineWidth: 2 },
-  3:  { cols: 8,   rows: 1,   size: 64, lineWidth: 2 },
-  4:  { cols: 8,   rows: 2,   size: 48, lineWidth: 2 },
-  5:  { cols: 16,  rows: 2,   size: 32, lineWidth: 2 },
-  6:  { cols: 16,  rows: 4,   size: 32, lineWidth: 2 },
-  7:  { cols: 32,  rows: 4,   size: 16, lineWidth: 1 },
-  8:  { cols: 32,  rows: 8,   size: 16, lineWidth: 1 },
-  9:  { cols: 32,  rows: 16,  size: 16, lineWidth: 1 },
-  10: { cols: 32,  rows: 32,  size: 16, lineWidth: 1 },
-  11: { cols: 64,  rows: 32,  size: 16, lineWidth: 1 },
-  12: { cols: 64,  rows: 64,  size: 16, lineWidth: 1 },
-  13: { cols: 128, rows: 64,  size: 16, lineWidth: 1 },
-  14: { cols: 128, rows: 128, size: 16, lineWidth: 1 },
-  15: { cols: 256, rows: 128, size: 16, lineWidth: 1 },
-  16: { cols: 256, rows: 256, size: 16, lineWidth: 1 },
-}
-
-const stateCircleLayoutForQubits = (qubits: number) => QNI_CIRCLE_LAYOUT[Math.max(1, Math.min(16, qubits))]
 
 const RETRYABLE_EVALUATE_ERRORS = ['Execution context was destroyed']
 const RETRYABLE_SCREENSHOT_ERRORS = [
@@ -544,33 +512,27 @@ export const releasePointer = async (page: Page, at: Point): Promise<void> => {
 
 export const getDragPreviewAboveStatePanelProbe = (
   cssWidth: number,
-  cssHeight: number,
-  {
-    gateIndex = 0,
-    gateSize = DEFAULT_GATE_SIZE,
-    stateCircleBottomMargin = DEFAULT_STATE_CIRCLE_BOTTOM_MARGIN,
-    stateCount = DEFAULT_STATE_COUNT,
-    rem = DEFAULT_REM,
-  }: DragPreviewProbeOptions = {}
+  cssHeight: number
 ): DragPreviewProbe => {
-  const source = getPaletteGateCenter(cssWidth, gateIndex)
+  const source = getPaletteGateCenter(cssWidth, 0)
+  const gateSize = UI_CONSTANTS.GATE_SIZE
 
   // qni reference: `circle_notation` is rendered with `padding_x: 16,
   // padding_y: 20` (`apps/www/app/views/circuits/show.html.erb:66-67`),
   // matching the palette's `px-4 py-5`. Mirror that on the egui side.
   const statePaddingY = 20
 
-  // Match qni's per-qubit-count circle grid: fixed cols/rows/size, gap == stroke.
-  const qubits = Math.max(1, Math.round(Math.log2(Math.max(stateCount, 1))))
-  const layout = stateCircleLayoutForQubits(qubits)
-  const { cols: columns, rows, size, lineWidth: gap } = layout
+  const columns = 4
+  const rows = 1
+  const size = 64
+  const gap = 2
 
   const totalWidth = size * columns + gap * Math.max(columns - 1, 0)
   const totalHeight = size * rows + gap * Math.max(rows - 1, 0)
   const baseX = cssWidth / 2 - totalWidth / 2
-  const baseY = cssHeight - stateCircleBottomMargin - totalHeight
+  const baseY = cssHeight - UI_CONSTANTS.STATE_CIRCLE_BOTTOM_MARGIN - totalHeight
   const contentHeight = totalHeight + statePaddingY * 2
-  const handleHeight = Math.max(Math.min(0.4 * rem, contentHeight * 0.4), 10)
+  const handleHeight = Math.max(Math.min(0.4 * UI_CONSTANTS.REM, contentHeight * 0.4), 10)
   const handlePadding = handleHeight * 0.5
   const handleCenter = {
     x: baseX + totalWidth / 2,
