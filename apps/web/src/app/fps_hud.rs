@@ -45,7 +45,7 @@ impl QniApp {
                     colors.fps_hud_text,
                     egui::RichText::new(format!("{:5.1} FPS", fps))
                         .monospace()
-                        .size(13.0),
+                        .size(crate::tailwind::TEXT_SM),
                 );
                 let (graph_rect, _) = ui.allocate_exact_size(
                     egui::vec2(150.0, 50.0),
@@ -119,19 +119,19 @@ impl QniApp {
                     ms_color,
                     egui::RichText::new(format!("{:5.2} ms total", avg_dt * 1000.0))
                         .monospace()
-                        .size(11.0),
+                        .size(crate::tailwind::TEXT_XS),
                 );
                 ui.colored_label(
                     cpu_color,
                     egui::RichText::new(format!("{:5.2} ms cpu", avg_cpu * 1000.0))
                         .monospace()
-                        .size(11.0),
+                        .size(crate::tailwind::TEXT_XS),
                 );
                 ui.colored_label(
                     svp_color,
                     egui::RichText::new(format!("{:5.2} ms svp", avg_svp * 1000.0))
                         .monospace()
-                        .size(11.0),
+                        .size(crate::tailwind::TEXT_XS),
                 );
             });
         // Force continuous repaint so the reading stays live.
