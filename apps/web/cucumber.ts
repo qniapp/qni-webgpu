@@ -2,7 +2,6 @@ type CucumberProfile = {
   paths: string[]
   requireModule: string[]
   require: string[]
-  publishQuiet: boolean
   failFast: boolean
   retry: number
   parallel?: number
@@ -15,7 +14,6 @@ const defaultProfile: CucumberProfile = {
     'features/support/bootstrap.ts',
     'features/step_definitions/**/*.ts',
   ],
-  publishQuiet: true,
   failFast: true,
   // WebGPU の初期化が応答しないまま止まるページが Chrome 側の事情でまれに出る
   // (`bootstrap.ts` の監視が 15 秒で明示的なエラーへ切り替える)。1 回だけ

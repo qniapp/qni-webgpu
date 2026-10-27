@@ -49,10 +49,8 @@ export class EguiWorld {
   browser: Browser | null = null
   context: BrowserContext | null = null
   page: Page | null = null
-  server: { url: string; managed?: boolean } | null = null
   consoleErrors: string[] = []
   pageErrors: string[] = []
-  currentScenarioName: string | null = null
   dragPreviewZOrder?: DragPreviewZOrderSamples
 
   constructor({ attach, log, link, parameters }: WorldConstructorOptions) {
@@ -62,24 +60,6 @@ export class EguiWorld {
     this.parameters = parameters
     this.baseUrl = getWebServerConfig({ env: process.env }).url
     this.artifactDir = DEFAULT_ARTIFACT_DIR
-    this.resetRuntimeState()
-  }
-
-  resetRuntimeState(): void {
-    this.browserMode = STANDARD_BROWSER_MODE
-    this.browser = null
-    this.context = null
-    this.page = null
-    this.server = null
-    this.consoleErrors = []
-    this.pageErrors = []
-    this.currentScenarioName = null
-  }
-
-  startScenario(name?: string | null): void {
-    this.currentScenarioName = name || 'scenario'
-    this.consoleErrors = []
-    this.pageErrors = []
   }
 
   setBrowserMode(mode: string): void {
