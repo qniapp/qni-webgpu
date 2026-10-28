@@ -250,7 +250,6 @@ def apply_column_to_qiskit(
     apply_control_only_z(
         qc,
         controls,
-        anti_controls,
         basis,
         has_column_content=bool(
             deferred
@@ -621,13 +620,11 @@ def track_controlled_swap(
 def apply_control_only_z(
     qc: Any,
     controls: list[int],
-    anti_controls: list[int],
     basis: BasisTracker,
     *,
     has_column_content: bool,
 ) -> None:
     # qni/WebGPU drops AntiControl bits for control-only columns.
-    del anti_controls
     if has_column_content or len(controls) < 2:
         return
     target = controls[0]

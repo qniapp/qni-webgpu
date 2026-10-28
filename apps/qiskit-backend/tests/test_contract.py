@@ -1429,8 +1429,8 @@ class ContractTests(unittest.TestCase):
     def test_qiskit_probability_response_extracts_controlled_slice(self):
         request = parse_run_request(
             {
-                "qubits": 2,
-                "columns": [["•", "Probability"]],
+                "qubits": 3,
+                "columns": [["Probability", "◦", "•"]],
                 "outputs": {
                     "histogram": True,
                     "probability": [
@@ -1438,17 +1438,45 @@ class ContractTests(unittest.TestCase):
                             "gate_id": 1,
                             "column": 0,
                             "span": 1,
-                            "base_bit": 1,
-                            "control_mask": 1,
-                            "control_value": 1,
+                            "base_bit": 0,
+                            "control_mask": 6,
+                            "control_value": 4,
                         }
                     ],
                 },
             }
         )
         response = {}
-        add_qiskit_probability(response, request, {"probability:1": [0.4, 0.1, 0.0, 0.5]}, {1: "probability:1"})
+        add_qiskit_probability(
+            response, request, {"probability:1": [0.1, 0.1, 0.1, 0.1, 0.0, 0.5, 0.05, 0.05]}, {1: "probability:1"}
+        )
         self.assertEqual(response["probability"][0]["probabilities"], [0.0, 1.0])
+
+    def test_qiskit_probability_response_applies_display_bit_controls(self):
+        request = parse_run_request(
+            {
+                "qubits": 3,
+                "columns": [[1, "Probability2", "•"]],
+                "outputs": {
+                    "histogram": True,
+                    "probability": [
+                        {
+                            "gate_id": 1,
+                            "column": 0,
+                            "span": 2,
+                            "base_bit": 1,
+                            "control_mask": 4,
+                            "control_value": 4,
+                        }
+                    ],
+                },
+            }
+        )
+        response = {}
+        add_qiskit_probability(
+            response, request, {"probability:1": [0.125, 0.375, 0.125, 0.375]}, {1: "probability:1"}
+        )
+        self.assertEqual(response["probability"][0]["probabilities"], [0.0, 0.0, 0.25, 0.75])
 
     def test_qiskit_density_response_uses_saved_data(self):
         request = parse_run_request(
