@@ -6,13 +6,6 @@ type DragOperationInput = {
   gate: string
   wire: string | number
   slot: string | number
-  gateSize?: number
-  circuitPadding?: number
-  qubitLabelWidth?: number
-  qubitLabelGap?: number
-  lineY?: number
-  lineGap?: number
-  slotSpacing?: number
   verticalOffset?: number
 }
 
@@ -27,14 +20,6 @@ type ParsedOperation = {
   wire: string
   slot: number
 }
-
-const DEFAULT_GATE_SIZE = UI_CONSTANTS.GATE_SIZE
-const DEFAULT_CIRCUIT_PADDING = UI_CONSTANTS.CIRCUIT_PADDING
-const DEFAULT_QUBIT_LABEL_WIDTH = UI_CONSTANTS.QUBIT_LABEL_WIDTH
-const DEFAULT_QUBIT_LABEL_GAP = UI_CONSTANTS.QUBIT_LABEL_GAP
-const DEFAULT_LINE_Y = UI_CONSTANTS.LINE_Y
-const DEFAULT_LINE_GAP = UI_CONSTANTS.LINE_GAP
-const DEFAULT_SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
 
 const GATE_ALIASES = new Map([
   ['h', 0],
@@ -201,20 +186,13 @@ export const buildDragOperation = ({
   gate,
   wire,
   slot,
-  gateSize = DEFAULT_GATE_SIZE,
-  circuitPadding = DEFAULT_CIRCUIT_PADDING,
-  qubitLabelWidth = DEFAULT_QUBIT_LABEL_WIDTH,
-  qubitLabelGap = DEFAULT_QUBIT_LABEL_GAP,
-  lineY = DEFAULT_LINE_Y,
-  lineGap = DEFAULT_LINE_GAP,
-  slotSpacing = DEFAULT_SLOT_SPACING,
   verticalOffset = 0,
 }: DragOperationInput) => {
   const gateIndex = getGateIndex(gate)
   const wireIndex = parseWire(wire)
   const slotIndex = parseSlot(slot)
   const from = getPaletteGateCenter(cssWidth, gateIndex)
-  const lineLeftOffset = circuitPadding + qubitLabelWidth + qubitLabelGap
+  const lineLeftOffset = UI_CONSTANTS.CIRCUIT_PADDING + UI_CONSTANTS.QUBIT_LABEL_WIDTH + UI_CONSTANTS.QUBIT_LABEL_GAP
 
   return {
     gate,
@@ -223,8 +201,8 @@ export const buildDragOperation = ({
     slot: slotIndex,
     from: { x: from.x, y: from.y + verticalOffset },
     to: {
-      x: lineLeftOffset + gateSize + slotIndex * slotSpacing,
-      y: lineY + fullPaletteCircuitOffsetY(cssWidth) + wireIndex * lineGap + verticalOffset,
+      x: lineLeftOffset + UI_CONSTANTS.GATE_SIZE + slotIndex * UI_CONSTANTS.SLOT_SPACING,
+      y: UI_CONSTANTS.LINE_Y + fullPaletteCircuitOffsetY(cssWidth) + wireIndex * UI_CONSTANTS.LINE_GAP + verticalOffset,
     },
   }
 }
