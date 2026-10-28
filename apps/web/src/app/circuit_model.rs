@@ -14,11 +14,11 @@ pub(crate) use block_edges::BlockEdges;
 mod circuit_blocks;
 pub(crate) use circuit_blocks::{CircuitBlock, CircuitBlocks};
 mod column_index;
-pub(crate) use column_index::{CircuitColumnIndex, CircuitColumnIndexError};
+pub(crate) use column_index::CircuitColumnIndex;
 mod gate_id;
 pub(crate) use gate_id::{GateId, GateIdAllocator};
 mod wire_index;
-pub(crate) use wire_index::{WireIndex, WireIndexError};
+pub(crate) use wire_index::WireIndex;
 
 #[derive(Clone, Debug)]
 pub(crate) struct PlacedGate {
