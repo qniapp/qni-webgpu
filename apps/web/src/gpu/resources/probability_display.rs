@@ -12,19 +12,12 @@ use super::super::params::{
     ProbabilityRenderParams, MAX_OPS_PER_RECOMPUTE, MAX_PROBABILITY_AGGREGATE_ROWS,
     MAX_PROBABILITY_OUTCOMES, MAX_PROBABILITY_SLOTS,
 };
-use super::super::popup_glyph_atlas::{
-    rasterize_popup_glyph_atlas, POPUP_GLYPH_ATLAS_HEIGHT, POPUP_GLYPH_ATLAS_WIDTH,
-};
 use super::super::shaders::{
     PROBABILITY_AGGREGATE_SHADER, PROBABILITY_NORMALIZE_SHADER, PROBABILITY_POPUP_VALUE_SHADER,
     PROBABILITY_REDUCE_SHADER, PROBABILITY_RENDER_SHADER,
 };
 use super::common::Common;
-
-struct ProbabilityGlyphAtlas {
-    view: wgpu::TextureView,
-    sampler: wgpu::Sampler,
-}
+use super::popup_value::{create_popup_glyph_atlas, PopupGlyphAtlas};
 
 pub(crate) struct ProbabilityResources {
     pub reduce_pipeline: wgpu::ComputePipeline,
@@ -116,7 +109,7 @@ impl ProbabilityResources {
         let drag_render_instance_buffer = create_render_instance_buffer(device);
         let aggregate_buffer = create_aggregate_buffer(device);
         let popup_value_params_buffer = create_popup_value_params_buffer(device);
-        let glyph_atlas = create_glyph_atlas(device, queue);
+        let glyph_atlas = create_popup_glyph_atlas(device, queue);
         let aggregate_bind_group = create_aggregate_bind_group(
             device,
             &aggregate_layout,
@@ -605,44 +598,12 @@ fn create_render_instance_buffer(device: &wgpu::Device) -> wgpu::Buffer {
     })
 }
 
-fn create_glyph_atlas(device: &wgpu::Device, queue: &wgpu::Queue) -> ProbabilityGlyphAtlas {
-    let atlas_data = rasterize_popup_glyph_atlas();
-    let texture = wgpu::util::DeviceExt::create_texture_with_data(
-        device,
-        queue,
-        &wgpu::TextureDescriptor {
-            label: Some("probability_percent_glyph_atlas"),
-            size: wgpu::Extent3d {
-                width: POPUP_GLYPH_ATLAS_WIDTH,
-                height: POPUP_GLYPH_ATLAS_HEIGHT,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::R8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        },
-        wgpu::util::TextureDataOrder::default(),
-        &atlas_data,
-    );
-    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-        label: Some("probability_percent_glyph_atlas_sampler"),
-        mag_filter: wgpu::FilterMode::Linear,
-        min_filter: wgpu::FilterMode::Linear,
-        ..Default::default()
-    });
-    ProbabilityGlyphAtlas { view, sampler }
-}
-
 fn create_render_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     output_buffer: &wgpu::Buffer,
     params_buffer: &wgpu::Buffer,
-    atlas: &ProbabilityGlyphAtlas,
+    atlas: &PopupGlyphAtlas,
     aggregate_buffer: &wgpu::Buffer,
 ) -> wgpu::BindGroup {
     device.create_bind_group(&wgpu::BindGroupDescriptor {

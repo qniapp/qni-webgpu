@@ -1,15 +1,8 @@
 use eframe::wgpu;
 
 use super::super::super::params::BlochPopupValueParams;
-use super::super::super::popup_glyph_atlas::{
-    rasterize_popup_glyph_atlas, POPUP_GLYPH_ATLAS_HEIGHT, POPUP_GLYPH_ATLAS_WIDTH,
-};
 use super::super::super::shaders::BLOCH_POPUP_VALUE_SHADER;
-
-struct PopupGlyphAtlas {
-    view: wgpu::TextureView,
-    sampler: wgpu::Sampler,
-}
+use super::super::popup_value::{create_popup_glyph_atlas, PopupGlyphAtlas};
 
 pub(super) struct PopupResources {
     pub(super) pipeline: wgpu::RenderPipeline,
@@ -26,7 +19,7 @@ pub(super) fn build(
 ) -> PopupResources {
     let bind_group_layout = create_bind_group_layout(device);
     let params_buffer = create_params_buffer(device);
-    let glyph_atlas = create_glyph_atlas(device, queue);
+    let glyph_atlas = create_popup_glyph_atlas(device, queue);
     let bind_group = create_bind_group(
         device,
         &bind_group_layout,
@@ -95,38 +88,6 @@ fn create_params_buffer(device: &wgpu::Device) -> wgpu::Buffer {
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     })
-}
-
-fn create_glyph_atlas(device: &wgpu::Device, queue: &wgpu::Queue) -> PopupGlyphAtlas {
-    let atlas_data = rasterize_popup_glyph_atlas();
-    let texture = wgpu::util::DeviceExt::create_texture_with_data(
-        device,
-        queue,
-        &wgpu::TextureDescriptor {
-            label: Some("bloch_popup_glyph_atlas"),
-            size: wgpu::Extent3d {
-                width: POPUP_GLYPH_ATLAS_WIDTH,
-                height: POPUP_GLYPH_ATLAS_HEIGHT,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::R8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        },
-        wgpu::util::TextureDataOrder::default(),
-        &atlas_data,
-    );
-    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-        label: Some("bloch_popup_glyph_atlas_sampler"),
-        mag_filter: wgpu::FilterMode::Linear,
-        min_filter: wgpu::FilterMode::Linear,
-        ..Default::default()
-    });
-    PopupGlyphAtlas { view, sampler }
 }
 
 fn create_bind_group(

@@ -12,6 +12,8 @@ mod atlas;
 mod bindings;
 mod pipeline;
 
+pub(super) use atlas::{create_popup_glyph_atlas, PopupGlyphAtlas};
+
 use eframe::wgpu;
 
 use super::super::params::PopupValueParams;
