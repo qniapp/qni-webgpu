@@ -318,49 +318,17 @@ fn sample_color(input: VsOut, local_y: f32) -> vec4<f32> {
   return color;
 }
 
+fn seam_stable_row_y(clip_y: f32, rect_min_y: f32) -> f32 {
+  let dpr = max(params.pixels_per_point, 1.0e-6);
+  let viewport_top_px = floor(params.viewport_min.y * dpr + 0.5);
+  return params.viewport_min.y - rect_min_y + (clip_y - viewport_top_px) / dpr;
+}
+
 @fragment
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let row_count = 1u << input.span;
   let row_h = input.rect_size.y / f32(row_count);
-  // Decide the outcome row from the fragment's framebuffer pixel centre rather
-  // than the interpolated `local.y`. `local.y` is interpolated across the unit
-  // quad's two triangles and is not bit-exact at the shared diagonal, so a pixel
-  // centre on a `row_h` boundary can floor to different rows on either side of
-  // the seam — painting a partial-width bar "nub" one pixel below a full-width
-  // bar (e.g. Probability5, row_h = 8.25px). `@builtin(position)` (`input.clip`
-  // in the fragment) is the rasteriser's physical pixel centre, identical on
-  // both triangles. Invert the world→ndc→framebuffer map to recover the logical
-  // row: egui rounds the callback viewport top to whole physical pixels.
-  //
-  // Two assumptions bound the inversion's exactness (both hold for the reported
-  // bug and every reachable circuit; documented so a refactor cannot silently
-  // break them):
-  //   * `params.viewport_min` is `callback_rect.min`, where `callback_rect` is
-  //     the gate rect intersected with the on-screen clip (see circuit_gates.rs).
-  //     So `viewport_min.y ∈ [0, screen]` and egui's viewport-top clamp to the
-  //     framebuffer is always a no-op here — which is why this shader can omit it.
-  //   * `viewport_top_px` reconstructs egui's top via `floor(x + 0.5)` (round half
-  //     up). epaint uses Rust `f32::round` (half away from zero); for the
-  //     non-negative `x = viewport_min.y * dpr` here the two agree everywhere
-  //     except the single tie `x = n.5 − 1 ULP`, reachable only at a fractional
-  //     device pixel ratio. There it shifts every row one physical pixel (a
-  //     smooth, transient offset — never a seam nub) until the scroll moves off
-  //     the tie. `floor(x + 0.5)` is the closest match WGSL offers: native
-  //     `round` is half-to-even and disagrees with epaint at every odd half.
-  //
-  // `row_local_y` then stands in for `local.y` in EVERY vertical row/boundary
-  // test below (outcome row, aggregate sample, separators, the outer border, the
-  // log hint, and the hover band). Snapping a boundary to a whole pixel only
-  // dodges the seam at device-pixel-ratio 1, where pixel centres sit at half
-  // integers; at a fractional ratio a physical centre can land exactly on an
-  // integer boundary (e.g. ratio 1.25 → logical y = 2.0), so the interpolated
-  // `local.y` could still flip across the seam there. Horizontal tests keep the
-  // interpolated `local.x` (a sub-ULP horizontal wobble never crosses a discrete
-  // row index), and glyph rendering keeps `local` for continuous sampling.
-  let dpr = max(params.pixels_per_point, 1.0e-6);
-  let viewport_top_px = floor(params.viewport_min.y * dpr + 0.5);
-  let row_local_y =
-    params.viewport_min.y - input.rect_min.y + (input.clip.y - viewport_top_px) / dpr;
+  let row_local_y = seam_stable_row_y(input.clip.y, input.rect_min.y);
   if (input.render_mode == SAMPLE_RENDER_MODE || input.render_mode == SAMPLE_PREVIEW_MODE) { return sample_color(input, row_local_y); }
   let raw_row = u32(clamp(floor(row_local_y / max(row_h, 1.0e-6)), 0.0, f32(row_count - 1u)));
   let border_px = 1.0;

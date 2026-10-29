@@ -83,6 +83,48 @@ const shaderFunction = (shader: string, name: string): string => {
   return shader.slice(start, shader.indexOf('\n}\n', start))
 }
 
+const f32 = (value: number): number => new Float32Array([value])[0]
+
+const seamStableRowY = (
+  body: string,
+  viewportMinY: number,
+  pixelsPerPoint: number,
+  clipY: number,
+  rectMinY: number,
+): number => {
+  const floorTie = /let viewport_top_px = floor\(params\.viewport_min\.y \* dpr \+ 0\.5\);/
+  const mapped =
+    /return params\.viewport_min\.y - rect_min_y \+ \(clip_y - viewport_top_px\) \/ dpr;/
+  if (/\bround\s*\(/.test(body) || !floorTie.test(body) || !mapped.test(body)) {
+    return Number.NaN
+  }
+  const dpr = Math.max(f32(pixelsPerPoint), f32(1e-6))
+  const viewportTopPx = Math.floor(f32(f32(f32(viewportMinY) * dpr) + f32(0.5)))
+  return f32(f32(viewportMinY) - f32(rectMinY) + f32((f32(clipY) - f32(viewportTopPx)) / dpr))
+}
+
+test('probability seam maps an odd half-integer viewport through the pixel centre', async () => {
+  const shader = await readRenderShader()
+  const body = shaderFunction(shader, 'seam_stable_row_y')
+
+  assert.equal(seamStableRowY(body, 2.5, 1, 3.5, 2.5), 0.5)
+})
+
+test('probability fragment rows do not read interpolated local.y', async () => {
+  const shader = await readRenderShader()
+
+  assert.equal(shaderFunction(shader, 'fs_main').includes('input.local.y'), false)
+})
+
+test('probability fragment rows come from seam_stable_row_y', async () => {
+  const shader = await readRenderShader()
+
+  assert.match(
+    shaderFunction(shader, 'fs_main'),
+    /let row_local_y = seam_stable_row_y\(input\.clip\.y, input\.rect_min\.y\);[\s\S]*floor\(row_local_y \//,
+  )
+})
+
 test('Sample draws its bit string once per vertex', async () => {
   const renderShader = await readRenderShader()
 
