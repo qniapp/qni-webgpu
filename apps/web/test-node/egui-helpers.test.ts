@@ -8,6 +8,7 @@ const {
   getDragPreviewAboveStatePanelProbe,
   getPaletteGateCenter,
   releasePointer,
+  readCanvasContentStats,
   sampleCanvasPixels,
   waitForAppReady,
   waitForCanvasContent,
@@ -266,6 +267,43 @@ test('waitForStateVectorReady fails fast when egui reports an app error', async 
     evaluateCount: 1,
   })
 })
+
+for (const [name, rgb, expected] of [
+  ['uniform panel BG_2', [242, 240, 229], 0],
+  ['uniform body BG', [255, 252, 240], 0],
+  ['contrasting content', [16, 15, 15], 4],
+] as const) {
+  test(`readCanvasContentStats classifies ${name}`, async () => {
+    const page = makePage({
+      evaluateImpl: async (fn, arg) => require('node:vm').runInNewContext(`(${fn.toString()})(arg)`, {
+        arg,
+        Image: class {
+          width = 8
+          height = 8
+          set src(_value: string) {
+            queueMicrotask(() => (this as any).onload())
+          }
+        },
+        document: {
+          createElement: () => ({
+            getContext: () => ({
+              drawImage() {},
+              getImageData: () => ({
+                width: 8,
+                height: 8,
+                data: Uint8ClampedArray.from(Array.from({ length: 64 }, () => [...rgb, 255]).flat()),
+              }),
+            }),
+          }),
+        },
+      }),
+    })
+
+    const stats = await readCanvasContentStats(page, makeLocator())
+
+    assert.deepEqual({ ...stats }, { nonBackground: expected, sampledPixels: 4 })
+  })
+}
 
 test('waitForCanvasContent fails fast when egui reports an app error', async () => {
   const page = makePage({
