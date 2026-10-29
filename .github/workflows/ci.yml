@@ -66,10 +66,10 @@ jobs:
           workspaces: |
             apps/web
 
-      - name: Install trunk and cargo-insta
+      - name: Install trunk
         uses: taiki-e/install-action@v2
         with:
-          tool: trunk,cargo-insta
+          tool: trunk
 
       - name: Install Web deps
         run: pnpm install --frozen-lockfile
