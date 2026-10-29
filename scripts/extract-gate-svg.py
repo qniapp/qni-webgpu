@@ -8,7 +8,7 @@ TypeScript で 1 ソース共有) に従い、ゲートアイコンの文字部�
 
 使い方:
     python3 scripts/extract-gate-svg.py H
-    python3 scripts/extract-gate-svg.py H X Y Z + √X S S† T T† P RX RY RZ QFT QFT†
+    python3 scripts/extract-gate-svg.py H Y Z + √X S S† T T† P RX RY RZ QFT QFT†
     python3 scripts/extract-gate-svg.py 0 1
 
 設定:

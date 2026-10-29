@@ -19,7 +19,6 @@ impl QniApp {
         let mut frame_state = CircuitFrameState {
             content_rect: None,
             gpu_batch: None,
-            recompute: false,
             dragging_gate_id: None,
             live_drag_gpu_overlay_ready: false,
             insert_preview_painted: false,
@@ -89,7 +88,7 @@ impl QniApp {
     ) {
         self.handle_input(rect, ctx, screen_rect, pointer_over_state_panel);
         let state_frame = self.prepare_state_panel_frame(screen_rect);
-        frame_state.recompute = self.process_gpu_recompute(
+        self.process_gpu_recompute(
             target_format,
             state_frame.recompute,
             state_frame.state_count,

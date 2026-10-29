@@ -9,7 +9,6 @@ include!(concat!(env!("OUT_DIR"), "/gate_icon_alpha.rs"));
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub(super) enum GateGlyph {
     H,
-    X,
     Y,
     Z,
     Plus,
@@ -32,9 +31,8 @@ pub(crate) const DIGIT_SDF_SIZE: usize = RASTER_SIZE;
 pub(crate) const DIGIT_SDF_PX_RANGE: f32 = SDF_PX_RANGE;
 
 impl GateGlyph {
-    pub(super) const ALL: [Self; 18] = [
+    pub(super) const ALL: [Self; 17] = [
         Self::H,
-        Self::X,
         Self::Y,
         Self::Z,
         Self::Plus,
@@ -57,7 +55,6 @@ impl GateGlyph {
 fn alpha_rle(glyph: GateGlyph) -> &'static [(u16, u8)] {
     match glyph {
         GateGlyph::H => H_ALPHA_RLE,
-        GateGlyph::X => X_ALPHA_RLE,
         GateGlyph::Y => Y_ALPHA_RLE,
         GateGlyph::Z => Z_ALPHA_RLE,
         GateGlyph::Plus => PLUS_ALPHA_RLE,
@@ -80,7 +77,6 @@ fn alpha_rle(glyph: GateGlyph) -> &'static [(u16, u8)] {
 pub(super) fn sdf_rle(glyph: GateGlyph) -> &'static [(u16, u8)] {
     match glyph {
         GateGlyph::H => H_SDF_RLE,
-        GateGlyph::X => X_SDF_RLE,
         GateGlyph::Y => Y_SDF_RLE,
         GateGlyph::Z => Z_SDF_RLE,
         GateGlyph::Plus => PLUS_SDF_RLE,
@@ -111,7 +107,6 @@ pub(crate) fn digit_sdf_rle(digit: u32) -> &'static [(u16, u8)] {
 fn texture_name(glyph: GateGlyph) -> &'static str {
     match glyph {
         GateGlyph::H => "gate-icon-h-png-raster",
-        GateGlyph::X => "gate-icon-x-png-raster",
         GateGlyph::Y => "gate-icon-y-png-raster",
         GateGlyph::Z => "gate-icon-z-png-raster",
         GateGlyph::Plus => "gate-icon-plus-png-raster",

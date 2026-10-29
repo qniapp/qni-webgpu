@@ -83,7 +83,7 @@ impl QubitBit {
 }</pre>
 
     <p class="note">
-      <code>new(u32)</code> は基本のコンストラクタ。<code>QubitBit</code> は外部入力を直接受けず生成元の変換から作られるため、<code>WireIndex</code> のような <code>try_from_i64</code> や専用エラー型は持たない。
+      <code>new(u32)</code> は基本のコンストラクタ。<code>QubitBit</code> は外部入力を直接受けず生成元の変換から作られるため、専用エラー型は持たない。
       ビット位置が量子ビット数の範囲内（≤ 32）に収まることは生成元（<code>WireIndex::to_qubit_bit</code> の範囲ガード、制御マスクの最上位ビット抽出、範囲判定済みの表示ブロック）が保証し、<code>mask()</code> の <code>1u32 &lt;&lt; value</code> もこの範囲に依存する。
       <code>as_u32()</code> は <code>GateParams</code> や <code>SimulationOp</code> の <code>u32</code> フィールドへ詰める、GPU 境界へ出る直前だけで使う。
     </p>

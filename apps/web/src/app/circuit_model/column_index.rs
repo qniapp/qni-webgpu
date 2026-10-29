@@ -4,13 +4,6 @@ pub(crate) struct CircuitColumnIndex {
     value: usize,
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum CircuitColumnIndexError {
-    Negative,
-    Overflow,
-}
-
 impl CircuitColumnIndex {
     /// Initial-state sentinel for breakpoint/hover only, never a gate column.
     pub(crate) const INITIAL: Self = Self { value: usize::MAX };
@@ -19,18 +12,6 @@ impl CircuitColumnIndex {
 
     pub(crate) const fn new(value: usize) -> Self {
         Self { value }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn try_from_i64(value: i64) -> Result<Self, CircuitColumnIndexError> {
-        let value = usize::try_from(value).map_err(|_| {
-            if value < 0 {
-                CircuitColumnIndexError::Negative
-            } else {
-                CircuitColumnIndexError::Overflow
-            }
-        })?;
-        Ok(Self::new(value))
     }
 
     pub(crate) const fn as_usize(self) -> usize {
@@ -58,14 +39,6 @@ mod tests {
     #[test]
     fn new_accepts_usize_value() {
         assert_eq!(CircuitColumnIndex::new(3).as_usize(), 3);
-    }
-
-    #[test]
-    fn try_from_i64_rejects_negative_value() {
-        assert_eq!(
-            CircuitColumnIndex::try_from_i64(-1),
-            Err(CircuitColumnIndexError::Negative)
-        );
     }
 
     #[test]
