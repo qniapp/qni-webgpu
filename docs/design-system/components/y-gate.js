@@ -16,7 +16,7 @@
  *
  * 設計判断:
  * - Shadow DOM (open): ホスト側の CSS が `.y-gate` などを再定義しても見た目が壊れない
- * - SVG path は実装 (apps/web/assets/icons/y.svg) と一致する Geist 700 outline
+ * - SVG path は実装 (apps/web/assets/icons/y.svg) と一致する Geist のアウトライン
  * - Flexoki の CSS 変数 (--cyan-400 / --bg / --purple-400 / --purple-600) は
  *   :root から Shadow DOM へ inheritance で伝播するため、Shadow root 内で var() で参照できる
  * - ホバー枠は ::before / ::after の代わりに <div class="hover-frame"> / <div class="hover-gap">
@@ -87,7 +87,7 @@
 <div class="hover-frame"></div>
 <div class="hover-gap"></div>
 <div class="body">
-  <!-- Geist 700 の "Y" outline。path d は apps/web/assets/icons/y.svg と完全一致。 -->
+  <!-- Geist の "Y" アウトライン。path d は apps/web/assets/icons/y.svg と完全一致。 -->
   <svg viewBox="0 0 48 48" aria-hidden="true">
     <g transform="translate(15.429 34.565) scale(0.029760 -0.029760)">
       <path d="M245 0V290L-6 710H96L288 378L480 710H582L331 290V0Z" fill="currentColor"/>
