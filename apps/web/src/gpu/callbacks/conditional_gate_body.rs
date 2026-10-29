@@ -6,9 +6,6 @@ use super::super::params::{
 };
 use super::super::resources::StateVectorResources;
 
-/// Paints one conditional gate body in the regular or the disabled fill,
-/// chosen on the GPU from `measurement_aux_buffer.z`. The CPU never learns
-/// whether the gate applied.
 pub(crate) struct ConditionalGateBodyCallback {
     pub(crate) index: usize,
     pub(crate) instance: ConditionalGateBodyInstance,
@@ -16,7 +13,6 @@ pub(crate) struct ConditionalGateBodyCallback {
 }
 
 impl ConditionalGateBodyCallback {
-    /// Frame capacity; callers paint the regular fill beyond it.
     pub(crate) const MAX_PER_FRAME: usize = MAX_CONDITIONAL_GATE_BODIES;
 }
 

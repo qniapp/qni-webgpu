@@ -1,18 +1,11 @@
 
 struct PopupParams {
-  // Egui callback viewport in CSS pixels.
   viewport_min: vec2<f32>,
   viewport_size: vec2<f32>,
-  // Top-left of the row-0 (amplitude) value text, in egui pixels.
   value_anchor: vec2<f32>,
-  // Vertical pitch between rows (= ROW_H from state_panel_draw.rs).
   row_pitch: f32,
-  // Pad to vec2 alignment.
   _pad_row: f32,
-  // (POPUP_GLYPH_CELL_W, POPUP_GLYPH_CELL_H) in egui pixels — the size
-  // of one character cell on screen. Same as the atlas cell.
   char_size: vec2<f32>,
-  // RGB text colour (premultiplied at write time).
   text_color: vec4<f32>,
   hovered_display_index: u32,
   qubits: u32,
@@ -37,10 +30,6 @@ const GLYPH_DEGREE: u32 = 15u;
 const GLYPH_EM_DASH: u32 = 19u;
 const GLYPH_BLANK: u32 = 0xFFFFu;
 
-// --- Per-row character counts ---
-//   row 0: amplitude   "+r.rrrrr+i.iiiiii" → 17 chars
-//   row 1: probability "+ddd.dddd%"        → 10 chars
-//   row 2: phase       "+ddd.dd°"          →  8 chars
 const ROW_AMP_CHARS:   u32 = 17u;
 const ROW_PROB_CHARS:  u32 = 10u;
 const ROW_PHASE_CHARS: u32 =  8u;
@@ -77,12 +66,6 @@ fn pow10_table(exp: i32) -> f32 {
   }
 }
 
-// Returns the decimal digit of `value` at place 10^exp.
-//   digit_at(50.0, 0) → 0   (units)
-//   digit_at(50.0, 1) → 5   (tens)
-//   digit_at(50.0, -1) → 0  (tenths)
-// Implemented as integer division / multiplication so that whole-number
-// values like 1.0 yield exact digits (no `0.99999` underflow).
 fn digit_at(value: f32, exp: i32) -> u32 {
   var scaled: f32;
   if (exp >= 0) {
@@ -93,19 +76,11 @@ fn digit_at(value: f32, exp: i32) -> u32 {
   return u32(floor(scaled)) % 10u;
 }
 
-// Round `value` to `frac_digits` decimal places. Used before digit
-// extraction so the displayed text matches "round-to-nearest" instead
-// of "truncate-toward-zero".
 fn round_to(value: f32, frac_digits: u32) -> f32 {
   let m = pow10_table(i32(frac_digits));
   return round(value * m) / m;
 }
 
-// --- Per-row glyph selectors ---
-
-// Amplitude: "+r.rrrrr+i.iiiii i" — fixed 17 chars, always shows the
-// units digit and full 5-decimal mantissa. Sign of imag is always
-// printed (matches qni's `+0.00000+0.00000i` style).
 fn glyph_amplitude(idx: u32, re_raw: f32, im_raw: f32) -> u32 {
   let re = round_to(re_raw, 5u);
   let im = round_to(im_raw, 5u);
@@ -115,37 +90,26 @@ fn glyph_amplitude(idx: u32, re_raw: f32, im_raw: f32) -> u32 {
   if (idx == 1u) { return digit_at(re_abs, 0); }
   if (idx == 2u) { return GLYPH_DOT; }
   if (idx <= 7u) {
-    let frac_pos = i32(idx) - 2;     // 1..5
+    let frac_pos = i32(idx) - 2;
     return digit_at(re_abs, -frac_pos);
   }
   if (idx == 8u) { return select(GLYPH_MINUS, GLYPH_PLUS, im >= 0.0); }
   if (idx == 9u) { return digit_at(im_abs, 0); }
   if (idx == 10u) { return GLYPH_DOT; }
   if (idx <= 15u) {
-    let frac_pos = i32(idx) - 10;    // 1..5
+    let frac_pos = i32(idx) - 10;
     return digit_at(im_abs, -frac_pos);
   }
   if (idx == 16u) { return GLYPH_I; }
   return GLYPH_BLANK;
 }
 
-// Leading-blank count for a fixed-3-int-digit format: how many leading
-// integer cells should be *visually skipped* instead of rendered as a
-// padded "0". A value < 10 has 2 blanks (hundreds + tens hidden), 10
-// ≤ v < 100 has 1, ≥ 100 has 0. We then shift the on-screen char
-// index by this amount so the digits land flush against the sign
-// glyph — "+50.0000%" instead of "+  50.0000%".
 fn leading_blanks_3int(value_abs: f32) -> u32 {
   if (value_abs >= 100.0) { return 0u; }
   if (value_abs >= 10.0) { return 1u; }
   return 2u;
 }
 
-// Probability: "+ddd.dddd%" — value in 0..1 mapped to 0..100%. On-screen
-// char `idx` is mapped to the format-string `orig_idx`: idx 0 always
-// renders the sign; idx ≥ 1 is shifted past the leading-blank prefix
-// so the digits read as left-justified after the sign. Falls through to
-// BLANK once we walk past the '%' suffix.
 fn glyph_probability(idx: u32, prob_01: f32) -> u32 {
   let prob_pct = round_to(prob_01 * 100.0, 4u);
   let blanks = leading_blanks_3int(prob_pct);
@@ -158,8 +122,6 @@ fn glyph_probability(idx: u32, prob_01: f32) -> u32 {
   return GLYPH_BLANK;
 }
 
-// Phase: "+ddd.dd°" — degrees in [-180, +180]. Same leading-blank shift
-// as probability, but the sign cell can be either '+' or '-'.
 fn glyph_phase(idx: u32, phase_deg: f32) -> u32 {
   let phase = round_to(phase_deg, 2u);
   let phase_abs = abs(phase);
@@ -173,12 +135,8 @@ fn glyph_phase(idx: u32, phase_deg: f32) -> u32 {
   return GLYPH_BLANK;
 }
 
-// --- Vertex / fragment ---
-
 struct VsOut {
   @builtin(position) clip: vec4<f32>,
-  // Cell-local U in [0, row_char_count]; cell-local V in [0, 1].
-  // floor(uv.x) → char index, fract(uv.x) → within-cell U.
   @location(0) cell_uv: vec2<f32>,
   @location(1) @interpolate(flat) row: u32,
 };
@@ -188,7 +146,6 @@ fn vs_main(
   @builtin(vertex_index) vi: u32,
   @builtin(instance_index) ii: u32,
 ) -> VsOut {
-  // Two-triangle quad. Corners: (0,0), (1,0), (0,1), (1,0), (1,1), (0,1).
   var corners = array<vec2<f32>, 6>(
     vec2<f32>(0.0, 0.0),
     vec2<f32>(1.0, 0.0),
@@ -226,8 +183,6 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let char_index = u32(floor(input.cell_uv.x));
   let cell_local = vec2<f32>(fract(input.cell_uv.x), input.cell_uv.y);
 
-  // q0=LSB なので hovered_display_index がそのまま state バッファの添字になる
-  // （reverseBits 不要。STATE_RENDER_SHADER と同じ規約）。
   let amp = state[params.hovered_display_index];
   let re = amp.x;
   let im = amp.y;
@@ -247,8 +202,6 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 
   if (glyph == GLYPH_BLANK) { discard; }
 
-  // Atlas UV — horizontal strip of GLYPH_COUNT cells, each `cell_local`
-  // mapping 0..1 within its cell.
   let atlas_u = (f32(glyph) + cell_local.x) / f32(GLYPH_COUNT);
   let atlas_v = cell_local.y;
   let alpha = textureSample(atlas, atlas_sampler, vec2<f32>(atlas_u, atlas_v)).r;

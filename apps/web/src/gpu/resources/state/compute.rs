@@ -76,7 +76,6 @@ fn create_compute_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLay
                 },
                 count: None,
             },
-            // Measurement aux buffer read by conditional gates.
             wgpu::BindGroupLayoutEntry {
                 binding: 3,
                 visibility: wgpu::ShaderStages::COMPUTE,

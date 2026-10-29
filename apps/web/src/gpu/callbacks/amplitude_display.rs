@@ -12,8 +12,6 @@ use super::super::readback::AMPLITUDE_SLOT_MAP;
 use super::super::readback::{AmplitudeGpuHandle, AMPLITUDE_GPU_HANDLE};
 use super::super::resources::StateVectorResources;
 
-/// Renders Amplitude display cells straight from GPU amplitude buffers.
-/// The CPU supplies only geometry, colours, and hovered cell index.
 pub(crate) struct AmplitudeDisplayCallback {
     pub(crate) instances: Arc<[AmplitudeInstance]>,
     pub(crate) use_drag_preview_buffer: bool,

@@ -1,19 +1,3 @@
-//! 外部 GPU（Qiskit）経路から受け取る測定確率分布の値オブジェクト。
-//!
-//! 確率の「計算」は GPU compute shader 側で完結する（GPU-only ルール）。CPU が触れるのは
-//! 外部バックエンドが算出済みの確率分布を JSON で受け取り、GPU storage バッファへ転送する
-//! 一瞬だけである。その境界で「分布として妥当か」を一度だけ検証して閉じ込めるのがこの型の
-//! 役割で、確率値を CPU で再計算するものではない。
-//!
-//! 生の `Arc<[f32]>` のままだと次の不正がコンパイラにも実行時にも素通りしていた:
-//! - NaN / ±Inf / 範囲外の要素（全要素が未定義を表す -1 の場合を除く）
-//! - 長さが 2 のべき乗でない（= 2^span に対応しない）配列
-//! - 上限 [`MAX_PROBABILITY_OUTCOMES`] を超える長さ（GPU バッファで隣スロットを破壊しうる）
-//!
-//! これらを [`ProbabilityDistribution::try_new`] が生成時に強制する。GPU への書き込みは
-//! [`ProbabilityDistribution::as_slice`] が返す素の `&[f32]` を `bytemuck::cast_slice` に
-//! 渡すだけなので、zero-copy 転送と GPU バッファレイアウトは従来どおり保たれる。
-
 use std::sync::Arc;
 
 use super::params::MAX_PROBABILITY_OUTCOMES;
@@ -37,13 +21,9 @@ const UNIT_TOLERANCE: f32 = 1e-3;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum ProbabilityDistributionError {
-    /// 要素が 1 つも無い。
     Empty,
-    /// 長さが 2 のべき乗でない（2^span に対応しない）。
     NotPowerOfTwo { len: usize },
-    /// 長さが GPU バッファの 1 スロット枠を超える。
     TooManyOutcomes { len: usize, max: usize },
-    /// 非有限、または許容誤差を超えて `0.0..=1.0` を外れた要素。
     OutOfUnitRange { index: usize, value: f32 },
 }
 
@@ -62,7 +42,6 @@ impl ProbabilityDistribution {
                 max: MAX_PROBABILITY_OUTCOMES,
             });
         }
-        // ローカル WebGPU と同じ未定義分布。部分的な負値は許可しない。
         if values.iter().all(|&value| value == -1.0) {
             return Ok(Self { values });
         }
@@ -74,7 +53,6 @@ impl ProbabilityDistribution {
         Ok(Self { values })
     }
 
-    /// GPU 書き込み用の素の確率値スライス。`bytemuck::cast_slice` にそのまま渡せる。
     pub(crate) fn as_slice(&self) -> &[f32] {
         &self.values
     }
@@ -96,7 +74,6 @@ mod tests {
 
     #[test]
     fn accepts_single_outcome_distribution() {
-        // len==1 (2^0) は 2 のべき乗の下限。Empty(len==0) 拒否の直隣の境界。
         assert!(try_new(vec![1.0]).is_ok());
     }
 
@@ -130,7 +107,6 @@ mod tests {
 
     #[test]
     fn accepts_max_probability_outcomes_length() {
-        // ちょうど上限 (span=16 の Probability16)。`>` を `>=` に取り違える退行を捕捉する。
         assert!(try_new(vec![0.0; super::MAX_PROBABILITY_OUTCOMES]).is_ok());
     }
 
@@ -175,7 +151,6 @@ mod tests {
 
     #[test]
     fn accepts_negative_value_within_unit_tolerance() {
-        // 許容帯は 0.0/1.0 の両側対称。下限 -UNIT_TOLERANCE が 0.0 に退行しないよう固定する。
         assert!(try_new(vec![-UNIT_TOLERANCE / 2.0, 1.0]).is_ok());
     }
 }

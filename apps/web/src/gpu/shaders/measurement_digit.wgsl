@@ -34,7 +34,6 @@ struct VsOut {
 fn vs_main(input: VsIn) -> VsOut {
   let local = input.corner * input.half_extent;
   let world = input.center + local;
-  // See BLOCH_OVERLAY_SHADER — NDC maps to the egui callback viewport.
   let viewport_pos = world - params.viewport_min;
   let ndc = vec2<f32>(
     (viewport_pos.x / params.viewport_size.x) * 2.0 - 1.0,
@@ -54,8 +53,6 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let aux = aux_data[input.slot];
   let outcome: f32 = aux.z;
   if (outcome < 0.0) { discard; }
-  // Map local coords ([-half_extent, +half_extent]^2) into the right cell
-  // of a 1x2 atlas (top half = "0", bottom half = "1"). UV.y picks the row.
   let cell_u = (input.local.x / input.half_extent) * 0.5 + 0.5;
   let cell_v = (input.local.y / input.half_extent) * 0.5 + 0.5;
   let row = select(0.0, 1.0, outcome >= 0.5);

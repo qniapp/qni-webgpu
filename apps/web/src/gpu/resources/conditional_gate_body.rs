@@ -1,12 +1,3 @@
-//! Conditional gate body render pipeline.
-//!
-//! Paints the body of each conditional gate (`X<name`) whose condition is a
-//! measurement outcome: the fragment shader reads `outcome` from
-//! `measure::aux_buffer` and picks the regular gate fill or qni's disabled
-//! fill. egui paints the glyph on top. Each gate is its own paint callback so
-//! the body keeps its place in the circuit's paint order; callback `i` uses
-//! instance `i` of `instance_buffer`.
-
 use eframe::wgpu;
 
 use super::super::params::{

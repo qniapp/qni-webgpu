@@ -1,64 +1,18 @@
-//! Glyph atlas for the state-cell hover popup numeric values.
-//!
-//! The popup chrome (frame, icons, labels) is drawn by egui's painter
-//! on the CPU side, but the amplitude / probability / phase *values*
-//! live on the GPU (storage buffer holding the state vector). Per the
-//! project's "no GPU→CPU readback in the render hot path" rule we
-//! cannot ship those values back to the CPU just to render text — so a
-//! shader pass formats and rasterises the numbers from a glyph atlas
-//! directly inside the popup's value rects.
-//!
-//! This module bakes that atlas: a 1-row strip of fixed-width cells
-//! holding the glyphs needed to express any
-//! ±d.ddddd ±d.ddddd i / ±dd.dddd % / ±ddd.dd ° formatted value, plus
-//! Probability popup raw/log values. The resulting greyscale buffer is uploaded
-//! to a GPU texture sampled by the popup-value fragment shaders.
-//!
-//! Atlas layout (left → right):
-//!   index 0..=9   : '0' .. '9'
-//!   index 10      : '.'
-//!   index 11      : '+'
-//!   index 12      : '−'  (U+2212 minus sign)
-//!   index 13      : 'i'  (imaginary suffix on amplitude)
-//!   index 14      : '%'  (probability suffix)
-//!   index 15      : '°'  (phase suffix)
-//!   index 16..=17 : 'd', 'B' (Probability log suffix)
-//!   index 18      : '∞'  (Probability log zero-probability value)
-//!   index 19      : '—'  (undefined Bloch spherical angle)
-
 use ab_glyph::{Font as _, ScaleFont as _};
 
-/// Width of one glyph cell in atlas pixels. Sized to match Geist Mono's
-/// advance width at `POPUP_GLYPH_PX_SCALE` plus a thin safety margin —
-/// wide enough that no glyph bleeds into the neighbouring cell, narrow
-/// enough that the rendered text matches egui's own monospace label
-/// spacing on screen. Exposed crate-wide so the CPU-side popup layout
-/// can use the exact same cell size the shader samples from.
 pub(crate) const POPUP_GLYPH_CELL_W: u32 = 9;
-/// Height of one glyph cell in atlas pixels.
 pub(crate) const POPUP_GLYPH_CELL_H: u32 = 16;
-/// Number of cells in the atlas strip. Matches the glyph set below.
 pub(super) const POPUP_GLYPH_COUNT: u32 = 20;
 pub(super) const POPUP_GLYPH_ATLAS_WIDTH: u32 = POPUP_GLYPH_CELL_W * POPUP_GLYPH_COUNT;
 pub(super) const POPUP_GLYPH_ATLAS_HEIGHT: u32 = POPUP_GLYPH_CELL_H;
 
-/// Glyphs in the order they appear in the atlas strip.
 pub(super) const POPUP_GLYPHS: [char; 20] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '+', '−', 'i', '%', '°', 'd', 'B', '∞',
     '—',
 ];
 
-/// PxScale calibrated so the rasterised glyph height matches what egui
-/// renders for `FontId::monospace(12.0)`: egui internally upscales mono past
-/// the raw em-size that `ab_glyph::PxScale::from(12.0)` would give.
 const POPUP_GLYPH_PX_SCALE: f32 = 14.4;
 
-/// Rasterise the popup-value glyphs into a single-channel (alpha) byte
-/// buffer of size `POPUP_GLYPH_ATLAS_WIDTH × POPUP_GLYPH_ATLAS_HEIGHT`.
-/// Each glyph is horizontally centred in its cell and baseline-aligned
-/// against the font's ascent (so digits, `+`, `-`, `.`, `i`, `%`, `°`
-/// all sit on a shared baseline). Used at startup; the result is
-/// uploaded once to a GPU texture.
 pub(super) fn rasterize_popup_glyph_atlas() -> Vec<u8> {
     let font =
         ab_glyph::FontRef::try_from_slice(include_bytes!("../../assets/GeistMono-Regular.ttf"))
@@ -83,10 +37,6 @@ pub(super) fn rasterize_popup_glyph_atlas() -> Vec<u8> {
         let glyph_w = bounds.width().ceil() as u32;
         let cell_origin_x =
             cell_index as u32 * POPUP_GLYPH_CELL_W + POPUP_GLYPH_CELL_W.saturating_sub(glyph_w) / 2;
-        // Vertical origin: align glyphs by their px_bounds top (≈ font
-        // ascender). For visually consistent baseline-alignment we offset
-        // by the glyph's bounds.min.y so that the glyph's top-left lands
-        // at the cell's top edge plus the glyph's natural ascent.
         let cell_origin_y = bounds.min.y.max(0.0) as u32;
         outlined.draw(|gx, gy, alpha| {
             let px = cell_origin_x + gx;
@@ -117,9 +67,6 @@ mod tests {
         assert!(shaders.iter().all(|shader| shader.contains(&declaration)));
     }
 
-    /// Atlas dimensions are derived from `POPUP_GLYPH_COUNT` * `CELL_W`
-    /// — guard against the buffer length getting out of sync with
-    /// either constant.
     #[test]
     fn atlas_buffer_length_matches_dimensions() {
         let atlas = rasterize_popup_glyph_atlas();
@@ -129,9 +76,6 @@ mod tests {
         );
     }
 
-    /// Each glyph cell must contain non-zero pixels — if any glyph
-    /// failed to rasterise (missing in the font, off-cell, etc.) the
-    /// popup text would silently render as a blank.
     #[test]
     fn every_glyph_cell_has_ink() {
         let atlas = rasterize_popup_glyph_atlas();
@@ -153,11 +97,6 @@ mod tests {
         }
     }
 
-    /// Adjacent glyph cells must not bleed into one another: the
-    /// single-column gap between cells (last pixel of cell N, first
-    /// pixel of cell N+1) is reserved space and would cause UV
-    /// aliasing in the shader if a glyph spilled into it. We assert
-    /// the edge columns are dark for every cell boundary.
     #[test]
     fn cells_do_not_overlap_horizontally() {
         let atlas = rasterize_popup_glyph_atlas();
@@ -167,9 +106,6 @@ mod tests {
             for y in 0..POPUP_GLYPH_ATLAS_HEIGHT {
                 let prev_px = atlas[(y * POPUP_GLYPH_ATLAS_WIDTH + last_col_of_prev) as usize];
                 let next_px = atlas[(y * POPUP_GLYPH_ATLAS_WIDTH + first_col_of_next) as usize];
-                // Allow a touch of antialiasing fringe (≤ 32/255 ≈
-                // 12 %), but anything brighter means a glyph spilled
-                // past the cell.
                 assert!(
                     prev_px < 32 && next_px < 32,
                     "glyph cell {} bleeds into cell {} at y={y}: \
