@@ -29,9 +29,6 @@ hooks:
         pnpm -C apps/web install
       fi
     fi
-    if command -v cargo >/dev/null 2>&1; then
-      cargo fetch || true
-    fi
   before_run: |
     if [ -d /home/yasuhito/Work/oss/symphony/.codex ]; then
       rm -rf .codex
@@ -82,12 +79,12 @@ qni-webgpu project rules:
 - Keep debugging until the correct rendering/behavior is confirmed when the issue is UI or rendering related.
 - Update docs alongside behavior changes when relevant.
 - Avoid `println!`; use existing logging patterns when debug output is needed.
-- For `apps/web`, do not use native-only Rust validation as the primary gate. Use `cargo check --target wasm32-unknown-unknown -p qni-web`.
+- For `apps/web`, do not use native-only Rust validation as the primary gate. Use `cargo check --manifest-path apps/web/Cargo.toml --target wasm32-unknown-unknown -p qni-web`.
 
 qni-webgpu validation policy:
 - Start with the smallest targeted checks that prove the changed behavior.
 - For `apps/web` UI/runtime work, prefer some combination of:
-  - `cargo check --target wasm32-unknown-unknown -p qni-web`
+  - `cargo check --manifest-path apps/web/Cargo.toml --target wasm32-unknown-unknown -p qni-web`
   - `pnpm -C apps/web run test:preflight`
   - `pnpm -C apps/web run test:bdd`
   - `pnpm -C apps/web run test:pw-legacy`

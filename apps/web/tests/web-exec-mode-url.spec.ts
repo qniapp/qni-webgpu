@@ -7,7 +7,7 @@ import {
   type PixelSamplePoint,
 } from './support/web-spec-helpers'
 
-const EXEC_MODE_GPU_FILL: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
+const EXEC_MODE_GPU_FILL: CanvasPixel = [32, 94, 166, 255]
 const circuitHash = (cols: unknown[]): string => encodeURIComponent(JSON.stringify({ cols }))
 
 const execModeProbePoints = (cssWidth: number): PixelSamplePoint[] => [

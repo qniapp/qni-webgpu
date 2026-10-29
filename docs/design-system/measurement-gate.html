@@ -12,7 +12,6 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- 測定ゲート本体は <measurement-gate> カスタム要素で描画する。 -->
   <script src="components/measurement-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
@@ -256,7 +255,6 @@
     <h3 style="margin-top: 16px;">ピクセル内訳 (1× 図解)</h3>
     <div class="geo-diagram">
       <svg viewBox="-12 -12 80 80" width="240" height="240" aria-hidden="true">
-        <!-- Flexoki ui-2 = #DAD8CE / purple-600 = #5E409D / purple-400 = #8B7EC8 / tx-3 = #B7B5AC -->
         <rect x="-8" y="-8" width="56" height="56" fill="none" stroke="#DAD8CE" stroke-dasharray="2,2" />
         <rect x="-4" y="0" width="48" height="40" fill="#FFFCF0" stroke="#B7B5AC" stroke-dasharray="3,3" opacity="0.7" />
         <line x1="-8" y1="20" x2="48" y2="20" stroke="#DAD8CE" stroke-width="1" />

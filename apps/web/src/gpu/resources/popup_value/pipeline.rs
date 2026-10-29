@@ -17,9 +17,6 @@ pub(super) fn build_pipeline(
         immediate_size: 0,
     });
 
-    // Vertex / instance indices come from built-ins
-    // (`@builtin(vertex_index)` / `@builtin(instance_index)`); no
-    // vertex buffer is needed.
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("popup_value_pipeline"),
         layout: Some(&pipeline_layout),

@@ -4,7 +4,6 @@ use eframe::{egui_wgpu, wgpu};
 use super::super::params::AmplitudePopupValueParams;
 use super::super::resources::StateVectorResources;
 
-/// Renders dynamic Amplitude popup values directly from the GPU buffers.
 pub(crate) struct AmplitudePopupValueCallback {
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],

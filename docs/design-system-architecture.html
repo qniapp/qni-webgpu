@@ -215,7 +215,6 @@
   </p>
 </div>
 
-<!-- ───────────────── 1. なぜこれが必要か ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 01</span> なぜデザインシステムが必要か</h2>
 
@@ -248,7 +247,6 @@
   </div>
 </section>
 
-<!-- ───────────────── 2. Qni の手法を参考にする ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 02</span> 参考: Qni のチュートリアル埋め込み</h2>
   <p class="note">
@@ -296,7 +294,6 @@
   </div>
 </section>
 
-<!-- ───────────────── 3. アーキテクチャ概要 ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 03</span> アーキテクチャ概要 — 2 階層のカスタム要素</h2>
 
@@ -308,7 +305,6 @@
   </p>
 
   <div class="arch">
-    <!-- 上段: 利用側 (デザインシステムページ) -->
     <div class="arch-card">
       <div class="arch-title">design-system.html （リポジトリ直下）</div>
       <div class="arch-sub">ふつうの HTML、Geist フォント、カスタム要素を散りばめる</div>
@@ -318,13 +314,11 @@
 &lt;/probability-display&gt;</pre>
     </div>
 
-    <!-- 2 系統への分岐 -->
     <div class="arch-flow-pair">
       <div class="arrow"><span>Tier A</span><span class="head">↓</span></div>
       <div class="arrow"><span>Tier B</span><span class="head">↓</span></div>
     </div>
 
-    <!-- 下段: 2 系統の実装側 -->
     <div class="arch-row">
       <div class="arch-card">
         <div class="arch-title">
@@ -357,7 +351,6 @@
       </div>
     </div>
 
-    <!-- 共有リソース -->
     <div class="arch-shared">
       両者は <code>assets/icons/*.svg</code> と
       <code>src/shaders/*.wgsl</code> を 1 ソースで共有
@@ -365,7 +358,6 @@
   </div>
 </section>
 
-<!-- ───────────────── 4. Tier A: 静的 SVG ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 04</span> Tier A: 静的 SVG ベースのカスタム要素</h2>
   <p class="note">
@@ -438,7 +430,6 @@ customElements.define('h-gate', HGateElement);</pre>
   </div>
 </section>
 
-<!-- ───────────────── 5. Tier B: wasm + キャンバス ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 05</span> Tier B: wasm + キャンバスベースのカスタム要素</h2>
   <p class="note">
@@ -558,7 +549,6 @@ pub fn start_widget(
   </div>
 </section>
 
-<!-- ───────────────── 6. パッケージ構成 ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 06</span> パッケージ / ファイル構成</h2>
 
@@ -614,7 +604,6 @@ pub fn start_widget(
   </table>
 </section>
 
-<!-- ───────────────── 7. design-system.html の中身 ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 07</span> design-system.html の中身イメージ</h2>
   <p class="note">
@@ -662,7 +651,6 @@ pub fn start_widget(
   </div>
 </section>
 
-<!-- ───────────────── 8. ロードマップ ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 08</span> 段階的ロードマップ</h2>
 
@@ -718,7 +706,6 @@ pub fn start_widget(
   </div>
 </section>
 
-<!-- ───────────────── 9. オープン課題 ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 09</span> 残っている設計判断</h2>
 
@@ -766,8 +753,8 @@ pub fn start_widget(
 
 <div class="doc-foot">
   関連:
-  <a href="probability-display-mock.html">probability-display-mock.html</a> ·
-  <a href="circuit-picker.html">circuit-picker.html</a> ·
+  <a href="design-system/probability-display-mock.html">probability-display-mock.html</a> ·
+  <a href="design-system/circuit-picker.html">circuit-picker.html</a> ·
   <a href="local-circuit-library-spec.html">local-circuit-library-spec.html</a>
   · アーキテクチャ提案 · 設計レビュー用 · 2026-05
 </div>

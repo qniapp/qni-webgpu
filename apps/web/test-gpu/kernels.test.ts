@@ -215,7 +215,7 @@ test('real WGSL numeric kernels', async (t) => {
     }
 
     for (const c of cases) {
-      await t.test(c.name, async () => {
+      await t.test(c.name, async (t) => {
         const cpu = expected(c)
         const gpu = await rig.recompute(c)
         if (c.ops.some((op) => op.kind === 'gate' || op.kind === 'collapse')) {
@@ -230,12 +230,16 @@ test('real WGSL numeric kernels', async (t) => {
             bits: new Uint32Array(gpu.state.buffer),
             context: gpu.trace,
           }
-          record(key, c.name, state, cpu.state)
+          await t.test('state', () => record(key, c.name, state, cpu.state))
         }
-        assert.equal(gpu.outputs.length, cpu.outputs.length)
-        gpu.outputs.forEach((output, index) => {
+        if (gpu.outputs.length !== cpu.outputs.length) {
+          throw new Error(`Expected outputs length ${cpu.outputs.length}, got ${gpu.outputs.length}`)
+        }
+        for (const [index, output] of gpu.outputs.entries()) {
           const reference = cpu.outputs[index]
-          assert.equal(output.name, reference.name)
+          if (output.name !== reference.name) {
+            throw new Error(`Expected output name ${reference.name}, got ${output.name}`)
+          }
           const key =
             output.name === 'measurement'
               ? 'measure_reduce'
@@ -250,8 +254,10 @@ test('real WGSL numeric kernels', async (t) => {
                       : output.name === 'bloch'
                         ? 'bloch_reduce'
                         : (output.name as (typeof kernels)[number])
-          record(key, c.name, output, reference.data, reference.categorical)
-        })
+          await t.test(`${output.name} ${index}`, () => {
+            record(key, c.name, output, reference.data, reference.categorical)
+          })
+        }
         assertHealthy()
       })
     }

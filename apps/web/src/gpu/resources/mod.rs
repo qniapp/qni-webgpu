@@ -1,26 +1,3 @@
-//! `StateVectorResources` — the kitchen-sink GPU resource bag, split
-//! by subsystem.
-//!
-//! * [`common`] — shared state-vector ping-pong buffers + ground-state
-//!   seed + the `[-1, 1]²` unit quad used by every render pipeline.
-//! * [`state`]  — state-vector compute (gate dispatch) + render
-//!   (state-panel grid).
-//! * [`bloch_display`] — Bloch Display reduce (compute) + arrow overlay
-//!   (render). Both share the bloch output buffer.
-//! * [`measure`]— measurement reduce + collapse (compute only). Owns
-//!   `aux_buffer` consumed by `digit`, conditional gates in `state`, and
-//!   the conditional gate body overlay.
-//! * [`probability_display`] — Probability Display marginalization (compute) +
-//!   GPU-rendered bars. Both share the Probability output buffer.
-//! * [`amplitude_display`] — Amplitude Display capture + GPU-rendered grid / popup.
-//! * [`density_matrix_display`] — Density Matrix Display capture + GPU-rendered grid.
-//! * [`digit`]  — measurement digit overlay render pipeline. Reads
-//!   `measure::aux_buffer`.
-//! * [`conditional_gate_body`] - conditional gate body fill chosen from
-//!   `measure::aux_buffer`.
-//! * [`popup_value`] — popup numeric-row render pipeline. Reads the
-//!   active `common::state_buffers`.
-
 mod amplitude_display;
 mod arithmetic;
 mod bloch_display;
@@ -63,21 +40,11 @@ pub(crate) struct StateVectorResources {
     pub(crate) conditional_gate_body: ConditionalGateBodyResources,
     pub(crate) popup_value: PopupValueResources,
 
-    /// Surface format the render pipelines were last built for; used
-    /// to short-circuit `update_target_format` on every frame.
     pub(crate) target_format: wgpu::TextureFormat,
-    /// Number of states currently allocated (≤ MAX_STATE_COUNT). Owned
-    /// here rather than inside a subsystem because every pipeline reads
-    /// it indirectly.
     pub(crate) state_count: usize,
-    /// Final-state ping-pong buffer index (0/1) produced by the latest full
-    /// recompute. Used when no step preview is active.
     pub(crate) final_state: usize,
-    /// Index into state render/readback bind groups. 0/1 are the ping-pong
-    /// final-state buffers; 2 is the selected-step preview snapshot.
     pub(crate) active_state: usize,
     pub(crate) last_preview_step: Option<usize>,
-    /// Last plan actually submitted, distinct from the CPU plan's clean flag.
     pub(crate) plan_revision: Option<u64>,
 }
 
@@ -126,8 +93,6 @@ impl StateVectorResources {
         }
     }
 
-    /// Rebuild every render pipeline whose colour target depends on
-    /// the surface format. No-op when the format hasn't changed.
     pub(crate) fn update_target_format(
         &mut self,
         device: &wgpu::Device,

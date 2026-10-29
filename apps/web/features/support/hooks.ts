@@ -18,11 +18,8 @@ type HookWorld = {
   browserMode: string
   consoleErrors: string[]
   pageErrors: string[]
-  server: SharedWebServer | null
   baseUrl: string
   attach: (data: Buffer | string, mediaType?: string) => Promise<void> | void
-  startScenario: (name?: string | null) => void
-  resetRuntimeState: () => void
 }
 
 type SharedWebServerConfig = {
@@ -112,19 +109,15 @@ export const registerHooks = ({
   getScenarioArtifactPath: getArtifactPath = getScenarioArtifactPath,
   getSharedWebServerConfig: getServerConfig = getSharedWebServerConfig,
 }: RegisterHooksDependencies = {}): void => {
-  let sharedServer: SharedWebServer | null = null
-
   BeforeAll({ timeout: getServerConfig().timeout }, async function () {
-    sharedServer = await ensureServer()
+    await ensureServer()
   })
 
   // 共有サーバは run 単位で 1 つだが、途中で落ちることがある (直前の実行の
   // 後始末と重なった場合など)。健全なら probe 1 回で戻るだけなので、
   // シナリオごとに生存を確認して必要なら再起動する。
-  Before({ timeout: getServerConfig().timeout }, async function ({ pickle }) {
-    sharedServer = await ensureServer()
-    this.startScenario(pickle?.name)
-    this.server = sharedServer
+  Before({ timeout: getServerConfig().timeout }, async function () {
+    const sharedServer = await ensureServer()
     this.baseUrl = sharedServer?.url || getServerConfig().url
   })
 
@@ -151,16 +144,10 @@ export const registerHooks = ({
       }
     } finally {
       await closeBrowser(this)
-      this.resetRuntimeState()
-      this.baseUrl = sharedServer?.url || getServerConfig().url
     }
   })
 
   AfterAll({ timeout: getServerConfig().timeout }, async function () {
-    try {
-      await shutdownServer()
-    } finally {
-      sharedServer = null
-    }
+    await shutdownServer()
   })
 }

@@ -1,9 +1,3 @@
-//! Density Matrix display capture + GPU-resident gate-body rendering.
-//!
-//! The capture pass writes reduced density matrices to storage buffers; the
-//! render pass samples those buffers directly. Test-only readback lives in
-//! `gpu::readback` and is not used by production rendering.
-
 use eframe::wgpu;
 
 use super::super::params::{

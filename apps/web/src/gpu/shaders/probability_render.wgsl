@@ -44,8 +44,6 @@ const GLYPH_PERCENT: u32 = 14u;
 const GLYPH_BLANK: u32 = 0xFFFFu;
 const PROBABILITY_TEXT_CHARS: u32 = 6u;
 const PROBABILITY_TEXT_DIGIT_W: f32 = 7.0;
-// docs/design-system/probability-display.html §06: Geist Mono dot uses the normal 9px cell
-// squeezed by −3px side margins, so it still gets a centre sample column.
 const PROBABILITY_TEXT_DOT_W: f32 = 3.0;
 const PROBABILITY_TEXT_CHAR_H: f32 = 16.0;
 
@@ -92,8 +90,6 @@ fn vs_main(input: VsIn) -> VsOut {
   out.render_mode = input.render_mode;
   out.rect_min = input.rect_min;
   out.seed = input.seed;
-  // Sampling scans all 2^span outcomes, so do it once per vertex rather than
-  // once per fragment. The preview state shows every tile unlit.
   out.sample_outcome = SAMPLE_INVALID;
   if (input.render_mode == SAMPLE_RENDER_MODE) {
     out.sample_outcome = sampled_outcome(input.slot, input.span, input.seed);
@@ -141,8 +137,6 @@ fn probability_text_width(prob_01: f32) -> f32 {
 }
 
 fn probability_text_color(local: vec2<f32>, rect_size: vec2<f32>, row: u32, row_count: u32, row_h: f32, prob: f32, base: vec4<f32>) -> vec4<f32> {
-  // qni-webgpu policy: Probability1..4 only. Probability5 has >8px rows after the
-  // 40px migration, but the 12px label is still too dense for 32 outcomes.
   if (row_count > 16u || row_h <= 8.0) { return base; }
   let text_w = probability_text_width(prob);
   let text_left = rect_size.x - 2.0 - text_w;
@@ -196,12 +190,6 @@ fn pixel_row_top(row: u32, row_h: f32, height: f32) -> f32 {
 }
 
 fn on_log_hint(local_x: f32, local_y: f32, slot: u32, span: u32, row: u32, row_h: f32, prob: f32, width: f32, height: f32) -> bool {
-  // log(0) is undefined: an impossible outcome (prob 0) has no log-scale
-  // position, so draw neither its vertical tick nor any connector that touches
-  // it. The hint only marks rows that actually carry probability — its purpose
-  // is to reveal tiny non-zero differences a linear bar cannot show. Without
-  // this guard a full bar (px = width) joined to the empty rows below (px = 0)
-  // paints a full-width connector right under the bar.
   if (prob <= 0.0) { return false; }
   let hint_x = probability_log_hint_x(prob, span, width);
   if (abs(local_x - hint_x) < 0.5) { return true; }
@@ -230,11 +218,6 @@ fn on_hover_highlight(local: vec2<f32>, rect_size: vec2<f32>, row_h: f32, hovere
   let raw_row_top = f32(hovered_row) * row_h;
   let raw_row_bottom = min(raw_row_top + row_h, rect_size.y);
   if (row_h >= hover_border_px * 2.0) {
-    // Probability5 rows are 8.25px tall: if the row membership is decided from
-    // the interpolated raw row per fragment, one side of the vertical border
-    // can claim the row a pixel earlier than the horizontal border. Snap the
-    // hover chrome to a single pixel-aligned row box so the purple outline is
-    // rectangular even when the probability rows themselves are fractional.
     let row_top = pixel_row_top(hovered_row, row_h, rect_size.y);
     let row_bottom = clamp(floor(raw_row_bottom + 0.5), row_top + 1.0, rect_size.y);
     if (local.y < row_top || local.y >= row_bottom) { return false; }
@@ -246,9 +229,6 @@ fn on_hover_highlight(local: vec2<f32>, rect_size: vec2<f32>, row_h: f32, hovere
       row_y >= pixel_row_h - hover_border_px;
   }
 
-  // Quirk uses strokeRect(..., lineWidth=2) for the hovered row. In dense
-  // displays the top/bottom strokes merge into one visible band; draw that
-  // band explicitly so the selected outcome cannot fall between fragments.
   let half_stroke = hover_border_px * 0.5;
   return local.y >= raw_row_top - half_stroke && local.y <= raw_row_bottom + half_stroke;
 }
@@ -302,7 +282,6 @@ fn sample_coverage(distance: f32) -> f32 {
   return clamp(0.5 - distance, 0.0, 1.0);
 }
 
-// Straight-alpha "over", matching the pipeline's ALPHA_BLENDING.
 fn sample_layer(base: vec4<f32>, top: vec4<f32>, alpha: f32) -> vec4<f32> {
   let a = clamp(alpha * top.a, 0.0, 1.0);
   let out_a = a + base.a * (1.0 - a);
@@ -310,12 +289,6 @@ fn sample_layer(base: vec4<f32>, top: vec4<f32>, alpha: f32) -> vec4<f32> {
   return vec4<f32>((top.rgb * a + base.rgb * base.a * (1.0 - a)) / out_a, out_a);
 }
 
-// One gate-sized rounded-square tile per covered wire; the gaps between tiles
-// stay transparent. The instance rect is the gate rect grown by
-// SAMPLE_GLOW_PAD so a lit tile's halo can spill past the tile edge. A lit
-// tile has a glow-coloured rim and a fill that brightens toward a flat core;
-// an unlit tile is flat grey. The preview state and an unsampleable state show
-// every tile unlit.
 fn sample_color(input: VsOut, local_y: f32) -> vec4<f32> {
   let outcome = input.sample_outcome;
   let half_tile = sample_half_tile(input);

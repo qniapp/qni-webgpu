@@ -575,33 +575,27 @@
           </marker>
         </defs>
 
-        <!-- baseline frame line -->
         <line x1="40" y1="60" x2="1060" y2="60" stroke="#262633" stroke-width="1"/>
         <text x="40" y="44" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">FRAME N · prepare()</text>
 
-        <!-- 1. update_render_pipeline -->
         <rect x="60" y="80" width="160" height="56" fill="#14141d" stroke="#79d27c" stroke-width="1"/>
         <text x="140" y="105" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#ece8de">update_render_</text>
         <text x="140" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#ece8de">pipeline()</text>
         <text x="140" y="152" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1" fill="#79d27c">EARLY-RETURN ✓</text>
 
-        <!-- 2. write params -->
         <rect x="240" y="80" width="200" height="56" fill="#14141d" stroke="#f5b942" stroke-width="1"/>
         <text x="340" y="105" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#ece8de">queue.write_buffer</text>
         <text x="340" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8a3b3">render_params</text>
         <text x="340" y="152" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1" fill="#f5b942">⚠ B  EVERY FRAME</text>
 
-        <!-- 3. write instances -->
         <rect x="460" y="80" width="200" height="56" fill="#14141d" stroke="#79d27c" stroke-width="1"/>
         <text x="560" y="105" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#ece8de">queue.write_buffer</text>
         <text x="560" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8a3b3">instances (dirty)</text>
         <text x="560" y="152" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" letter-spacing="1" fill="#79d27c">DIRTY-GUARDED ✓</text>
 
-        <!-- 4. recompute branch -->
         <rect x="680" y="80" width="380" height="240" fill="#1c1c27" stroke="#ff4a30" stroke-width="1.4" stroke-dasharray="4 3"/>
         <text x="700" y="100" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.5" fill="#ff4a30">if recompute { for op in sim_ops {</text>
 
-        <!-- per-gate sub-blocks -->
         <g font-family="JetBrains Mono, monospace" font-size="10" fill="#ece8de">
           <rect x="700" y="118" width="340" height="32" fill="#0b0b11" stroke="#262633"/>
           <text x="715" y="138">queue.write_buffer(gate_params)</text>
@@ -621,12 +615,10 @@
 
         <text x="1040" y="100" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="1.5" fill="#ff4a30">} }</text>
 
-        <!-- arrows -->
         <line x1="220" y1="108" x2="240" y2="108" stroke="#6e6a7a" marker-end="url(#arrow)"/>
         <line x1="440" y1="108" x2="460" y2="108" stroke="#6e6a7a" marker-end="url(#arrow)"/>
         <line x1="660" y1="108" x2="680" y2="108" stroke="#ff4a30" marker-end="url(#arrow-high)"/>
 
-        <!-- legend bottom -->
         <text x="40" y="350" font-family="JetBrains Mono, monospace" font-size="10" fill="#6e6a7a">
           frame budget impact (estimated)
         </text>
@@ -654,11 +646,9 @@
           </marker>
         </defs>
 
-        <!-- top label -->
         <text x="40" y="40" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">PRODUCTION  ·  GPU-RESIDENT</text>
         <line x1="40" y1="50" x2="1060" y2="50" stroke="#262633"/>
 
-        <!-- production chain -->
         <g>
           <rect x="60"  y="80" width="180" height="80" fill="#14141d" stroke="#79d27c"/>
           <text x="150" y="108" text-anchor="middle" font-family="Fraunces, serif" font-size="14" fill="#ece8de">compute shader</text>
@@ -686,11 +676,9 @@
           <text x="540" y="180" text-anchor="middle" font-family="Fraunces, serif" font-style="italic" font-size="13" fill="#79d27c">STATE_RENDER_SHADER pattern  ✓</text>
         </g>
 
-        <!-- divider -->
         <text x="40" y="230" font-family="JetBrains Mono, monospace" font-size="10" letter-spacing="2" fill="#6e6a7a">TEST ONLY  ·  #[wasm_bindgen]  ·  on-demand</text>
         <line x1="40" y1="240" x2="1060" y2="240" stroke="#262633" stroke-dasharray="4 3"/>
 
-        <!-- test chain -->
         <g opacity="0.85">
           <rect x="300" y="270" width="200" height="60" fill="#14141d" stroke="#6e6a7a" stroke-dasharray="3 3"/>
           <text x="400" y="294" text-anchor="middle" font-family="Fraunces, serif" font-size="13" fill="#a8a3b3">storage buffer</text>

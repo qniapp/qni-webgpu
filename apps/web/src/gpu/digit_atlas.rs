@@ -1,14 +1,5 @@
-//! SDF atlas for the measurement-digit overlay.
-//!
-//! The digit source is shared with the Write gate digits:
-//! `assets/icons/digit0.svg` and `assets/icons/digit1.svg` are rasterised by
-//! `build.rs`, converted to SDF, and packed here into a 1×2 atlas sampled by
-//! `MEASUREMENT_DIGIT_SHADER`.
-
 use crate::icons::{digit_sdf_rle, DIGIT_SDF_PX_RANGE, DIGIT_SDF_SIZE};
 
-/// Atlas geometry for the measurement digit texture: a 1×2 grid of full
-/// SVG-viewBox SDF cells.
 pub(super) const DIGIT_ATLAS_CELL: u32 = DIGIT_SDF_SIZE as u32;
 pub(super) const DIGIT_ATLAS_WIDTH: u32 = DIGIT_ATLAS_CELL;
 pub(super) const DIGIT_ATLAS_HEIGHT: u32 = DIGIT_ATLAS_CELL * 2;

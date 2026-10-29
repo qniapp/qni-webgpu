@@ -172,16 +172,10 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     } else {
         let stroke = select(1.0, 2.0, cell >= 24.0);
         let half_stroke = stroke * 0.5;
-        // docs/design-system/amplitude-display.html §05 pseudocode: r_outline =
-        // cell_size / 2 - stroke / 2 - clearance. The clearance keeps the
-        // circle stroke from touching the rectangular matrix frame.
         let outline_clearance = 1.5;
         let outline_radius = max(0.0, cell * 0.5 - half_stroke - outline_clearance);
         let inner_radius = max(0.0, outline_radius - half_stroke);
         let centered_len = length(cell_centered);
-        // Keep derivative-based SDF AA, but tighten the transition for the
-        // circuit body so placed Amplitude circles read sharper than the
-        // palette icon while still avoiding hard jaggies.
         let edge = max(0.5, aa_edge * 0.65);
 
         let circle_inner_alpha = 1.0 - smoothstep(
@@ -219,10 +213,6 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
                 color = blend_over(color, disk);
             }
             if (radius >= 1.5) {
-                // docs/design-system/amplitude-display.html §05: draw the blue-400 disk
-                // border as an inset 1px stroke. Its outer edge is clamped to
-                // the filled disk radius, so the probability area does not
-                // grow when the darker rim is added.
                 let disk_border_radius = radius - 0.5;
                 let disk_border_inner = 1.0 - smoothstep(
                     disk_border_radius - 0.5 - edge,

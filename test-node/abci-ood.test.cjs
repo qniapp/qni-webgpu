@@ -64,6 +64,12 @@ test('ABCI Open OnDemand app launches the GPU-only Singularity image through the
   })
 })
 
+test('ABCI Open OnDemand connection view does not depend on job context', async () => {
+  const view = await fs.readFile(path.join(rootDir, 'deploy', 'abci_ood', 'view.html.erb'), 'utf8')
+
+  assert.doesNotMatch(view, /context\./)
+})
+
 test('Apptainer definition builds the same production service contract', async () => {
   const def = await fs.readFile(path.join(rootDir, 'deploy', 'apptainer', 'qni-webgpu.def'), 'utf8')
 

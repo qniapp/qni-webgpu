@@ -29,7 +29,7 @@
   <h2>§ 01 背景と目的</h2>
   <div class="card">
     <p>
-      外部 GPU 実行のペイロード生成 <code>qiskit_run_payload</code> / <code>qiskit_run_payload_with_display_outputs</code>（<code>external-gpu-model</code> クレート）は、測定ショット数を <code>shots: usize</code> で受け取り、JSON へ埋め込む。
+      外部 GPU 実行のペイロード生成 <code>qiskit_run_payload_with_display_outputs</code>（<code>external-gpu-model</code> クレート）は、測定ショット数を <code>shots: usize</code> で受け取り、JSON へ埋め込む。
       バックエンド側（<code>apps/qiskit-backend</code> の <code>contract.py</code>）は <code>1 &lt;= shots &lt;= MAX_SHOTS</code>（<code>MAX_SHOTS = 100_000</code>）を検証し、外れると <code>ContractError</code> にする。
     </p>
     <p>
@@ -59,7 +59,7 @@
         <tr><th>不変条件</th><td><code>1 &lt;= value &lt;= Shots::MAX</code>。<code>Shots::MAX</code> はバックエンドの <code>MAX_SHOTS</code>（<code>100_000</code>）と同じ値</td></tr>
         <tr><th>既定値</th><td><code>Shots::DEFAULT</code> = <code>1024</code>（現在のハードコード値）</td></tr>
         <tr><th>保持する値</th><td><code>NonZeroUsize</code>。フィールドは非公開にする</td></tr>
-        <tr><th>対象範囲</th><td><code>qiskit_run_payload</code> / <code>qiskit_run_payload_with_display_outputs</code> の <code>shots</code> 引数、外部 GPU 実行要求を組み立てる呼び出し元</td></tr>
+        <tr><th>対象範囲</th><td><code>qiskit_run_payload_with_display_outputs</code> の <code>shots</code> 引数、外部 GPU 実行要求を組み立てる呼び出し元</td></tr>
         <tr><th>対象外</th><td>量子ビット数（<code>QubitCount</code>）、ヒストグラムの観測回数のような結果側の数値</td></tr>
       </tbody>
     </table>
@@ -128,7 +128,7 @@ impl Shots {
   <div class="card">
     <h3>ペイロード生成</h3>
     <p>
-      <code>qiskit_run_payload</code> と <code>qiskit_run_payload_with_display_outputs</code> の <code>shots: usize</code> 引数を <code>shots: Shots</code> へ変更する。
+      <code>qiskit_run_payload_with_display_outputs</code> の <code>shots: usize</code> 引数を <code>shots: Shots</code> へ変更する。
       関数内では <code>shots.get()</code> で JSON へ数値を埋め込む。出力 JSON の形式（<code>"shots":1024</code>）は変えない。
     </p>
 
@@ -169,7 +169,7 @@ impl Shots {
   <div class="card">
     <ol>
       <li><code>Shots</code> と <code>ShotsError</code> を <code>external-gpu-model</code> クレートに追加し、<code>Shots::MAX</code> をバックエンドの <code>MAX_SHOTS</code> に合わせる</li>
-      <li><code>qiskit_run_payload</code> / <code>qiskit_run_payload_with_display_outputs</code> の <code>shots</code> 引数を <code>Shots</code> へ変更し、内部で <code>get()</code> を使う</li>
+      <li><code>qiskit_run_payload_with_display_outputs</code> の <code>shots</code> 引数を <code>Shots</code> へ変更し、内部で <code>get()</code> を使う</li>
       <li>呼び出し元のハードコード <code>1024</code> を <code>Shots::DEFAULT</code> にする</li>
       <li>ショット数を受け取るクレート公開 API に裸の <code>usize</code> が残っていないことを <code>rg</code> で確認する</li>
     </ol>
@@ -190,7 +190,7 @@ impl Shots {
       <li><strong>既定値が 1024</strong> — <code>Shots::DEFAULT.get()</code> が <code>1024</code> になることを確認する</li>
       <li><strong>等価性が値で決まる</strong> — 同じ値の <code>Shots</code> 同士が等しいことを確認する</li>
       <li><strong>JSON 形式が変わらない</strong> — <code>Shots::DEFAULT</code> を渡したペイロードに <code>"shots":1024</code> が含まれることを確認する</li>
-      <li><strong>裸の <code>usize</code> ショット数が残らない</strong> — <code>qiskit_run_payload</code> 系がすべて <code>Shots</code> を受け取ることを確認する</li>
+      <li><strong>裸の <code>usize</code> ショット数が残らない</strong> — <code>qiskit_run_payload_with_display_outputs</code> が <code>Shots</code> を受け取ることを確認する</li>
     </ol>
   </div>
 </section>
@@ -200,7 +200,7 @@ impl Shots {
   <div class="card">
     <table class="spec">
       <tbody>
-        <tr><th>ペイロード生成</th><td><code>apps/web/crates/external-gpu-model/src/lib.rs</code>（<code>qiskit_run_payload</code> 系）</td></tr>
+        <tr><th>ペイロード生成</th><td><code>apps/web/crates/external-gpu-model/src/lib.rs</code>（<code>qiskit_run_payload_with_display_outputs</code>）</td></tr>
         <tr><th>呼び出し元</th><td><code>apps/web/src/app/external_gpu/app_adapter.rs</code></td></tr>
         <tr><th>バックエンドの契約</th><td><code>apps/qiskit-backend/src/qni_qiskit_backend/contract.py</code>（<code>MAX_SHOTS</code>, <code>shots</code> 検証）</td></tr>
         <tr><th>関連する値オブジェクト</th><td><a href="qubit-count-value-object.html">QubitCount 実装仕様</a></td></tr>

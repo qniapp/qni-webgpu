@@ -258,8 +258,6 @@ for (const action of ['pointer', 'Enter', 'Space'] as const) {
     await waitForStepZero(page, 2)
     const canvas = page.locator('qni-webgpu-test canvas')
     const box = (await canvas.boundingBox())!
-    // Default panel: centered 560px width, 160px viewport, 32px strip,
-    // bottom margin 64px + content margin 8px. Icon center: 32px from right.
     const x = box.x + box.width / 2 + 280 - 32
     const y = box.y + box.height - 64 - 8 - 160 - 16
     if (action === 'pointer') await page.mouse.click(x, y)
@@ -367,8 +365,6 @@ test('UI step click and selectStep lock the same state', async ({ page }) => {
   })
   await page.evaluate(() => (window as any).runner.selectStep(2))
   const box = (await page.locator('qni-webgpu-test canvas').boundingBox())!
-  // One-row palette: q1 is at y=272; y=295 is outside gate bodies
-  // but inside the step row. Column 1 is at x=162+56.
   await page.mouse.click(box.x + 218, box.y + 295)
   await page.mouse.move(box.x + 800, box.y + 100)
   await expect.poll(async () => page.evaluate(async () => Array.from(await (window as any).runner.readStateVector())))
@@ -491,9 +487,6 @@ test('unknown palette gate rejects before runner startup', async ({ page }) => {
 test('restricted palette gate drops into the lifted circuit', async ({ page }) => {
   await hostEmbed(page, '{"cols":[]}', { settings: { palette: ['X'] } })
   await waitForStepZero(page)
-  // The one-gate palette is centred at x = 480 on the 960px canvas; its row
-  // starts at PALETTE_ROW_Y = 80. A one-row palette lifts q0 by 48px from
-  // 8 + LINE_Y (256), and slot 0 sits at LINE_LEFT_OFFSET + GATE_SIZE = 162.
   const canvas = page.locator('qni-webgpu-test canvas')
   const box = (await canvas.boundingBox())!
   await page.mouse.move(box.x + 480, box.y + 100)
@@ -545,11 +538,6 @@ test('narrow embed keeps five rotation columns inside the canvas', async ({ page
 test('narrow embed drops a gate from the wrapped second palette row', async ({ page }) => {
   await hostEmbed(page, '{"cols":[]}', { settings: { palette: PHASE_PALETTE }, width: 354, height: 592 })
   await waitForStepZero(page)
-  // Inside the central panel's 8px margin the 338px circuit area centres the
-  // 5 + 4 palette (232px wide) at x = 8 + 53; Rx(π/2) is row 2, column 2,
-  // whose centre is (8 + 53 + 48 + 20, 8 + 80 + 48 + 20). Two palette rows
-  // keep q0 at 8 + LINE_Y (264); the compact gutter puts slot 0 at
-  // 8 + 162 - 82 = 88.
   const canvas = page.locator('qni-webgpu-test canvas')
   const box = (await canvas.boundingBox())!
   await page.mouse.move(box.x + 129, box.y + 156)
@@ -557,7 +545,6 @@ test('narrow embed drops a gate from the wrapped second palette row', async ({ p
   await page.mouse.move(box.x + 110, box.y + 210, { steps: 8 })
   await page.mouse.move(box.x + 88, box.y + 264, { steps: 8 })
   await page.mouse.up()
-  // Rx(π/2)|0> = (|0> - i|1>) / √2, read back as [re0, im0, re1, im1].
   await expect.poll(async () => Array.from(await page.evaluate(() => (window as any).readState()) as number[])
     .map(value => Math.round(value * 1000) / 1000))
     .toEqual([0.707, 0, 0, -0.707])
@@ -570,18 +557,13 @@ test('narrow single-wire embed selects the initial gap', async ({ page }) => {
   await hostEmbed(page, '{"cols":[["H"]]}', { ...H_GATE_TUTORIAL, width: 390, height: 560 })
   await waitForHState(page)
   const box = (await page.locator('qni-webgpu-test canvas').boundingBox())!
-  // Compact slot 0 is x=88, and its left edge is x=60.
   await page.mouse.click(box.x + 54, box.y + 216)
   await page.mouse.move(box.x + 380, box.y + 400)
   await expect.poll(() => page.evaluate(() => (window as any).runner.selectedStep())).toBe(-1)
 })
-// The 88px H/X palette is centred at x = 480, so H sits at 480 - 24. The
-// one-row palette lifts q0 to y = 216; slot 1 is 162 + SLOT_SPACING (56).
 const PALETTE_H_X = 456
 const SLOT_1_X = 218
 
-// Embedded toolbar: Undo and Redo only, 32px buttons with an 8px gap inside
-// the 12px / 6px toolbar padding. The clear button used to sit at x = 108.
 const UNDO = { x: 28, y: 22 }
 const REDO = { x: 68, y: 22 }
 const FORMER_CLEAR = { x: 108, y: 22 }
@@ -839,9 +821,6 @@ test('embed angle editor accepts typed text through the text agent', async ({ pa
   await expect.poll(() => circuitJSON(page)).toBe('{"cols":[["P(π_4)"]]}')
 })
 
-// A one-row palette lifts q0 by 48px and the block pushes it down by 58px, so
-// q0 sits at 8 + 256 - 48 + 58 = 274. The block wraps slot 1 (x = 8 + 218) and
-// its upper label is centred 10px above the body top (274 - 62).
 const COMMENT_BLOCK = '{"cols":[["|0>","|0>"],["{量子もつれ"],["H"],["}"],["•","X"]]}'
 const COMMENT_LABEL = { x: 226, y: 202 }
 

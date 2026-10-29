@@ -31,11 +31,11 @@ import {
   type Point,
 } from './support/web-spec-helpers'
 
-const EXEC_MODE_LOCAL_FILL: CanvasPixel = [111, 110, 105, 255] // Flexoki tx-2 #6F6E69
-const EXEC_MODE_GPU_FILL: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
-const FLEXOKI_BLUE_600: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
-const STATE_POPUP_SURFACE: CanvasPixel = [255, 252, 240, 255] // Flexoki bg #FFFCF0
-const STATE_POPUP_OUTLINE: CanvasPixel = [183, 181, 172, 255] // Flexoki tx-3 #B7B5AC
+const EXEC_MODE_LOCAL_FILL: CanvasPixel = [111, 110, 105, 255]
+const EXEC_MODE_GPU_FILL: CanvasPixel = [32, 94, 166, 255]
+const FLEXOKI_BLUE_600: CanvasPixel = [32, 94, 166, 255]
+const STATE_POPUP_SURFACE: CanvasPixel = [255, 252, 240, 255]
+const STATE_POPUP_OUTLINE: CanvasPixel = [183, 181, 172, 255]
 
 const readCircuitColsFromHash = (url: string): unknown[] => {
   const hash = new URL(url).hash.slice(1)
@@ -60,7 +60,7 @@ const execModeProbePoints = (cssWidth: number): PixelSamplePoint[] => [
   { name: 'gpu', x: cssWidth - 30, y: 12 },
 ]
 
-const CIRCUIT_PICKER_TOOLBAR_SHIFT = 98 // default auto-width picker trigger + toolbar gap-2
+const CIRCUIT_PICKER_TOOLBAR_SHIFT = 98
 const RUN_GPU_BUTTON_POINT: Point = { x: 236 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 22 }
 
 type StatePopupProbeGeometry = {

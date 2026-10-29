@@ -1,18 +1,6 @@
-//! GPU バッファのスロット番号を家族（バッファ種別）ごとに型で分ける値オブジェクト。
-//!
-//! ブロッホ・測定・確率・振幅・密度行列・ステップスナップショットは、それぞれ別の
-//! ストレージバッファ（別のアドレス空間）を持つ。`SlotIndex<F>` はファントム型 `F` で
-//! 家族を区別し、`SlotIndex<Bloch>` を測定バッファへ渡すような取り違えをコンパイル時に
-//! 防ぐ。家族別の採番は [`SlotAllocator`] に集約する。
-//!
-//! `Clone` / `Copy` / `PartialEq` / `Eq` / `Hash` / `Debug` は `F` に依存しないよう手動で
-//! 実装する（家族マーカーは値を持たないゼロサイズの型なので、`derive` が課す `F: Clone`
-//! などの境界を避ける）。
-
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
-/// 家族 `F` のストレージバッファ内の位置。
 pub(crate) struct SlotIndex<F> {
     value: u32,
     _marker: PhantomData<F>,
@@ -59,7 +47,6 @@ impl<F> std::fmt::Debug for SlotIndex<F> {
     }
 }
 
-/// 家族 `F` の一意なスロットを 0 から順に発行するカウンタ。`slot += 1` をここに閉じ込める。
 pub(crate) struct SlotAllocator<F> {
     next: u32,
     _marker: PhantomData<F>,
@@ -73,7 +60,6 @@ impl<F> SlotAllocator<F> {
         }
     }
 
-    /// 家族 `F` の一意なスロットを 1 つ発行し、カウンタを進める。
     pub(crate) fn allocate(&mut self) -> SlotIndex<F> {
         let slot = SlotIndex::new(self.next);
         self.next += 1;
@@ -87,7 +73,6 @@ impl<F> Default for SlotAllocator<F> {
     }
 }
 
-// 家族マーカー（ゼロサイズ）。値を持たないので空 enum にする。
 pub(crate) enum Snapshot {}
 pub(crate) enum Bloch {}
 pub(crate) enum Measurement {}

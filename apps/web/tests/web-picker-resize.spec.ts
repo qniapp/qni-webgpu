@@ -35,9 +35,7 @@ const EMPTY_JSON = '{"cols":[]}'
 const FLEXOKI_BLUE_600: CanvasPixel = [32, 94, 166, 255]
 const FLEXOKI_UI_2: CanvasPixel = [218, 216, 206, 255]
 const FLEXOKI_PAPER: CanvasPixel = [255, 252, 240, 255]
-// Flexoki tx-3 #B7B5AC at 60% alpha over bg #FFFCF0.
 const SCROLLBAR_IDLE_ON_PAPER: CanvasPixel = [212, 209, 199, 255]
-// Flexoki tx-2 #6F6E69 at 70% alpha over bg #FFFCF0.
 const SCROLLBAR_HOVER_ON_PAPER: CanvasPixel = [154, 153, 146, 255]
 const waitForCondition = async (
   page: Page,

@@ -15,7 +15,7 @@
  *
  * 設計判断:
  * - Shadow DOM (open): ホスト側の CSS が `.s-gate` などを再定義しても見た目が壊れない
- * - SVG path は実装 (apps/web/assets/icons/s.svg) と一致する Geist 700 outline
+ * - SVG path は実装 (apps/web/assets/icons/s.svg) と一致する Geist のアウトライン
  * - Flexoki の CSS 変数 (--cyan-400 / --bg / --purple-400 / --purple-600) は
  *   :root から Shadow DOM へ inheritance で伝播する
  * ───────────────────────────────────────────────────────────────────── */

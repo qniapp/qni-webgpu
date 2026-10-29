@@ -142,7 +142,7 @@ test('hovering the left gap draws a translucent initial bar', async ({ page }) =
   await page.goto('/' + circuit)
   await waitForStartupReady(page, { waitForStateVector: true })
   const circuitY = await getCircuitOriginY(page)
-  await page.mouse.click(170, circuitY - 32) // 既存の比較画像と同じ列 0 を固定してからホバーする。
+  await page.mouse.click(170, circuitY - 32)
   await page.mouse.move(132, circuitY - 32)
   await waitForValue(() => readStateVector(page), state => matches(state, initialState), 'initial hover not ready')
   await expect(page).toHaveScreenshot('initial-hover.png', {

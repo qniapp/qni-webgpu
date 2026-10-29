@@ -8,15 +8,12 @@ export function compare(
   categorical: number[] = [],
 ): number {
   const violations = canaryViolations(actual)
-  assert.deepEqual(
-    violations,
-    [],
-    `${path} ${caseName} ${actual.context ?? ''} canary: ${violations.join(', ')}`,
-  )
-  assert.ok(
-    actual.name === 'amplitude' || expected.length <= actual.expected,
-    `${caseName}: expected length exceeds written range`,
-  )
+  if (violations.length) {
+    throw new Error(`${path} ${caseName} ${actual.context ?? ''} canary: ${violations.join(', ')}`)
+  }
+  if (!(actual.name === 'amplitude' || expected.length <= actual.expected)) {
+    throw new Error(`${caseName}: expected length exceeds written range`)
+  }
   const scale = expected.reduce((m, x) => (Number.isFinite(x) ? Math.max(m, Math.abs(x)) : m), 0)
   const ceiling = actual.name === 'measurement' ? 2e-5 : 1e-5
   const tol = Math.min(ceiling, Math.max(1e-7, 1e-3 * scale))
