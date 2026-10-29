@@ -369,7 +369,6 @@
   </p>
 </div>
 
-<!-- ───────────────── 1. Anatomy ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 01</span> 構造 — span 1..16 まで同一視覚モデル</h2>
   <p class="note">
@@ -421,7 +420,6 @@
   </div>
 </section>
 
-<!-- ───────────────── 2. Interactive prototype — single ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 02 a</span> プロトタイプ — span 1 (|0⟩ と |1⟩ の 2 行)</h2>
   <p class="note">
@@ -473,7 +471,6 @@
   </div>
 </section>
 
-<!-- ───────────────── 2 b. Multi-qubit ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 02 b</span> プロトタイプ — multi qubit (span 3)</h2>
   <p class="note">
@@ -489,7 +486,6 @@
         <div class="scaled-preview">
           <div class="scale-stage">
             <div class="probability-display is-multi" id="multi-gate" style="height: 96px;">
-              <!-- 8 rows seeded by JS -->
             </div>
           </div>
           <div class="scale-pad" style="height: 384px;"></div>
@@ -523,7 +519,6 @@
   </div>
 </section>
 
-<!-- ───────────────── 2 c. Span 5 — tiny row fallback ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 02 c</span> プロトタイプ — span 5 (tiny-row fallback)</h2>
   <p class="note">
@@ -539,7 +534,6 @@
         <div class="scaled-preview">
           <div class="scale-stage">
             <div class="probability-display is-multi" id="span5-gate" style="height: 240px;">
-              <!-- 32 rows seeded by JS -->
             </div>
           </div>
           <div class="scale-pad" style="height: 960px;"></div>
@@ -568,7 +562,6 @@
   </div>
 </section>
 
-<!-- ───────────────── 2 d. Resize handle (= resizable-span) ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 02 d</span> プロトタイプ — drag to resize span (= resizable-span handle)</h2>
   <p class="note">
@@ -588,7 +581,6 @@
         <div style="display: flex; gap: 28px; align-items: flex-start;">
           <div class="probability-wrap" id="resize-wrap" style="width: 64px;">
             <div class="probability-display" id="resize-gate" style="width: 64px; height: 64px;">
-              <!-- rows seeded by JS -->
             </div>
             <div class="probability-resize-handle" id="resize-handle" role="separator" aria-orientation="horizontal" title="Drag to resize span"></div>
           </div>
@@ -618,7 +610,6 @@
   </div>
 </section>
 
-<!-- ───────────────── 3. Circuit context ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 03</span> 回路上での見え方</h2>
   <p class="note">
@@ -638,14 +629,12 @@
           <div class="wire"><span class="qlabel">q2</span></div>
         </div>
 
-        <!-- col 1: H gates -->
         <div class="col">
           <div class="gate is-unitary">H</div>
           <div class="gate is-unitary">H</div>
           <div class="gate is-unitary">H</div>
         </div>
 
-        <!-- col 2: span 1 Probability on q0 -->
         <div class="col">
           <div class="probability-display" style="height: 32px;">
             <div class="probability-row"><div class="bar" style="width: 50%"></div><div class="label">50%</div></div>
@@ -655,7 +644,6 @@
           <div class="gate is-spacer"></div>
         </div>
 
-        <!-- col 3: span 2 Probability on q1, q2 -->
         <div class="col">
           <div class="gate is-spacer"></div>
           <div class="probability-stack is-span-2">
@@ -668,14 +656,12 @@
           </div>
         </div>
 
-        <!-- col 4: more unitary -->
         <div class="col">
           <div class="gate is-unitary">X</div>
           <div class="gate is-unitary">Z</div>
           <div class="gate is-unitary">Y</div>
         </div>
 
-        <!-- col 5: span 3 Probability covering all 3 wires -->
         <div class="col">
           <div class="probability-stack is-span-3">
             <div class="probability-display is-multi" style="height: 136px;">
@@ -695,7 +681,6 @@
   </div>
 </section>
 
-<!-- ───────────────── 4. 導入要件 ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 04</span> 導入要件</h2>
 
@@ -713,7 +698,6 @@
   </div>
 </section>
 
-<!-- ───────────────── 5. Palette icon ───────────────── -->
 <section class="block">
   <h2><span class="num">§ 05</span> ゲートパレット用アイコン</h2>
   <p class="note">
@@ -726,7 +710,6 @@
 
   <div class="icon-grid">
 
-    <!-- 表示ブロックプレビュー -->
     <div class="icon-card">
       <div class="small">
         <svg class="icon-svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">

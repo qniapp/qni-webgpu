@@ -273,8 +273,6 @@ impl DispatchState {
                 timestamp_writes: None,
             });
             pass.set_pipeline(&resources.bloch.reduce_pipeline);
-            // The current state lives in `state_buffers[in_index]`, which is
-            // the read side of the next gate dispatch.
             pass.set_bind_group(0, &resources.bloch.reduce_bind_groups[self.in_index], &[]);
             pass.dispatch_workgroups(1, 1, 1);
         }

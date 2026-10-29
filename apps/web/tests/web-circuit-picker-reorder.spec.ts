@@ -107,8 +107,6 @@ const clickCanvas = async (page: Page, point: Point): Promise<void> => {
   await page.mouse.click(box.x + point.x, box.y + point.y)
 }
 
-// 押下と移動が同じフレームに入るとドラッグ開始を取りこぼすことがある
-// (CPU 飽和時に顕著)。開始を `item_dragging` で確かめ、始まっていなければやり直す。
 const itemDragging = async (page: Page): Promise<boolean> =>
   page.evaluate(() => {
     const raw = Reflect.get(window, '__qniCircuitPickerResizeGeometryJson')

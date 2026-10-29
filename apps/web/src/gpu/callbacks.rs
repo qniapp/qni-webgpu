@@ -1,10 +1,3 @@
-//! `egui_wgpu::CallbackTrait` implementations.
-//!
-//! Each callback owns one GPU-rendered overlay / pass and pulls resources from
-//! the shared `StateVectorResources` slot inside `egui_wgpu::CallbackResources`.
-//! Production rendering stays GPU-resident; readback handles exposed here are
-//! updated only so test-only wasm APIs can read on demand.
-
 mod amplitude_display;
 mod amplitude_display_popup_value;
 mod bloch_display_overlay;

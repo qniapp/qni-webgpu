@@ -13,7 +13,11 @@ import {
 } from '../test-gpu/reference'
 test('Rust/WGSL host contract', () => {
   assert.doesNotThrow(checkDrift)
+})
+test('Rust maximum state count', () => {
   assert.equal(rustConst('MAX_STATE_COUNT'), 65536)
+})
+test('gate parameters occupy 64 bytes', () => {
   assert.equal(
     pack('GateParams', {
       m00: [1, 0],
@@ -30,43 +34,55 @@ test('Rust/WGSL host contract', () => {
     64,
   )
 })
-test('aggregate fixtures avoid near-integer sampled row boundaries', () => {
-  for (const instance of aggregateInstances) {
+for (const instance of aggregateInstances) {
+  test(`aggregate slot ${instance.slot} avoids near-integer sampled row boundaries`, () => {
     assert.doesNotThrow(() => aggregateExpectedRows(instance, aggregateInput))
-  }
+  })
+}
+test('aggregate rejects near-integer sampled row boundaries', () => {
   assert.throws(
     () => aggregateExpectedRows({ ...aggregateInstances[4], rect_size: [20, 879.5] }, aggregateInput),
     /case error aggregate slot 10: row 298 near boundary/,
   )
 })
 
-test('fixed CPU reference values', () => {
-  const plusI: [number, number][] = [
-    [Math.SQRT1_2, 0],
-    [0, Math.SQRT1_2],
-  ]
-  for (const [a, b] of bloch(plusI, 0).map((x, i) => [x, [0, 1, 0][i]])) assert.ok(Math.abs(a - b) < 1e-14)
-  const h = gate(
-    [
-      [1, 0],
-      [0, 0],
-    ],
-    0,
-    matrices.H,
-  )
-  probability(h, 0, 1).forEach((p) => assert.ok(Math.abs(p - 0.5) < 1e-14))
-  const ghz: [number, number][] = [
-    [Math.SQRT1_2, 0],
-    [0, 0],
-    [0, 0],
-    [Math.SQRT1_2, 0],
-  ]
-  const d = density(ghz, 0, 2)
-  assert.ok(Math.abs(d.data[0][0] - 0.5) < 1e-14)
-  assert.ok(Math.abs(d.data[3][0] - 0.5) < 1e-14)
-  assert.ok(Math.abs(d.data[12][0] - 0.5) < 1e-14)
-  assert.ok(Math.abs(d.data[15][0] - 0.5) < 1e-14)
-  assert.ok(Math.abs(d.meta - 1) < 1e-14)
+for (const [i, expected] of [0, 1, 0].entries()) {
+  test(`fixed Bloch component ${i}`, () => {
+    const plusI: [number, number][] = [
+      [Math.SQRT1_2, 0],
+      [0, Math.SQRT1_2],
+    ]
+    assert.ok(Math.abs(bloch(plusI, 0)[i] - expected) < 1e-14)
+  })
+}
+for (const i of [0, 1]) {
+  test(`fixed Hadamard probability ${i}`, () => {
+    const h = gate(
+      [
+        [1, 0],
+        [0, 0],
+      ],
+      0,
+      matrices.H,
+    )
+    assert.ok(Math.abs(probability(h, 0, 1)[i] - 0.5) < 1e-14)
+  })
+}
+const ghz: [number, number][] = [
+  [Math.SQRT1_2, 0],
+  [0, 0],
+  [0, 0],
+  [Math.SQRT1_2, 0],
+]
+for (const i of [0, 3, 12, 15]) {
+  test(`fixed GHZ density entry ${i}`, () => {
+    assert.ok(Math.abs(density(ghz, 0, 2).data[i][0] - 0.5) < 1e-14)
+  })
+}
+test('fixed GHZ density metadata', () => {
+  assert.ok(Math.abs(density(ghz, 0, 2).meta - 1) < 1e-14)
+})
+test('fixed basis amplitude metadata', () => {
   assert.equal(
     amplitude(
       [
@@ -78,17 +94,28 @@ test('fixed CPU reference values', () => {
     ).meta[2],
     1,
   )
-  const hand = amplitude(
-    [[0, Math.SQRT1_2], [Math.SQRT1_2, 0], [0, 0], [0, 0]], 0, 1,
-  )
-  const expectedKet = [[Math.SQRT1_2, 0], [0, -Math.SQRT1_2]]
-  hand.ket.forEach((value, i) => value.forEach((component, j) =>
-    assert.ok(Math.abs(component - expectedKet[i][j]) < 1e-14)))
-  hand.meta.forEach((value, i) => assert.ok(Math.abs(value - [1, 0, 1, 0][i]) < 1e-14))
-  assert.equal(rand(0), 0.3175988495349884)
-  assert.equal(rand(1), 0.238451287150383)
-  assert.equal(rand(42), 0.42170950770378113)
 })
+const hand = amplitude(
+  [[0, Math.SQRT1_2], [Math.SQRT1_2, 0], [0, 0], [0, 0]], 0, 1,
+)
+const expectedKet = [[Math.SQRT1_2, 0], [0, -Math.SQRT1_2]]
+for (const [i, value] of hand.ket.entries()) {
+  for (const [j, component] of value.entries()) {
+    test(`fixed amplitude component ${i},${j}`, () => {
+      assert.ok(Math.abs(component - expectedKet[i][j]) < 1e-14)
+    })
+  }
+}
+for (const [i, value] of hand.meta.entries()) {
+  test(`fixed amplitude metadata ${i}`, () => {
+    assert.ok(Math.abs(value - [1, 0, 1, 0][i]) < 1e-14)
+  })
+}
+for (const [seed, expected] of [[0, 0.3175988495349884], [1, 0.238451287150383], [42, 0.42170950770378113]]) {
+  test(`fixed random value for seed ${seed}`, () => {
+    assert.equal(rand(seed), expected)
+  })
+}
 
 test('measurement reduction packs joint controls into a padded 32-byte uniform', () => {
   assert.deepEqual(

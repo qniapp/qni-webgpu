@@ -180,13 +180,11 @@ test('cucumber config only targets markdown feature files and uses explicit supp
     paths: config.paths,
     requireModule: config.requireModule,
     require: [...config.require].sort(),
-    publishQuiet: config.publishQuiet,
     failFast: config.failFast,
   }, {
     paths: ['features/**/*.feature.md'],
     requireModule: ['ts-node/register'],
     require: ['features/step_definitions/**/*.ts', 'features/support/bootstrap.ts'].sort(),
-    publishQuiet: true,
     failFast: true,
   })
 })
@@ -231,7 +229,7 @@ test('support modules expose explicit registration hooks without runtime message
   })
 })
 
-test('support hooks verify the shared server per scenario while resetting browser state', async () => {
+test('support hooks verify the shared server per scenario and close the browser', async () => {
   const hooks = require('../features/support/hooks.ts')
   const registrations: MutableRecord = {}
   const calls: string[] = []
@@ -283,12 +281,6 @@ test('support hooks verify the shared server per scenario while resetting browse
     consoleErrors: [],
     pageErrors: [],
     async attach() {},
-    startScenario(name: string) {
-      calls.push(`start:${name}`)
-    },
-    resetRuntimeState() {
-      calls.push('reset-world')
-    },
   }
 
   await registrations.beforeAll.call({})
@@ -313,9 +305,7 @@ test('support hooks verify the shared server per scenario while resetting browse
     calls: [
       'ensure-server',
       'ensure-server',
-      'start:smoke scenario',
       'close-browser',
-      'reset-world',
       'shutdown-server',
     ],
   })

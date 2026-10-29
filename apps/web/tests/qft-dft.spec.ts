@@ -27,7 +27,6 @@ test('native QFT and QFT dagger match every symmetric DFT column on WebGPU', asy
     for (const n of [2, 3]) {
       for (const dagger of [false, true]) {
         for (let c = 0; c < 2 ** n; c++) {
-          // Wire q0 is bit 0 (LSB), as in WireIndex::to_qubit_bit.
           const input = Array.from({ length: n }, (_, wire) => c & (1 << wire) ? 'X' : 1)
           const circuit = JSON.stringify({ cols: [input, [`QFT${dagger ? '†' : ''}${n}`]] })
           const runner = await start_embed(canvas, circuit, true, undefined, undefined, false)

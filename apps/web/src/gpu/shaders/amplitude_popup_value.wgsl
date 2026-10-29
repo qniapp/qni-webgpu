@@ -198,8 +198,6 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let atlas_row = min(u32(floor(cell_local.y * f32(GLYPH_CELL_H))), GLYPH_CELL_H - 1u);
     let atlas_x = glyph * GLYPH_CELL_W + atlas_col;
     let sampled_alpha = textureLoad(glyph_tex, vec2<i32>(i32(atlas_x), i32(atlas_row)), 0).r;
-    // The atlas already contains glyph-edge antialiasing. Tighten that alpha
-    // ramp slightly so small popup numbers stay crisp without becoming jagged.
     let alpha = smoothstep(0.14, 0.86, sampled_alpha);
     if (alpha <= 0.001) {
         discard;

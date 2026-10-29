@@ -12,10 +12,10 @@ import {
 type TestPage = Parameters<typeof readDensityMatrixCell>[0]
 
 const EGUI_PANEL_MARGIN = 8
-const DENSITY_CELL_FILL = [146, 191, 219, 255] // Flexoki blue-200 #92BFDB.
-const DENSITY_CELL_BACKGROUND = [255, 252, 240, 255] // Flexoki bg #FFFCF0.
-const DENSITY_MATRIX_BORDER = [218, 216, 206, 255] // Flexoki ui-2 #DAD8CE.
-const DENSITY_HOVER_BORDER = [139, 126, 200, 255] // Flexoki purple-400 #8B7EC8.
+const DENSITY_CELL_FILL = [146, 191, 219, 255]
+const DENSITY_CELL_BACKGROUND = [255, 252, 240, 255]
+const DENSITY_MATRIX_BORDER = [218, 216, 206, 255]
+const DENSITY_HOVER_BORDER = [139, 126, 200, 255]
 
 const rounded = (value: number): number => Math.round(value * 1_000) / 1_000
 

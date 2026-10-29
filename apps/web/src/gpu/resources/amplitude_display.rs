@@ -1,8 +1,3 @@
-//! Amplitude display capture + GPU-resident gate-body / popup rendering.
-//!
-//! Capture, render, and hover-popup value text all read/write WebGPU buffers.
-//! The only GPU→CPU path is the test-only readback API in `gpu::readback`.
-
 use eframe::wgpu;
 use wgpu::util::DeviceExt;
 
@@ -601,13 +596,11 @@ fn create_render_pipeline(
                             shader_location: 5,
                             format: wgpu::VertexFormat::Sint32,
                         },
-                        // AmplitudeInstance::use_drag_background at byte 28.
                         wgpu::VertexAttribute {
                             offset: 28,
                             shader_location: 6,
                             format: wgpu::VertexFormat::Uint32,
                         },
-                        // AmplitudeInstance::force_zero_amplitude at byte 32.
                         wgpu::VertexAttribute {
                             offset: 32,
                             shader_location: 7,

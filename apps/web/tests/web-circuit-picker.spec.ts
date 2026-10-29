@@ -41,7 +41,7 @@ const ROW_4: Point = { x: 80, y: 208 }
 const KEBAB_X = 226
 const SUBMENU_X = 320
 const MOVE_UP_SUBMENU_Y = 244
-const FLEXOKI_BG: CanvasPixel = [255, 252, 240, 255] // Flexoki bg #FFFCF0
+const FLEXOKI_BG: CanvasPixel = [255, 252, 240, 255]
 
 const readCircuitColsFromHash = (url: string): unknown[] => {
   const hash = new URL(url).hash.slice(1)
@@ -63,7 +63,6 @@ const waitForSnapshot = async (
   predicate: (state: CircuitLibrarySnapshot) => boolean,
   description: string,
 ): Promise<CircuitLibrarySnapshot> => {
-  // 反映はフレーム描画をまたぐため、回数で切ると CPU 飽和時に取りこぼす。
   const state = await waitForValue(
     async () => {
       try {

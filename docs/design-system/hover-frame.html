@@ -12,10 +12,6 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- ホバー枠 (正式な <hover-frame variant="stroke|surface-gap" shape="rounded|square">) と
-       ゲート本体 (<h-gate> / <swap-gate>) の組み合わせで例を構成する。
-       hover-frame は本ページの正式な基本部品、ゲート Web Component は
-       各仕様ページ (h-gate.html / swap-gate.html) の正式定義を共有。 -->
   <script src="components/hover-frame.js"></script>
   <script src="components/h-gate.js"></script>
   <script src="components/swap-gate.js"></script>
@@ -164,8 +160,6 @@
 </head>
 <body>
 
-<!-- design-system.html サムネ用プレビュー。40 × 40 px の中立ホスト + 外側 4 px のホバー枠。
-     主役は「枠」なので、ホスト側は具体的なゲートではなく白い矩形に置く。 -->
 <div id="preview">
   <div class="hf-gate-wrap hover-frame-host" aria-hidden="true">
     <span class="hover-frame hover-frame--surface-gap"></span>

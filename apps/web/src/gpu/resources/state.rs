@@ -1,16 +1,3 @@
-//! State-vector compute + render pipelines.
-//!
-//! * `compute_pipeline` applies a single `GateParams` matrix (or
-//!   `Write1` permutation) to the active state buffer,
-//!   ping-ponging between the two `Common::state_buffers`. Conditional
-//!   gates read their measurement outcome from `measure::aux_buffer`.
-//! * `render_pipeline` paints the state-vector circle grid (fill +
-//!   needle + outline) — the GPU side of the state panel.
-//!
-//! `update_target_format` rebuilds *only* the render pipeline when the
-//! egui surface format changes; the compute pipeline isn't format-
-//! dependent and stays untouched.
-
 mod compute;
 mod pipeline;
 mod render;
@@ -31,12 +18,6 @@ pub(crate) struct StateResources {
     pub last_render_params: Option<RenderParams>,
 
     pub gate_params_buffer: wgpu::Buffer,
-    /// Staging buffer holding all `GateParams` for a recompute, packed
-    /// contiguously. Filled once via `queue.write_buffer` before the dispatch
-    /// loop; each per-gate dispatch then sources its params via
-    /// `encoder.copy_buffer_to_buffer` from the matching slot into
-    /// `gate_params_buffer`. Lets us keep the existing uniform binding while
-    /// collapsing N per-gate `queue.submit` round trips into a single submit.
     pub gate_params_staging_buffer: wgpu::Buffer,
 }
 

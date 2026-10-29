@@ -96,7 +96,7 @@ test('undo restores a deleted conditional gate with its condition', async ({ pag
 
 test('conditional gate visual snapshot', async ({ page }) => {
   await openCircuit(page, VISUAL_JSON)
-  await page.mouse.click(170, 224) // 既存の比較画像と同じ列 0 を固定する。
+  await page.mouse.click(170, 224)
   await page.mouse.move(1000, 450)
 
   await expect(page).toHaveScreenshot('conditional-gates.png', {

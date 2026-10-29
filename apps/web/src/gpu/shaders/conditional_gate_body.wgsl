@@ -9,7 +9,6 @@ struct ConditionalGateBodyParams {
 @group(0) @binding(0) var<storage, read> aux_data: array<vec4<f32>>;
 @group(0) @binding(1) var<uniform> params: ConditionalGateBodyParams;
 
-// One AA fringe pixel around the body.
 const FRINGE: f32 = 1.0;
 
 struct VsIn {
@@ -32,7 +31,6 @@ struct VsOut {
 fn vs_main(input: VsIn) -> VsOut {
   let local = input.corner * (input.half_size + FRINGE);
   let world = input.center + local;
-  // See BLOCH_OVERLAY_SHADER: NDC maps to the egui callback viewport.
   let viewport_pos = world - params.viewport_min;
   let ndc = vec2<f32>(
     (viewport_pos.x / params.viewport_size.x) * 2.0 - 1.0,
@@ -49,8 +47,6 @@ fn vs_main(input: VsIn) -> VsOut {
 
 @fragment
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
-  // Rounded-box signed distance; `corner_radius == half_size` is a circle
-  // (the X gate body).
   let inner = vec2<f32>(input.half_size - input.corner_radius);
   let q = abs(input.local) - inner;
   let distance = length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - input.corner_radius;
@@ -58,8 +54,6 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   if (alpha < 1.0e-3) {
     discard;
   }
-  // qni `quantum-simulator-element.ts`: a conditional gate whose flag is not
-  // 1 gets `disabled` and qni.css paints its body in the disabled fill.
   let applied = aux_data[input.slot].z >= 0.5;
   let color = select(params.disabled_color.rgb, params.enabled_color.rgb, applied);
   return vec4<f32>(color * alpha, alpha);
