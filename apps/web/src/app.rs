@@ -23,6 +23,7 @@ mod update_flow;
 use crate::colors::{Colors, Theme, ThemeKind};
 use crate::constants::{LINE_Y, MIN_QUBITS, STEP_OUTSET_Y, VERTICAL_WIRE0_RIGHT_INSET};
 use crate::gates::GateKind;
+use crate::gpu::RunnerMeasurementSeed;
 use crate::layout::{
     layout_metrics_with_gutters, CircuitGutters, CircuitOrientation, CircuitProjection,
     LayoutMetrics,
@@ -128,7 +129,7 @@ pub(crate) struct QniApp {
     pub(crate) external_gpu: external_gpu::ExternalGpuSession,
     pub(crate) gpu_plan: GpuPlanState,
     /// Fixed for this runner's lifetime; only GPU measurement sampling uses it.
-    measurement_seed: u32,
+    measurement_seed: RunnerMeasurementSeed,
     last_content_rect: Option<egui::Rect>,
     drag_cursor_pos: Option<egui::Pos2>,
     drag_repaint_deadline: Option<f64>,
@@ -379,14 +380,14 @@ impl QniApp {
                 #[cfg(target_arch = "wasm32")]
                 {
                     if matches!(mode, AppMode::Embed { .. }) {
-                        (js_sys::Math::random() * 4294967296.0) as u32
+                        RunnerMeasurementSeed::new((js_sys::Math::random() * 4294967296.0) as u32)
                     } else {
-                        0
+                        RunnerMeasurementSeed::new(0)
                     }
                 }
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    0
+                    RunnerMeasurementSeed::new(0)
                 }
             },
             last_content_rect: None,

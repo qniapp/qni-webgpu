@@ -10,7 +10,7 @@ use super::super::readback::{
     ProbabilityGpuHandle, AMPLITUDE_GPU_HANDLE, BLOCH_GPU_HANDLE, DENSITY_GPU_HANDLE, GPU_READBACK,
     MEASUREMENT_GPU_HANDLE, PROBABILITY_GPU_HANDLE,
 };
-use super::super::recompute::recompute_state_vector;
+use super::super::recompute::{recompute_state_vector, RunnerMeasurementSeed};
 use super::super::resources::StateVectorResources;
 
 pub(crate) struct StateVectorResourceBootstrapCallback {
@@ -53,7 +53,7 @@ pub(crate) struct StateVectorUpdate {
     pub(crate) sim_ops: std::sync::Arc<Vec<SimulationOp>>,
     pub(crate) state_count: usize,
     pub(crate) plan_revision: u64,
-    pub(crate) measurement_seed: u32,
+    pub(crate) measurement_seed: RunnerMeasurementSeed,
     pub(crate) preview_step: Option<usize>,
     pub(crate) snapshot_slot_count: usize,
 }
