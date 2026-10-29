@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { checkDrift, pack, rustConst } from '../test-gpu/app-source'
@@ -13,6 +15,21 @@ import {
 } from '../test-gpu/reference'
 test('Rust/WGSL host contract', () => {
   assert.doesNotThrow(checkDrift)
+})
+test('unconditional sentinel is written as u32 max', () => {
+  assert.match(
+    readFileSync(join(__dirname, '../src/gates/params.rs'), 'utf8'),
+    /pub\(crate\) const GATE_UNCONDITIONAL: u32 = u32::MAX;/,
+  )
+})
+test('unconditional sentinel is every u32 bit', () => {
+  assert.equal(rustConst('GATE_UNCONDITIONAL'), 0xffffffff)
+})
+test('state compute unconditional sentinel is every u32 bit', () => {
+  assert.match(
+    readFileSync(join(__dirname, '../src/gpu/shaders/state_compute.wgsl'), 'utf8'),
+    /const UNCONDITIONAL: u32 = 0xFFFFFFFFu;/,
+  )
 })
 test('Rust maximum state count', () => {
   assert.equal(rustConst('MAX_STATE_COUNT'), 65536)

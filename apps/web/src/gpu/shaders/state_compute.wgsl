@@ -12,8 +12,8 @@ struct GateParams {
   condition_slot: u32,
 };
 
-// `GateParams::condition_slot` sentinel (`GATE_UNCONDITIONAL` in Rust).
-const UNCONDITIONAL: u32 = 4294967295u;
+// Rust `GATE_UNCONDITIONAL` (`u32::MAX`).
+const UNCONDITIONAL: u32 = 0xFFFFFFFFu;
 
 @group(0) @binding(0) var<storage, read> state_in: array<vec2<f32>>;
 @group(0) @binding(1) var<storage, read_write> state_out: array<vec2<f32>>;
