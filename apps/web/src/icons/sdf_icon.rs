@@ -110,7 +110,6 @@ fn current_target_format(ctx: &egui::Context) -> Option<wgpu::TextureFormat> {
 fn sdf_texture_name(glyph: GateGlyph) -> &'static str {
     match glyph {
         GateGlyph::H => "gate-icon-h-sdf",
-        GateGlyph::X => "gate-icon-x-sdf",
         GateGlyph::Y => "gate-icon-y-sdf",
         GateGlyph::Z => "gate-icon-z-sdf",
         GateGlyph::Plus => "gate-icon-plus-sdf",

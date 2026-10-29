@@ -5,9 +5,8 @@ use std::fs;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
-const ICONS: [(&str, &str); 18] = [
+const ICONS: [(&str, &str); 17] = [
     ("H", "h.png"),
-    ("X", "x.png"),
     ("Y", "y.png"),
     ("Z", "z.png"),
     ("PLUS", "plus.png"),
