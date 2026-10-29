@@ -44,7 +44,7 @@ pub(crate) fn draw_gate_glyph(
     kind: GateKind,
     colors: &Colors,
 ) {
-    draw_gate_icon_with_fallback(painter, gate_rect, kind, colors, colors.box_fill, false);
+    draw_gate_icon_colored(painter, gate_rect, kind, colors, colors.box_fill, false);
 }
 
 const GATE_CORNER_RADIUS: u8 = 6;
@@ -134,7 +134,7 @@ fn draw_gate_body_with_fill(
             fill,
         );
     }
-    draw_gate_icon_with_fallback(painter, gate_rect, kind, colors, fill, grabbed);
+    draw_gate_icon_colored(painter, gate_rect, kind, colors, fill, grabbed);
 }
 
 fn is_frameless(kind: GateKind) -> bool {
@@ -151,7 +151,7 @@ fn is_frameless(kind: GateKind) -> bool {
         || kind.is_postselection()
 }
 
-fn draw_gate_icon_with_fallback(
+fn draw_gate_icon_colored(
     painter: &egui::Painter,
     gate_rect: egui::Rect,
     kind: GateKind,
@@ -178,15 +178,7 @@ fn draw_gate_icon_with_fallback(
     } else {
         colors.label
     };
-    if !draw_gate_icon(painter, gate_rect, kind, icon_color, colors, grabbed) {
-        painter.text(
-            gate_rect.center(),
-            egui::Align2::CENTER_CENTER,
-            kind.label(),
-            egui::FontId::proportional(18.0),
-            colors.label,
-        );
-    }
+    draw_gate_icon(painter, gate_rect, kind, icon_color, colors, grabbed);
 }
 
 pub(crate) fn draw_sample_drag_outline(

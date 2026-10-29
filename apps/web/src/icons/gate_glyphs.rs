@@ -80,7 +80,7 @@ pub(super) fn draw_gate_icon(
     color: egui::Color32,
     colors: &Colors,
     grabbed: bool,
-) -> bool {
+) {
     // H / Y / Z / √X / S / S† / T / T† / Phase(Φ) / RX / RY / RZ / QFT /
     // QFT† / X (本体は "+" として描く) / Write の 0・1 は
     // `assets/icons/{h,y,z,sqrtx,s,sdagger,t,tdagger,p,rx,ry,rz,qft,qftdagger,plus,digit0,digit1}.svg`
@@ -89,7 +89,7 @@ pub(super) fn draw_gate_icon(
     // 拡大時も輪郭をシェーダで再構成できるようにする。
     if let Some(glyph) = svg_glyph_for(kind) {
         super::svg_icon::draw_glyph(painter, rect, color, glyph);
-        return true;
+        return;
     }
 
     let viewbox = VIEWBOX;
@@ -100,11 +100,9 @@ pub(super) fn draw_gate_icon(
     match kind {
         GateKind::Increment => {
             draw_increment_icon(painter, rect, color);
-            true
         }
         GateKind::Decrement => {
             draw_decrement_icon(painter, rect, color);
-            true
         }
         GateKind::PostSelectOff
         | GateKind::PostSelectOn
@@ -137,11 +135,9 @@ pub(super) fn draw_gate_icon(
                     symbol_color,
                 );
             }
-            true
         }
         GateKind::BlochDisplay => {
             draw_bloch_sphere(painter, rect, color);
-            true
         }
         GateKind::ZDetectControlReset => {
             let (meter_color, ket_color, digit_color) = if grabbed {
@@ -169,7 +165,6 @@ pub(super) fn draw_gate_icon(
                 super::svg_icon::GateGlyph::Digit0,
             );
             painter.circle_filled(p(24.0, 24.0), DETECTOR_CONTROL_RADIUS * scale, color);
-            true
         }
         GateKind::Measurement | GateKind::XDetector | GateKind::YDetector => {
             let axis_color = if grabbed {
@@ -178,7 +173,6 @@ pub(super) fn draw_gate_icon(
                 colors.semantic_intermediate
             };
             draw_sampled_measurement_icon(painter, rect, kind, color, axis_color);
-            true
         }
         GateKind::Spacer => {
             let rect_at = |x: f32| {
@@ -190,7 +184,6 @@ pub(super) fn draw_gate_icon(
             painter.rect_filled(rect_at(9.0), egui::CornerRadius::ZERO, color);
             painter.rect_filled(rect_at(21.0), egui::CornerRadius::ZERO, color);
             painter.rect_filled(rect_at(33.0), egui::CornerRadius::ZERO, color);
-            true
         }
         GateKind::Write0 | GateKind::Write1 => {
             painter.line_segment([p(6.0, 5.0), p(6.0, 43.0)], stroke);
@@ -206,7 +199,6 @@ pub(super) fn draw_gate_icon(
             // slashed "0" stays unambiguous and the palette/circuit weight
             // does not depend on egui text rasterization.
             super::svg_icon::draw_glyph(painter, rect, digit_color, glyph);
-            true
         }
         GateKind::ZParityControl | GateKind::XParityControl => {
             let axis = if kind == GateKind::ZParityControl {
@@ -229,11 +221,9 @@ pub(super) fn draw_gate_icon(
                 egui::FontId::proportional(crate::tailwind::TEXT_XS),
                 colors.label,
             );
-            true
         }
         GateKind::Control => {
             painter.circle_filled(p(24.0, 24.0), CONTROL_RADIUS * scale, color);
-            true
         }
         GateKind::AntiControl => {
             let anti_control_stroke = egui::Stroke::new(ANTI_CONTROL_STROKE_WIDTH * scale, color);
@@ -242,19 +232,15 @@ pub(super) fn draw_gate_icon(
                 ANTI_CONTROL_RADIUS * scale,
                 anti_control_stroke,
             );
-            true
         }
         GateKind::Swap => {
             let swap_stroke = egui::Stroke::new(4.0 * scale, color);
             painter.line_segment([p(12.0, 36.0), p(36.0, 12.0)], swap_stroke);
             painter.line_segment([p(12.0, 12.0), p(36.0, 36.0)], swap_stroke);
-            true
         }
         // Everything else (H / X-as-`+` / Y / Z / √X / S / S† / T /
         // T† / Phase(Φ) / RX / RY / RZ / QFT / QFT†) was already handled above.
-        // Anything that reaches here without matching is a non-typographic gate
-        // the body code knows how to fall back on with `kind.label()`.
-        _ => false,
+        _ => {}
     }
 }
 

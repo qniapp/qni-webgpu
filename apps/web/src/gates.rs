@@ -74,7 +74,6 @@ pub(crate) use params::{
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct GateSpec {
     pub(crate) kind: GateKind,
-    pub(crate) label: &'static str,
     pub(crate) url_token: &'static str,
     pub(crate) resizable_span: bool,
 }
@@ -82,229 +81,191 @@ pub(crate) struct GateSpec {
 const GATE_SPECS: [GateSpec; 38] = [
     GateSpec {
         kind: GateKind::ZParityControl,
-        label: "Zpar",
         url_token: "zpar",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::XParityControl,
-        label: "Xpar",
         url_token: "xpar",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::SampleDisplay,
-        label: "Sample",
         url_token: "Sample",
         resizable_span: true,
     },
     GateSpec {
         kind: GateKind::H,
-        label: "H",
         url_token: "H",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::Control,
-        label: "C",
         url_token: "•",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::AntiControl,
-        label: "◦",
         url_token: "◦",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::BlochDisplay,
-        label: "B",
         url_token: "Bloch",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::Measurement,
-        label: "M",
         url_token: "Measure",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::ZDetectControlReset,
-        label: "ZDetectControlReset",
         url_token: "ZDetectControlReset",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::ProbabilityDisplay,
-        label: "Probability",
         url_token: "Probability",
         resizable_span: true,
     },
     GateSpec {
         kind: GateKind::AmplitudeDisplay,
-        label: "Amps",
         url_token: "Amps",
         resizable_span: true,
     },
     GateSpec {
         kind: GateKind::DensityMatrixDisplay,
-        label: "Density",
         url_token: "Density",
         resizable_span: true,
     },
     GateSpec {
         kind: GateKind::Spacer,
-        label: "…",
         url_token: "…",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::Write0,
-        label: "|0⟩",
         url_token: "|0>",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::Write1,
-        label: "|1⟩",
         url_token: "|1>",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::X,
-        label: "X",
         url_token: "X",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::Y,
-        label: "Y",
         url_token: "Y",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::Z,
-        label: "Z",
         url_token: "Z",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::SqrtX,
-        label: "√X",
         url_token: "X^½",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::S,
-        label: "S",
         url_token: "S",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::SDagger,
-        label: "S†",
         url_token: "S†",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::T,
-        label: "T",
         url_token: "T",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::TDagger,
-        label: "T†",
         url_token: "T†",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::Phase,
-        label: "Φ",
         url_token: "P",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::Rx,
-        label: "Rx",
         url_token: "Rx",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::Ry,
-        label: "Ry",
         url_token: "Ry",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::Rz,
-        label: "Rz",
         url_token: "Rz",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::Swap,
-        label: "SWAP",
         url_token: "Swap",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::QftGate,
-        label: "QFT",
         url_token: "QFT",
         resizable_span: true,
     },
     GateSpec {
         kind: GateKind::QftDaggerGate,
-        label: "QFT†",
         url_token: "QFT†",
         resizable_span: true,
     },
     GateSpec {
         kind: GateKind::Increment,
-        label: "+1",
         url_token: "inc",
         resizable_span: true,
     },
     GateSpec {
         kind: GateKind::Decrement,
-        label: "−1",
         url_token: "dec",
         resizable_span: true,
     },
     GateSpec {
         kind: GateKind::PostSelectOff,
-        label: "|0⟩⟨0|",
         url_token: "|0⟩⟨0|",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::PostSelectOn,
-        label: "|1⟩⟨1|",
         url_token: "|1⟩⟨1|",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::PostSelectAntiX,
-        label: "|+⟩⟨+|",
         url_token: "|+⟩⟨+|",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::PostSelectX,
-        label: "|−⟩⟨−|",
         url_token: "|-⟩⟨-|",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::XDetector,
-        label: "X Detector",
         url_token: "XDetector",
         resizable_span: false,
     },
     GateSpec {
         kind: GateKind::YDetector,
-        label: "Y Detector",
         url_token: "YDetector",
         resizable_span: false,
     },
@@ -421,10 +382,6 @@ impl GateKind {
             .iter()
             .find(|spec| spec.url_token == token)
             .map(|spec| spec.kind)
-    }
-
-    pub(crate) fn label(self) -> &'static str {
-        self.spec().label
     }
 
     /// Is this a multi-qubit gate whose vertical span is user-controlled
@@ -654,11 +611,14 @@ mod tests {
     fn arithmetic_specs_and_palette_ids_are_stable() {
         assert_eq!(
             [36, 37].map(|id| palette_gate_kind(id).map(|kind| (
-                kind.label(),
+                kind,
                 kind.spec().url_token,
                 kind.is_resizable_span()
             ))),
-            [Some(("+1", "inc", true)), Some(("−1", "dec", true))]
+            [
+                Some((GateKind::Increment, "inc", true)),
+                Some((GateKind::Decrement, "dec", true))
+            ]
         );
     }
 
