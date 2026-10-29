@@ -20,12 +20,12 @@ impl QniApp {
             egui::Id::new("overlay"),
         ));
         let target_format = frame.wgpu_render_state().map(|state| state.target_format);
-        let recompute = self.process_gpu_recompute(
+        self.process_gpu_recompute(
             target_format,
             state_frame.recompute,
             state_frame.state_count,
             ctx,
-        ) || circuit_frame.recompute;
+        );
 
         if let Some(content_rect) = circuit_frame.content_rect {
             let projection = self.circuit_projection(content_rect, self.circuit_scroll_time);
@@ -52,7 +52,6 @@ impl QniApp {
                 self.state_panel.offset,
                 state_frame.layout.handle_height,
                 screen_rect,
-                recompute,
                 target_format,
             );
             if self.fps_hud_visible {

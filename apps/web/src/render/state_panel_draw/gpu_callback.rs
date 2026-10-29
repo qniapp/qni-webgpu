@@ -15,7 +15,6 @@ pub(super) fn paint_state_vector_gpu(
     viewport_rect: egui::Rect,
     grid_origin: egui::Pos2,
     screen_rect: egui::Rect,
-    _recompute: bool,
     target_format: Option<wgpu::TextureFormat>,
 ) {
     let Some(target_format) = target_format else {
