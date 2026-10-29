@@ -315,9 +315,6 @@ pub(crate) fn linearize_ops(
 
         probability_targets.sort_by_key(|a| a.id);
         for display in &probability_targets {
-            if !display.wire.is_within(qubits) {
-                continue;
-            }
             let span = display
                 .span
                 .clamped_for(display.kind, n - display.wire.as_usize());
@@ -338,9 +335,6 @@ pub(crate) fn linearize_ops(
 
         amplitude_targets.sort_by_key(|a| a.id);
         for display in &amplitude_targets {
-            if !display.wire.is_within(qubits) {
-                continue;
-            }
             let span = display
                 .span
                 .clamped_for(display.kind, n - display.wire.as_usize());
@@ -361,9 +355,6 @@ pub(crate) fn linearize_ops(
 
         density_targets.sort_by_key(|a| a.id);
         for display in &density_targets {
-            if !display.wire.is_within(qubits) {
-                continue;
-            }
             let span = display
                 .span
                 .clamped_for(display.kind, n - display.wire.as_usize());
@@ -531,9 +522,6 @@ fn register_external_controls(
     qubits: QubitCount,
     controls: ColumnControls,
 ) -> ColumnControls {
-    if !gate.wire.is_within(qubits) {
-        return controls;
-    }
     let span = gate
         .span
         .clamped_for(gate.kind, qubits.get() - gate.wire.as_usize())
@@ -576,9 +564,6 @@ fn linearize_qft(
     dagger: bool,
     controls: ColumnControls,
 ) -> Vec<SimulationOp> {
-    if !gate.wire.is_within(qubits) {
-        return Vec::new();
-    }
     // Clamp the span so the QFT never reaches past the qubit register;
     // a user-resized QFT can momentarily extend beyond the placed
     // bottom wire before `update_qubit_count` catches up.
@@ -586,9 +571,6 @@ fn linearize_qft(
         .span
         .clamped_for(gate.kind, qubits.get() - gate.wire.as_usize())
         .get();
-    if span == 0 {
-        return Vec::new();
-    }
     let bit_of = |idx: usize| {
         gate.wire
             .offset(idx)
