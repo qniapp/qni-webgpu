@@ -38,7 +38,7 @@ use std::collections::VecDeque;
 #[allow(unused_imports)]
 pub(crate) use circuit_model::{
     AngleAffordance, AngleEditor, BlockEdges, CircuitBlock, CircuitBlockDrag, CircuitBlockEdge,
-    CircuitBlockEditor, CircuitBlockHover, CircuitBlockLabelSlot, CircuitBlocks,
+    CircuitBlockEditor, CircuitBlockError, CircuitBlockHover, CircuitBlockLabelSlot, CircuitBlocks,
     CircuitColumnIndex, CircuitColumnIndexError, ClickCopy, DragState, GateId, GateIdAllocator,
     LiveDragSnap, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle, WireIndex,
     WireIndexError,

@@ -12,7 +12,7 @@ use super::QniApp;
 mod block_edges;
 pub(crate) use block_edges::BlockEdges;
 mod circuit_blocks;
-pub(crate) use circuit_blocks::{CircuitBlock, CircuitBlocks};
+pub(crate) use circuit_blocks::{CircuitBlock, CircuitBlockError, CircuitBlocks};
 mod column_index;
 pub(crate) use column_index::{CircuitColumnIndex, CircuitColumnIndexError};
 mod gate_id;
