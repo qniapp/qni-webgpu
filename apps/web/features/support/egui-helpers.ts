@@ -33,7 +33,7 @@ declare global {
 
 type CanvasBoundingBox = { x: number; y: number; width: number; height: number }
 type CanvasContentStats = { nonBackground: number; sampledPixels: number }
-type ReadCanvasContentStatsOptions = { path?: string; background?: readonly number[]; threshold?: number; step?: number }
+type ReadCanvasContentStatsOptions = { path?: string; backgrounds?: readonly (readonly number[])[]; threshold?: number; step?: number }
 type WaitForCanvasContentOptions = ReadCanvasContentStatsOptions & { timeout?: number; minNonBackground?: number }
 type ScreenshotWithRetryOptions = NonNullable<Parameters<Locator['screenshot']>[0]> & { waitForStateVector?: boolean }
 type ArtifactWorld = { artifactDir?: string } | null | undefined
@@ -48,7 +48,7 @@ const DEFAULT_POLL_INTERVAL_MS = 100
 export const DEFAULT_MIN_NON_BACKGROUND_PIXELS = 40
 const DEFAULT_NON_BACKGROUND_THRESHOLD = 20
 const DEFAULT_CANVAS_SAMPLE_STEP = 4
-const DEFAULT_BACKGROUND_RGB = [255, 255, 255]
+const DEFAULT_BACKGROUNDS_RGB = [[242, 240, 229], [255, 252, 240]]
 
 const RETRYABLE_EVALUATE_ERRORS = ['Execution context was destroyed']
 const RETRYABLE_SCREENSHOT_ERRORS = [
@@ -317,7 +317,7 @@ export const readCanvasContentStats = async (
   locator: Locator,
   {
     path: screenshotPath,
-    background = DEFAULT_BACKGROUND_RGB,
+    backgrounds = DEFAULT_BACKGROUNDS_RGB,
     threshold = DEFAULT_NON_BACKGROUND_THRESHOLD,
     step = DEFAULT_CANVAS_SAMPLE_STEP,
   }: ReadCanvasContentStatsOptions = {}
@@ -331,12 +331,12 @@ export const readCanvasContentStats = async (
 
   return evaluateWithRetry<CanvasContentStats, {
     base64: string
-    background: readonly number[]
+    backgrounds: readonly (readonly number[])[]
     threshold: number
     step: number
   }>(
     page,
-    async ({ base64, background, threshold, step }) => {
+    async ({ base64, backgrounds, threshold, step }) => {
       const img = new Image()
       img.src = `data:image/png;base64,${base64}`
       await new Promise((resolve, reject) => {
@@ -362,12 +362,15 @@ export const readCanvasContentStats = async (
       for (let y = 0; y < height; y += step) {
         for (let x = 0; x < width; x += step) {
           const idx = (y * width + x) * 4
-          const diff =
-            Math.abs(data[idx] - background[0]) +
-            Math.abs(data[idx + 1] - background[1]) +
-            Math.abs(data[idx + 2] - background[2])
+          const isContent = backgrounds.every((background) => {
+            const diff =
+              Math.abs(data[idx] - background[0]) +
+              Math.abs(data[idx + 1] - background[1]) +
+              Math.abs(data[idx + 2] - background[2])
+            return diff > threshold
+          })
           sampledPixels += 1
-          if (diff > threshold) {
+          if (isContent) {
             nonBackground += 1
           }
         }
@@ -375,7 +378,7 @@ export const readCanvasContentStats = async (
 
       return { nonBackground, sampledPixels }
     },
-    { base64, background, threshold, step }
+    { base64, backgrounds, threshold, step }
   )
 }
 
