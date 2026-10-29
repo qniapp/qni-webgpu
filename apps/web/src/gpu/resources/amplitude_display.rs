@@ -15,7 +15,6 @@ use super::common::Common;
 
 struct GlyphAtlas {
     view: wgpu::TextureView,
-    sampler: wgpu::Sampler,
 }
 
 pub(crate) struct AmplitudeResources {
@@ -391,12 +390,6 @@ fn create_popup_value_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGrou
                 },
                 count: None,
             },
-            wgpu::BindGroupLayoutEntry {
-                binding: 4,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                count: None,
-            },
         ],
     })
 }
@@ -485,13 +478,7 @@ fn create_glyph_atlas(device: &wgpu::Device, queue: &wgpu::Queue) -> GlyphAtlas 
         &atlas_data,
     );
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-        label: Some("amplitude_popup_glyph_atlas_sampler"),
-        mag_filter: wgpu::FilterMode::Nearest,
-        min_filter: wgpu::FilterMode::Nearest,
-        ..Default::default()
-    });
-    GlyphAtlas { view, sampler }
+    GlyphAtlas { view }
 }
 
 fn create_render_bind_group(
@@ -548,10 +535,6 @@ fn create_popup_value_bind_group(
             wgpu::BindGroupEntry {
                 binding: 3,
                 resource: wgpu::BindingResource::TextureView(&atlas.view),
-            },
-            wgpu::BindGroupEntry {
-                binding: 4,
-                resource: wgpu::BindingResource::Sampler(&atlas.sampler),
             },
         ],
     })
