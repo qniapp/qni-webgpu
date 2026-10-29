@@ -342,10 +342,6 @@ pub(crate) struct AmplitudePopupValueParams {
 pub(crate) struct ProbabilityRenderParams {
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
-    /// Device pixels per logical point. The fragment shader maps its framebuffer
-    /// `@builtin(position)` back to a logical row so the outcome row is decided
-    /// from the (seam-stable) physical pixel centre rather than the interpolated
-    /// `local.y`, which is not bit-exact across the unit quad's triangle seam.
     pub(crate) pixels_per_point: f32,
     pub(crate) _pad_ppp: [f32; 3],
     pub(crate) background: [f32; 4],

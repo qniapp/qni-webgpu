@@ -35,6 +35,12 @@ pub(crate) struct ProbabilityDisplayCallback {
 }
 
 impl ProbabilityDisplayCallback {
+    /// クリップ済みコールバック矩形の左上。各成分は 0 以上。
+    pub(crate) fn clipped_callback_origin(clipped_callback: egui::Rect) -> [f32; 2] {
+        assert!(clipped_callback.min.x >= 0.0 && clipped_callback.min.y >= 0.0);
+        [clipped_callback.min.x, clipped_callback.min.y]
+    }
+
     fn upload_external_probabilities(
         &self,
         _device: &wgpu::Device,
@@ -197,5 +203,45 @@ impl egui_wgpu::CallbackTrait for ProbabilityDisplayCallback {
             wgpu::IndexFormat::Uint16,
         );
         render_pass.draw_indexed(0..6, 0, 0..self.instances.len() as u32);
+    }
+}
+
+#[cfg(test)]
+mod clipped_callback_origin_tests {
+    use super::ProbabilityDisplayCallback;
+    use eframe::egui;
+
+    #[test]
+    fn probability_viewport_min_is_the_clipped_callback_origin() {
+        let clipped = egui::Rect::from_min_max(egui::pos2(4.0, 8.0), egui::pos2(40.0, 80.0));
+        assert_eq!(
+            ProbabilityDisplayCallback::clipped_callback_origin(clipped),
+            [clipped.min.x, clipped.min.y]
+        );
+    }
+
+    #[test]
+    fn probability_viewport_min_rejects_a_negative_origin() {
+        let clipped = egui::Rect::from_min_max(egui::pos2(0.0, -0.25), egui::pos2(10.0, 10.0));
+        let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            ProbabilityDisplayCallback::clipped_callback_origin(clipped);
+        }));
+        assert!(caught.is_err());
+    }
+
+    #[test]
+    fn circuit_probability_viewport_uses_the_clipped_origin() {
+        let source = include_str!("../../render/circuit_gates.rs");
+        assert!(source.contains(
+            "viewport_min: ProbabilityDisplayCallback::clipped_callback_origin(callback_rect)"
+        ));
+    }
+
+    #[test]
+    fn sample_drag_preview_uses_the_clipped_origin() {
+        let source = include_str!("../../render/circuit_palette/drag_preview.rs");
+        assert!(source.contains(
+            "viewport_min: ProbabilityDisplayCallback::clipped_callback_origin(callback_rect)"
+        ));
     }
 }
