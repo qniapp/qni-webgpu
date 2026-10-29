@@ -50,6 +50,8 @@ fn vs_main(input: VsIn) -> VsOut {
   return out;
 }
 
+const AMPLITUDE_CUTOFF: f32 = 0.000001;
+
 // `edge` is the pixel-sized fwidth value pre-computed by the caller in
 // uniform control flow — must not be re-derived inside this function
 // because the bounds checks in fs_main break uniform flow before reaching here.
@@ -66,10 +68,7 @@ fn cell_contribution(col: u32, row: u32, panel_local: vec2<f32>, edge: f32) -> v
   let display_index = row * params.cols + col;
   let amp = state[display_index];
   let prob = clamp(amp.x * amp.x + amp.y * amp.y, 0.0, 1.0);
-  // Match the 1e-6 amplitude cutoff used by Amplitude / Density Display.
-  // Fused f32 arithmetic can leave cancellation residuals (e.g. H * H).
-  // Suppress their phase decoration, without changing the GPU state or fill.
-  let has_visible_phase = prob > 1.0e-12;
+  let has_visible_phase = prob > AMPLITUDE_CUTOFF * AMPLITUDE_CUTOFF;
 
   let hover_mult = select(1.0, 0.9, i32(display_index) == params.hovered_cell);
 

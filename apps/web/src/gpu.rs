@@ -51,6 +51,7 @@ pub(crate) use readback::{
     read_measurement_outcomes_impl, read_postselection_rates_impl,
     read_probability_distributions_impl, read_runner_state_vector, read_state_vector_impl,
 };
+pub(crate) use recompute::RunnerMeasurementSeed;
 pub(crate) use slot::{
     Amplitude, Bloch, Density, Measurement, Postselection, Probability, SlotAllocator, SlotIndex,
     Snapshot,

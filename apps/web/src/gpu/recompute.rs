@@ -10,6 +10,7 @@ use crate::simulation_plan::{
 
 use self::dispatch::encode_batched_recompute;
 use self::pack::PackedRecomputeParams;
+pub(crate) use self::pack::RunnerMeasurementSeed;
 use super::params::{
     MAX_AMPLITUDE_SLOTS, MAX_BLOCH_SLOTS, MAX_DENSITY_SLOTS, MAX_MEASUREMENT_SLOTS,
     MAX_OPS_PER_RECOMPUTE, MAX_PROBABILITY_SLOTS, MAX_STEP_SNAPSHOT_SLOTS, STATE_WORKGROUP_SIZE,
@@ -26,7 +27,7 @@ pub(super) fn recompute_state_vector(
     resources: &mut StateVectorResources,
     sim_ops: &[SimulationOp],
     state_count: usize,
-    measurement_seed: u32,
+    runner_seed: RunnerMeasurementSeed,
 ) -> bool {
     resources.state_count = state_count;
     if state_count == 0 {
@@ -56,8 +57,7 @@ pub(super) fn recompute_state_vector(
         return false;
     }
 
-    let packed =
-        PackedRecomputeParams::from_ops(sim_ops, state_count, pair_count, measurement_seed);
+    let packed = PackedRecomputeParams::from_ops(sim_ops, state_count, pair_count, runner_seed);
     packed.upload(queue, resources);
 
     let encoded = encode_batched_recompute(

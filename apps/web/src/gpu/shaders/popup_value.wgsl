@@ -40,15 +40,6 @@ fn row_char_count(row: u32) -> u32 {
   return ROW_PHASE_CHARS;
 }
 
-// Integer-exact power of 10 in the range exp ∈ [-5, 5]. Used instead
-// of WGSL's `pow(10.0, x)` because the latter is implemented via
-// log/exp and accumulates enough f32 error that e.g. `pow(10.0, 5.0)`
-// rounds to 99999.999... — which then `floor()`s to 99999 and produces
-// "+1.09999" instead of "+1.00000" for `digit_at(1.0, -5)`. The values
-// 10^1 .. 10^5 are exact integers (representable in f32 ≤ 2²³), so the
-// table picks them up precisely; 10^-1 .. 10^-5 still aren't binary
-// fractions, but the residual error is below the round-to-half
-// threshold for the digit ranges we display.
 fn pow10_table(exp: i32) -> f32 {
   switch (exp) {
     case 5: { return 100000.0; }
