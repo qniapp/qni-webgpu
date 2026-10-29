@@ -127,10 +127,10 @@ if (endpoint.endsWith('/releases/42')) {
   if (scenario === 'upload-tag-change') release.tag_name = 'wrong'
   if (scenario !== 'auth' && scenario !== 'network' && scenario !== 'list-error' && scenario !== 'bad-json') { console.log(JSON.stringify(release)); process.exit(0) }
 }
-if (args.includes('--paginate')) {
+if (args[1] === 'graphql') {
   if (scenario === 'list-error') process.exit(1)
   if (scenario === 'bad-json') { console.log('no'); process.exit(0) }
-  console.log(JSON.stringify([[], scenario === 'draft' || scenario === 'release' || scenario === 'publish-wrong' ? [{id: 42, tag_name: process.env.TAG, draft: scenario !== 'release'}] : []]))
+  console.log(JSON.stringify({data: {repository: {release: scenario === 'draft' || scenario === 'release' || scenario === 'publish-wrong' ? {tagName: process.env.TAG, isDraft: scenario !== 'release'} : null}}}))
   process.exit(0)
 }
 if (args.some(a => a.includes('/git/ref/')) && (scenario === 'tag' || (scenario === 'upload-tag-created' && require('node:fs').existsSync(process.env.CREATED)) || require('node:fs').existsSync(process.env.PUBLISHED))) { console.log(JSON.stringify({object: {type: 'commit', sha: scenario === 'publish-wrong' ? 'b'.repeat(40) : process.env.GITHUB_SHA}})); process.exit(0) }

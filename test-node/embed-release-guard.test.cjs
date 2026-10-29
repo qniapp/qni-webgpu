@@ -4,7 +4,7 @@ const assert = require('node:assert/strict')
 const sha = 'a'.repeat(40)
 const other = 'b'.repeat(40)
 class GuardFixture {
-  static async create({ tag, releases = [], error, lookupExists = false, pages, tagBody, tagError, release, calls = [], token = 'mock' } = {}) {
+  static async create({ tag, releases = [], error, lookupExists = false, graphqlBody, graphqlError, tagBody, tagError, release, calls = [], token = 'mock' } = {}) {
     const { EmbedReleaseGuard } = await import('../apps/web/scripts/embed-release-guard.mjs')
     return new EmbedReleaseGuard({ repository: 'owner/repo', tag: `embed-${sha}`, sha, token, runner(args) {
       calls.push(args)
@@ -12,7 +12,8 @@ class GuardFixture {
       if (error) return { status: 1, stdout: error, stderr: 'API failed' }
       if (endpoint.includes('/git/ref/') && tagError) return { status: 1, stdout: tagError }
       if (endpoint.includes('/git/ref/') && tagBody !== undefined) return { status: 0, stdout: JSON.stringify(tagBody) }
-      if (args.includes('--paginate')) return { status: 0, stdout: JSON.stringify(pages ?? [[], releases]) }
+      if (args[1] === 'graphql' && graphqlError) return graphqlError
+      if (args[0] === 'api' && args[1] === 'graphql') return { status: 0, stdout: JSON.stringify(graphqlBody ?? { data: { repository: { release: releases.length ? { tagName: releases[0].tag_name, isDraft: releases[0].draft } : null } } }) }
       if (endpoint.includes('/git/tags/')) return { status: 0, stdout: 'HTTP/2.0 200 OK\r\nContent-Type: application/json\r\n\r\n' + JSON.stringify({ object: { type: 'commit', sha: tag.sha } }) }
       if (endpoint.includes('/git/ref/') && tag) return { status: 0, stdout: 'HTTP/2.0 200 OK\r\nContent-Type: application/json\r\n\r\n' + JSON.stringify({ object: tag.annotated ? { type: 'tag', sha: other } : { type: 'commit', sha: tag.sha } }) }
       if (/\/releases\/[0-9]+$/.test(endpoint) && release !== undefined) return { status: 0, stdout: JSON.stringify(release) }
@@ -22,7 +23,7 @@ class GuardFixture {
   }
 }
 const draft = { id: 42, tag_name: `embed-${sha}`, target_commitish: sha, draft: true }
-test('absence confirmed by authenticated 404 and all release pages passes', async () => {
+test('absence confirmed by authenticated REST 404 and null GraphQL release passes', async () => {
   const guard = await GuardFixture.create()
   assert.doesNotThrow(() => guard.assertAbsent())
 })
@@ -31,12 +32,21 @@ for (const [name, options, message] of [
   ['different lightweight tag', { tag: { sha: other } }, /matches GITHUB_SHA: false/],
   ['matching annotated tag', { tag: { sha, annotated: true } }, /matches GITHUB_SHA: true/],
   ['different annotated tag', { tag: { sha: other, annotated: true } }, /matches GITHUB_SHA: false/],
-  ['draft on later page', { releases: [draft] }, /Release already exists/],
+  ['draft found by exact tag lookup', { releases: [draft] }, /Release already exists/],
   ['published release', { releases: [{ ...draft, draft: false }] }, /Release already exists/],
   ['tag release lookup exists', { lookupExists: true }, /Release already exists/],
   ['authentication failure', { error: 'HTTP/2.0 401 Unauthorized' }, /API failed/],
   ['transport failure', { error: 'network failure' }, /API failed/],
-  ['malformed list', { pages: [{}] }, /Invalid releases/],
+  ['GraphQL authentication failure', { graphqlError: { status: 1, stderr: 'HTTP 401' } }, /Release lookup failed/],
+  ['GraphQL transport failure', { graphqlError: { status: 1, stderr: 'offline' } }, /Release lookup failed/],
+  ['GraphQL spawn failure', { graphqlError: { error: new Error('spawn failed') } }, /spawn failed/],
+  ['GraphQL malformed JSON', { graphqlError: { status: 0, stdout: 'not JSON' } }, /JSON/],
+  ['GraphQL errors', { graphqlBody: { data: { repository: { release: null } }, errors: [{ message: 'Forbidden' }] } }, /Invalid release lookup/],
+  ['missing repository', { graphqlBody: { data: { repository: null } } }, /Invalid release lookup/],
+  ['missing release field', { graphqlBody: { data: { repository: {} } } }, /Invalid release lookup/],
+  ['wrong release tag', { graphqlBody: { data: { repository: { release: { tagName: 'other', isDraft: true } } } } }, /Invalid release lookup/],
+  ['malformed release', { graphqlBody: { data: { repository: { release: {} } } } }, /Invalid release lookup/],
+  ['missing draft flag', { graphqlBody: { data: { repository: { release: { tagName: `embed-${sha}` } } } } }, /Invalid release lookup/],
   ['null tag response', { tagBody: null }, /Invalid API response/],
   ['invalid tag object', { tagBody: {} }, /Invalid tag commit/],
 ]) {
@@ -45,6 +55,16 @@ for (const [name, options, message] of [
     assert.throws(() => guard.assertAbsent(), message)
   })
 }
+test('absence only queries the specific tag and release, including drafts', async () => {
+  const calls = []
+  const guard = await GuardFixture.create({ calls })
+  guard.assertAbsent()
+  assert.deepEqual(calls, [
+    ['api', '--include', `repos/owner/repo/git/ref/tags/embed-${sha}`],
+    ['api', '--include', `repos/owner/repo/releases/tags/embed-${sha}`],
+    ['api', 'graphql', '-f', 'query=query($owner: String!, $name: String!, $tag: String!) { repository(owner: $owner, name: $name) { release(tagName: $tag) { tagName isDraft } } }', '-f', 'owner=owner', '-f', 'name=repo', '-f', `tag=embed-${sha}`],
+  ])
+})
 test('own draft accepts id lookup while the release list is still empty', async () => {
   const guard = await GuardFixture.create({ releases: [], release: draft })
   assert.doesNotThrow(() => guard.assertOwnDraft('42'))
