@@ -21,6 +21,27 @@ pub(crate) use qni_web_external_gpu_model::{short_failure_label, unsupported_gat
 
 use super::{ExecMode, QniApp};
 
+#[cfg(target_arch = "wasm32")]
+fn js_array_prop(value: &wasm_bindgen::JsValue, name: &str) -> Option<js_sys::Array> {
+    use wasm_bindgen::JsCast;
+
+    js_sys::Reflect::get(value, &wasm_bindgen::JsValue::from_str(name))
+        .ok()?
+        .dyn_into::<js_sys::Array>()
+        .ok()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn js_u32_prop(value: &wasm_bindgen::JsValue, name: &str) -> Option<u32> {
+    let raw = js_sys::Reflect::get(value, &wasm_bindgen::JsValue::from_str(name))
+        .ok()?
+        .as_f64()?;
+    if raw < 0.0 || raw > u32::MAX as f64 {
+        return None;
+    }
+    Some(raw as u32)
+}
+
 fn display_controls(
     gates: &[&crate::app::PlacedGate],
     mut controls: crate::gates::ColumnControls,

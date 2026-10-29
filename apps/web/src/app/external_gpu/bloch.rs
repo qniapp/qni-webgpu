@@ -9,6 +9,9 @@ use crate::gpu::ExternalBlochUploadBatch;
 use crate::qubit_count::QubitCount;
 use crate::simulation_plan::SimulationColumnAnalysis;
 
+#[cfg(target_arch = "wasm32")]
+use super::{js_array_prop, js_u32_prop};
+
 pub(super) struct ExternalBlochRequest {
     pub(super) gate_id: u32,
     pub(super) column: CircuitColumnIndex,
@@ -132,27 +135,6 @@ fn parse_bloch_upload_batch_impl(
     return super::parser_fixtures::take_bloch(_message, _generation, _slot_to_gate_id);
     #[cfg(not(test))]
     None
-}
-
-#[cfg(target_arch = "wasm32")]
-fn js_array_prop(value: &wasm_bindgen::JsValue, name: &str) -> Option<js_sys::Array> {
-    use wasm_bindgen::JsCast;
-
-    js_sys::Reflect::get(value, &wasm_bindgen::JsValue::from_str(name))
-        .ok()?
-        .dyn_into::<js_sys::Array>()
-        .ok()
-}
-
-#[cfg(target_arch = "wasm32")]
-fn js_u32_prop(value: &wasm_bindgen::JsValue, name: &str) -> Option<u32> {
-    let raw = js_sys::Reflect::get(value, &wasm_bindgen::JsValue::from_str(name))
-        .ok()?
-        .as_f64()?;
-    if raw < 0.0 || raw > u32::MAX as f64 {
-        return None;
-    }
-    Some(raw as u32)
 }
 
 #[cfg(test)]
