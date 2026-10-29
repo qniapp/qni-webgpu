@@ -35,13 +35,11 @@ use circuit_picker_state::PickerState;
 use eframe::egui;
 use std::collections::VecDeque;
 
-#[allow(unused_imports)]
 pub(crate) use circuit_model::{
     AngleAffordance, AngleEditor, BlockEdges, CircuitBlock, CircuitBlockDrag, CircuitBlockEdge,
     CircuitBlockEditor, CircuitBlockHover, CircuitBlockLabelSlot, CircuitBlocks,
-    CircuitColumnIndex, CircuitColumnIndexError, ClickCopy, DragState, GateId, GateIdAllocator,
-    LiveDragSnap, PlacedGate, SpanResizeDrag, SpanResizeEdge, SpanResizeHandle, WireIndex,
-    WireIndexError,
+    CircuitColumnIndex, ClickCopy, DragState, GateId, GateIdAllocator, LiveDragSnap, PlacedGate,
+    SpanResizeDrag, SpanResizeEdge, SpanResizeHandle, WireIndex,
 };
 pub(crate) use embed::{AppMode, EmbedStartup};
 pub(crate) use exec_mode::ExecMode;
