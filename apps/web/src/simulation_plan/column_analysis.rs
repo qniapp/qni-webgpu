@@ -101,6 +101,39 @@ impl<'a> SimulationColumnAnalysis<'a> {
     }
 }
 
+/// 伸縮できる範囲の外にあるパリティ制御を、上のワイヤから順に返す。先頭が集約先である。
+pub(crate) fn external_parity_controls<'a>(
+    gates: &[&'a PlacedGate],
+    qubits: QubitCount,
+) -> Vec<&'a PlacedGate> {
+    let mut parity_controls: Vec<&PlacedGate> = gates
+        .iter()
+        .copied()
+        .filter(|gate| {
+            matches!(
+                gate.kind,
+                GateKind::ZParityControl | GateKind::XParityControl
+            )
+        })
+        .filter(|parity| !resizable_span_covers(gates, parity.wire.as_usize(), qubits))
+        .collect();
+    parity_controls.sort_by_key(|gate| gate.wire);
+    parity_controls
+}
+
+fn resizable_span_covers(gates: &[&PlacedGate], wire: usize, qubits: QubitCount) -> bool {
+    gates.iter().any(|gate| {
+        gate.kind.is_resizable_span()
+            && gate.wire.as_usize() <= wire
+            && wire
+                < gate.wire.as_usize()
+                    + gate
+                        .span
+                        .clamped_for(gate.kind, qubits.get() - gate.wire.as_usize())
+                        .get()
+    })
+}
+
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ColumnAnalysis<'a> {
     columns: Vec<AnalyzedColumn<'a>>,
@@ -127,5 +160,70 @@ impl<'a> ColumnAnalysis<'a> {
 
     pub(crate) fn columns(&self) -> &[AnalyzedColumn<'a>] {
         &self.columns
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::external_parity_controls;
+    use crate::app::{CircuitColumnIndex, GateId, PlacedGate, WireIndex};
+    use crate::gates::{GateKind, GateSpan};
+    use crate::qubit_count::QubitCount;
+
+    fn placed(kind: GateKind, wire: usize, span: usize) -> PlacedGate {
+        PlacedGate::new(
+            GateId::from_u32(wire as u32 + 1),
+            kind,
+            CircuitColumnIndex::new(0),
+            WireIndex::new(wire),
+            GateSpan::try_new(span).expect("span is at least 1"),
+            None,
+        )
+    }
+
+    fn parity_wires(gates: &[PlacedGate]) -> Vec<usize> {
+        let refs: Vec<&PlacedGate> = gates.iter().collect();
+        external_parity_controls(&refs, QubitCount::try_new(8).expect("8 qubits"))
+            .into_iter()
+            .map(|gate| gate.wire.as_usize())
+            .collect()
+    }
+
+    #[test]
+    fn external_parity_controls_list_the_top_wire_first() {
+        let gates = [
+            placed(GateKind::ZParityControl, 3, 1),
+            placed(GateKind::AntiControl, 4, 1),
+            placed(GateKind::Control, 2, 1),
+            placed(GateKind::XParityControl, 1, 1),
+        ];
+        assert_eq!(parity_wires(&gates), vec![1, 3]);
+    }
+
+    #[test]
+    fn external_parity_controls_keep_either_basis() {
+        let wires = [GateKind::ZParityControl, GateKind::XParityControl]
+            .map(|kind| parity_wires(&[placed(kind, 1, 1)]));
+        assert_eq!(wires, [vec![1], vec![1]]);
+    }
+
+    #[test]
+    fn external_parity_controls_omit_wires_inside_a_resizable_span() {
+        let gates = [
+            placed(GateKind::ZParityControl, 2, 1),
+            placed(GateKind::XParityControl, 3, 1),
+            placed(GateKind::QftGate, 1, 2),
+        ];
+        assert_eq!(parity_wires(&gates), vec![3]);
+    }
+
+    #[test]
+    fn external_parity_controls_are_empty_when_every_parity_is_covered() {
+        let gates = [
+            placed(GateKind::ZParityControl, 2, 1),
+            placed(GateKind::XParityControl, 7, 1),
+            placed(GateKind::QftGate, 1, 32),
+        ];
+        assert_eq!(parity_wires(&gates), Vec::<usize>::new());
     }
 }
