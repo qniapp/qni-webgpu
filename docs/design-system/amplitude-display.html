@@ -12,7 +12,6 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- 振幅表示ブロック本体は <amplitude-display> カスタム要素で描画する。 -->
   <script src="components/amplitude-display.js"></script>
   <style>
 
@@ -70,7 +69,6 @@
 
 
 <div id="preview">
-  <!-- 1 量子ビット (2 outcomes、2×1 grid) がもっともシンプルな代表例 -->
   <amplitude-display span="1" sample="hadamard1"></amplitude-display>
 </div>
 
@@ -95,7 +93,6 @@
   </p>
 </div>
 
-<!-- ─────── § 00 複素振幅の視覚表現選定根拠 ─────── -->
 <section class="block">
   <h2>§ 00 複素振幅の視覚表現選定根拠</h2>
   <div class="card">
@@ -122,7 +119,6 @@
   </div>
 </section>
 
-<!-- ─────── § 01 概要 (見た目と用途) ─────── -->
 <section class="block">
   <h2>§ 01 概要 (見た目と用途)</h2>
   <div class="card">
@@ -158,7 +154,6 @@
   </div>
 </section>
 
-<!-- ─────── § 02 サイズ別の見た目 + 動くモック ─────── -->
 <section class="block">
   <h2>§ 02 サイズ別の見た目 (1〜16 量子ビット、動くモック)</h2>
   <div class="card">
@@ -262,7 +257,6 @@
   </div>
 </section>
 
-<!-- ─────── § 03 パレットアイコン ─────── -->
 <section class="block">
   <h2>§ 03 パレットアイコン (mini preview)</h2>
   <div class="card">
@@ -290,7 +284,6 @@
   </div>
 </section>
 
-<!-- ─────── § 04 概要 ─────── -->
 <section class="block">
   <h2>§ 04 概要</h2>
   <div class="card">
@@ -310,7 +303,6 @@
   </div>
 </section>
 
-<!-- ─────── § 05 ジオメトリ ─────── -->
 <section class="block">
   <h2>§ 05 ジオメトリ</h2>
   <div class="card">
@@ -373,7 +365,6 @@
   </div>
 </section>
 
-<!-- ─────── § 06 セル描画モデル ─────── -->
 <section class="block">
   <h2>§ 06 セル描画モデル (state panel と同じ 4 層)</h2>
   <div class="card">
@@ -444,7 +435,6 @@
   </div>
 </section>
 
-<!-- ─────── § 07 phase lock + incoherent state ─────── -->
 <section class="block">
   <h2>§ 07 phase lock + incoherent state</h2>
   <div class="card">
@@ -492,7 +482,6 @@
   </div>
 </section>
 
-<!-- ─────── § 08 ホバー時ポップオーバー ─────── -->
 <section class="block">
   <h2>§ 08 ホバー時ポップオーバー</h2>
   <div class="card">
@@ -513,7 +502,6 @@
   </div>
 </section>
 
-<!-- ─────── § 09 GPU-only 不変条件と検証方針 ─────── -->
 <section class="block">
   <h2>§ 09 GPU-only 不変条件と検証方針</h2>
   <div class="card">
@@ -618,7 +606,6 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
   </div>
 </section>
 
-<!-- ─────── § 10 決定事項 ─────── -->
 <section class="block">
   <h2>§ 10 決定事項 (実装前の固定値)</h2>
   <div class="card">
@@ -723,7 +710,6 @@ fn fs_popup(@location(0) uv: vec2&lt;f32&gt;) -&gt; @location(0) vec4&lt;f32&gt;
   </div>
 </section>
 
-<!-- ─────── § 11 テスト計画 ─────── -->
 <section class="block">
   <h2>§ 11 テスト計画 (受け入れ条件)</h2>
   <div class="card">

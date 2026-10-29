@@ -1128,7 +1128,6 @@
 </head>
 <body>
 
-  <!-- ───────────────── Header ───────────────── -->
   <header class="page">
     <span class="eyebrow">外部 GPU 実行モード · UI モック · 設計レビュー用</span>
     <h1 class="page-title">Local / GPU モード切替</h1>
@@ -1146,7 +1145,6 @@
     </p>
   </header>
 
-  <!-- ───────────────── 1. Toolbar variants ───────────────── -->
   <section class="block">
     <h2><span class="num">§ 01</span> 上部ツールバー — 詳細案</h2>
     <p class="note">
@@ -1156,10 +1154,8 @@
       の 3 要素のみ。並び・整列・分離線をどう組むかで読み取りやすさが変わる。3 案を比較して A-3 を採る。
     </p>
 
-    <!-- detailed toolbar gallery (full-width, real toolbar rows) -->
     <div class="tb-gallery">
 
-      <!-- A-1: minimal — meta + toggle, no status text -->
       <div class="tb-card">
         <div class="tb-card-head">
           <span class="tb-label">A-1 · ミニマル / メタ + トグルのみ</span>
@@ -1176,7 +1172,6 @@
         <p class="cons">直近の実行結果が古いのか・完了しているのかが、下にスクロールしないと分からない。</p>
       </div>
 
-      <!-- A-2: centered mode toggle -->
       <div class="tb-card">
         <div class="tb-card-head">
           <span class="tb-label">A-2 · モードを中央に寄せる</span>
@@ -1198,7 +1193,6 @@
         <p class="cons">画面幅が変わると中央位置がずれて、目が泳ぐ。狭い画面ではステータス文が右端から落ちる。</p>
       </div>
 
-      <!-- A-3: meta + status on the left, toggle on the right (CHOSEN) -->
       <div class="tb-card chosen">
         <div class="tb-card-head">
           <span class="tb-label">A-3 · 左にメタ + 直近ステータス / 右にトグル <span class="chosen-pill">採用</span></span>
@@ -1230,7 +1224,6 @@
     </p>
   </section>
 
-  <!-- ───────────────── 2. Toggle-only detail ───────────────── -->
   <section class="block">
     <h2><span class="num">§ 02</span> トグル本体 — 形状の検討</h2>
     <p class="note">
@@ -1298,7 +1291,6 @@
     </p>
   </section>
 
-  <!-- ───────────────── 3. Working prototype (T-1 interactive) ───────────────── -->
   <section class="block">
     <h2><span class="num">§ 03</span> 実装プロトタイプ — 動く T-1 トップバー</h2>
     <p class="note">
@@ -1311,7 +1303,6 @@
       の環境ではアニメーションは無効化。
     </p>
 
-    <!-- The interactive top bar. Toggle only, nothing else. -->
     <div class="proto-frame">
       <div class="proto-scene">web · 上部ツールバー (toggle only)</div>
       <div class="proto-bar">
@@ -1328,7 +1319,6 @@
       </div>
     </div>
 
-    <!-- Compact implementation spec — what Codex needs to reproduce in Rust / egui. -->
     <div class="impl-spec">
       <h3>実装仕様 (Codex 用リファレンス)</h3>
       <dl class="spec-dl">
@@ -1397,7 +1387,6 @@
     </div>
   </section>
 
-  <!-- ───────────────── 4. Full-frame mock — chosen layout ───────────────── -->
   <section class="block">
     <h2><span class="num">§ 04</span> 主案 — 全画面モック</h2>
     <p class="note">
@@ -1413,7 +1402,6 @@
       </div>
       <div class="app-body">
 
-        <!-- Top toolbar (A-3 chosen) — same shape in both modes; no run button here. -->
         <div class="toolbar">
           <span class="qubit-badge"><b>28</b> 量子ビット</span>
           <span class="tb-sep"></span>
@@ -1428,7 +1416,6 @@
           </span>
         </div>
 
-        <!-- Palette -->
         <div class="palette-shell">
           <div class="palette">
             <div class="palette-row">
@@ -1461,7 +1448,6 @@
           </div>
         </div>
 
-        <!-- GPU execution banner — run button lives here, not in the toolbar. -->
         <div class="gpu-banner state-done">
           <div class="left">
             <div class="badges">
@@ -1480,7 +1466,6 @@
           </div>
         </div>
 
-        <!-- Circuit area — NO FRAME, wires on bg -->
         <div class="circuit-area">
           <div class="wires">
             <div class="wire">
@@ -1523,7 +1508,6 @@
           </div>
         </div>
 
-        <!-- Result panel -->
         <div class="result-panel">
           <div class="result-panel-header">
             <div><b>実行結果</b> · 28 量子ビット</div>
@@ -1589,7 +1573,6 @@
     </div>
   </section>
 
-  <!-- ───────────────── 3. Same screen, but in Local mode ───────────────── -->
   <section class="block">
     <h2><span class="num">§ 05</span> 比較 — Local モードの場合</h2>
     <p class="note">
@@ -1604,7 +1587,6 @@
       </div>
       <div class="app-body">
 
-        <!-- Toolbar — Local active. Status pill shows "触ったら即時更新" instead of run state. -->
         <div class="toolbar">
           <span class="qubit-badge"><b>2</b> 量子ビット</span>
           <span class="tb-sep"></span>
@@ -1619,7 +1601,6 @@
           </span>
         </div>
 
-        <!-- Palette -->
         <div class="palette-shell">
           <div class="palette">
             <div class="palette-row">
@@ -1652,7 +1633,6 @@
           </div>
         </div>
 
-        <!-- Circuit — frameless -->
         <div class="circuit-area">
           <div class="wires">
             <div class="wire">
@@ -1671,7 +1651,6 @@
           </div>
         </div>
 
-        <!-- State vector panel — live -->
         <div class="state-panel">
           <div class="state-panel-head">
             <span>2 量子ビット</span>
@@ -1689,7 +1668,6 @@
     </div>
   </section>
 
-  <!-- ───────────────── 4. 17+ qubit in GPU mode: Local disabled ───────────────── -->
   <section class="block">
     <h2><span class="num">§ 06</span> 17量子ビット以上の GPU 回路</h2>
     <p class="note">
@@ -1737,7 +1715,6 @@
           </div>
         </div>
 
-        <!-- Inline note inside the result area -->
         <div class="gpu-banner state-fail" style="margin-top:20px;">
           <div class="left">
             <div class="badges">
@@ -1765,7 +1742,6 @@
     </div>
   </section>
 
-  <!-- ───────────────── 5. Banner state gallery (no 見積もり) ───────────────── -->
   <section class="block">
     <h2><span class="num">§ 07</span> GPU モード 実行バナー — 6 状態</h2>
     <p class="note">
@@ -1874,7 +1850,6 @@
     </div>
   </section>
 
-  <!-- ───────────────── 6. Non-goals strip ───────────────── -->
   <section class="block">
     <h2><span class="num">§ 08</span> 明確な非目標</h2>
     <div class="non-goals">
@@ -1896,7 +1871,6 @@
     </div>
   </section>
 
-  <!-- ───────────────── Footer ───────────────── -->
   <div class="doc-foot">
     関連:
     <a href="large-gpu-mode-design.html">large-gpu-mode-design.html</a> ·

@@ -567,7 +567,6 @@
 <body>
 <main>
 
-  <!-- ───────────── HERO ───────────── -->
   <section class="hero">
     <div class="eyebrow"><span>● Internal</span> · project orientation · 2026</div>
     <h1>qni-webgpu <em>— a Rust + WebGPU rewrite of qni.</em></h1>
@@ -586,7 +585,6 @@
     </div>
   </section>
 
-  <!-- ───────────── TL;DR ───────────── -->
   <section class="tldr">
     <div class="card">
       <div class="n">01</div>
@@ -605,7 +603,6 @@
     </div>
   </section>
 
-  <!-- ───────────── STACK ───────────── -->
   <h2><span class="num">§ 01</span> Stack at a glance</h2>
   <p class="lede">各レイヤで使っている技術を、「<em>これは何</em>」と「<em>このプロジェクトでどう使うか</em>」の 2 段で説明する。バージョンは 2026-05 時点の <code>Cargo.toml</code> / <code>package.json</code> 由来。</p>
   <div class="stack">
@@ -685,7 +682,6 @@
 
   </div>
 
-  <!-- ───────────── ARCHITECTURE ───────────── -->
   <h2><span class="num">§ 02</span> Two-lane architecture</h2>
   <p class="lede">毎フレームの仕事を、<b>CPU 側 (Rust / wasm)</b> と <b>GPU 側 (WGSL pipelines)</b> の 2 レーンに完全に分けている。CPU 側は<em>「何を計算したいか」</em>を組み立て、GPU 側が<em>「実際に数値を作って描く」</em>。</p>
   <div class="arch">
@@ -733,7 +729,6 @@
     線形化された <code>sim_ops</code> がレーンの唯一の API。CPU 側は完了した <em>circuit description</em> を渡し、GPU 側は state バッファを更新してそのまま render に流す。間に CPU を経由する数値は本番では一切ない。
   </p>
 
-  <!-- ───────────── MODULE MAP ───────────── -->
   <h2><span class="num">§ 03</span> Module map</h2>
   <p class="lede">最近の refactor で責務単位に分割された後の構成。最大ファイルでも 18 KB 程度、機能を足すたびに「どこへ書くか」がほぼ一意に決まる。</p>
   <div class="modmap">
@@ -775,7 +770,6 @@
     </div>
   </div>
 
-  <!-- ───────────── DIFFERENCES vs qni ───────────── -->
   <h2><span class="num">§ 04</span> qni vs qni-webgpu</h2>
   <p class="lede">機能や見た目は qni を踏襲しつつ、内部の組み方はほぼ全部書き直している。ここは「設計思想がどう変わったか」を見るための比較。</p>
   <div class="compare">
@@ -821,7 +815,6 @@
     </div>
   </div>
 
-  <!-- ───────────── PERFORMANCE PRINCIPLES ───────────── -->
   <h2><span class="num">§ 05</span> Performance principles</h2>
   <p class="lede">「とりあえず動く」と「ドラッグしてもガタつかない」は別物。<code>docs/web-perf-audit.html</code> の Issue A〜G が原則の出どころで、A〜C は既に潰してある。</p>
   <div class="perf">
@@ -878,11 +871,9 @@
     </div>
   </div>
 
-  <!-- ───────────── GPU TEXT RENDERING ───────────── -->
   <h2><span class="num">§ 06</span> GPU-side text rendering</h2>
   <p class="lede">状態ベクトルセルの hover popup には「振幅 / 確率 / 位相」の <em>数値</em> が表示される。これらの数値は GPU のメモリ上にある state vector から計算するもので、CPU に戻して文字レイアウトしては <b>「本番で GPU → CPU readback しない」ルールに違反</b> する。<br>解決策: 文字も丸ごと fragment shader (GPU で動く、ピクセル 1 個ずつ色を決める小さなプログラム) で描く。仕組みは "<em>baked glyph atlas + per-pixel digit extraction</em>" の 2 段だが、まずは用語から。</p>
 
-  <!-- jargon mini-glossary -->
   <div class="jargon">
     <div class="jargon-title">— このセクションだけで使う用語</div>
     <dl class="jargon-list">
@@ -901,7 +892,6 @@
     </dl>
   </div>
 
-  <!-- visual: atlas strip -->
   <div class="atlas">
     <div class="atlas-label">— 焼き上がった atlas (起動時に 1 回作って、以降ずっと GPU 上)</div>
     <div class="atlas-strip">
@@ -913,7 +903,6 @@
     <div class="atlas-meta">1 cell = 9 × 16 px、16 cell 並べて <b>144 × 16 px</b> の単色画像。中身は Geist Mono Regular フォントを <code>ab_glyph</code> crate でラスタライズした結果。図ではセルの境界を見せるためにグレーで描いているが、実物は各セル内に白黒の文字グリフだけが入った縞模様。</div>
   </div>
 
-  <!-- pipeline diagram -->
   <div class="pipe">
     <div class="stage">
       <div class="stage-id">— input</div>
@@ -940,7 +929,6 @@
     </div>
   </div>
 
-  <!-- formats -->
   <div class="formats">
     <div class="fmt"><span class="fmt-name">amplitude</span> <code>+r.rrrrr+i.iiiii</code> <span class="fmt-cnt">17 chars</span></div>
     <div class="fmt"><span class="fmt-name">probability</span> <code>+ddd.dddd%</code> <span class="fmt-cnt">10 chars</span></div>
@@ -952,7 +940,6 @@
     <br><br>関連ソース: <code>gpu/popup_glyph_atlas.rs</code> (atlas を焼く) · <code>gpu/shaders/popup_value.wgsl</code> (上の 4 段を行う WGSL) · <code>gpu/resources/popup_value.rs</code> (pipeline と bind group の組み立て)
   </p>
 
-  <!-- ───────────── FRAME BUDGET ───────────── -->
   <h2><span class="num">§ 07</span> Frame budget shape</h2>
   <p class="lede">アイドル時の 60 fps フレームを概念的に分解すると、CPU 仕事は egui の毎フレーム再構築・state panel paint・drag pacing で占められ、GPU 仕事はゲート適用 dispatch + 4 つの render pass。下記は実測の傾向を視覚化したもので、実数値はビルド構成により変動。</p>
   <div class="budget">
@@ -974,7 +961,6 @@
     実測のプロファイル詳細は <code>docs/web-drag-profiling.md</code>。perf-audit の Issue D〜G (Vec::new 容量 / sim_ops.clone / stale comment / overlay 毎フレーム再構築) はまだ open。
   </p>
 
-  <!-- ───────────── READING ORDER ───────────── -->
   <h2><span class="num">§ 08</span> Where to start reading</h2>
   <p class="lede">新しく入ってきた人向けの推奨順。回路を 1 つ動かす道筋に沿って 7 ステップで読むと、CPU 側から GPU 側まで一気通貫で追える。</p>
   <div class="reading">
@@ -1015,7 +1001,6 @@
     </div>
   </div>
 
-  <!-- ───────────── FOOTER ───────────── -->
   <div class="end">
     docs/project-overview.html · 関連: architecture.md / tech-stack.md / web-perf-audit.html / web-drag-profiling.md · 最終更新 2026-05-12
   </div>
