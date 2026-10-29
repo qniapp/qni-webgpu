@@ -60,13 +60,15 @@ pub(crate) fn linearize_ops(
         let mut amplitude_targets: Vec<&PlacedGate> = Vec::new();
         let mut density_targets: Vec<&PlacedGate> = Vec::new();
         let mut swap_targets: Vec<&PlacedGate> = Vec::new();
-        let mut parity_targets: Vec<&PlacedGate> = Vec::new();
 
         let mut register_gates: Vec<&PlacedGate> = Vec::new();
         for gate in column_gates {
             match gate.kind {
-                GateKind::Control | GateKind::AntiControl | GateKind::ZDetectControlReset => {}
-                GateKind::ZParityControl | GateKind::XParityControl => parity_targets.push(gate),
+                GateKind::Control
+                | GateKind::AntiControl
+                | GateKind::ZDetectControlReset
+                | GateKind::ZParityControl
+                | GateKind::XParityControl => {}
                 GateKind::Swap => swap_targets.push(gate),
                 GateKind::Spacer => {}
                 GateKind::Measurement | GateKind::XDetector | GateKind::YDetector => {
@@ -86,19 +88,7 @@ pub(crate) fn linearize_ops(
             }
         }
 
-        parity_targets.retain(|parity| {
-            !column_gates.iter().any(|gate| {
-                gate.kind.is_resizable_span()
-                    && gate.wire.as_usize() <= parity.wire.as_usize()
-                    && parity.wire.as_usize()
-                        < gate.wire.as_usize()
-                            + gate
-                                .span
-                                .clamped_for(gate.kind, n - gate.wire.as_usize())
-                                .get()
-            })
-        });
-        parity_targets.sort_by_key(|gate| gate.wire);
+        let parity_targets = super::column_analysis::external_parity_controls(column_gates, qubits);
         let mut parity_setup = Vec::new();
         for gate in &parity_targets {
             if gate.kind == GateKind::XParityControl {

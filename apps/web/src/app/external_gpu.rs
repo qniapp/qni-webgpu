@@ -42,36 +42,14 @@ fn js_u32_prop(value: &wasm_bindgen::JsValue, name: &str) -> Option<u32> {
     Some(raw as u32)
 }
 
-/// Controls at the display-save point, while parity is still gathered.
-/// Keep anchor filtering in sync with `linearize_ops`.
 fn display_controls(
     gates: &[&crate::app::PlacedGate],
     mut controls: crate::gates::ColumnControls,
     qubits: crate::qubit_count::QubitCount,
 ) -> crate::gates::ColumnControls {
-    use crate::gates::GateKind;
-
-    let anchor = gates
-        .iter()
-        .filter(|gate| {
-            matches!(
-                gate.kind,
-                GateKind::ZParityControl | GateKind::XParityControl
-            )
-        })
-        .filter(|parity| {
-            !gates.iter().any(|gate| {
-                gate.kind.is_resizable_span()
-                    && gate.wire.as_usize() <= parity.wire.as_usize()
-                    && parity.wire.as_usize()
-                        < gate.wire.as_usize()
-                            + gate
-                                .span
-                                .clamped_for(gate.kind, qubits.get() - gate.wire.as_usize())
-                                .get()
-            })
-        })
-        .min_by_key(|gate| gate.wire);
+    let anchor = crate::simulation_plan::external_parity_controls(gates, qubits)
+        .first()
+        .copied();
     if let Some(anchor) = anchor {
         controls.add_control(
             anchor

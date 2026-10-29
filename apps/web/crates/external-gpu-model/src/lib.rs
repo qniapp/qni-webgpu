@@ -124,18 +124,8 @@ pub fn format_gpu_duration(duration: Duration) -> String {
 }
 
 pub fn unsupported_gate_from_message(message: &str) -> Option<String> {
-    let lower = message.to_ascii_lowercase();
     if let Some((_, token)) = message.split_once("unsupported gate token:") {
         return Some(normalize_gate_name(token.trim()));
-    }
-    if lower.contains("anti-control") {
-        return Some("Anti-control".to_owned());
-    }
-    if lower.contains("qft") {
-        return Some("QFT".to_owned());
-    }
-    if lower.contains("controlled non-x") {
-        return Some("controlled gate".to_owned());
     }
     None
 }
@@ -340,12 +330,10 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_gate_text_message_maps_qft() {
+    fn qft_validation_error_is_not_an_unsupported_gate() {
         assert_eq!(
-            unsupported_gate_from_message(
-                "QFT tokens are not supported by the dev Qiskit runner yet"
-            ),
-            Some("QFT".to_owned()),
+            unsupported_gate_from_message("QFT span references a wire beyond qubits"),
+            None,
         );
     }
 
