@@ -30,7 +30,6 @@ test('circuit URL keeps the trimmed title after the cols', async ({ page }) => {
 test('toolbar clear drops the circuit title like qni', async ({ page }) => {
   await page.goto(titledHash('{"cols":[["H"]],"title":"Bell"}'))
   await waitForStartupReady(page)
-  // Standalone toolbar: picker (98px with its gap), then Undo, Redo, Clear.
   await page.locator('#egui-canvas').click({ position: { x: 98 + 98, y: 18 } })
 
   await expect(page).toHaveTitle('Qni')

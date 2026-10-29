@@ -10,16 +10,16 @@ import {
   type PixelSamplePoint,
 } from './support/web-spec-helpers'
 
-const FLEXOKI_TX_2: CanvasPixel = [111, 110, 105, 255] // Flexoki tx-2 #6F6E69
-const FLEXOKI_TX_3: CanvasPixel = [183, 181, 172, 255] // Flexoki tx-3 #B7B5AC
-const FLEXOKI_BG: CanvasPixel = [255, 252, 240, 255] // Flexoki bg #FFFCF0
-const FLEXOKI_BG_2: CanvasPixel = [242, 240, 229, 255] // Flexoki bg-2 #F2F0E5
-const FLEXOKI_RED_600: CanvasPixel = [175, 48, 41, 255] // Flexoki red-600 #AF3029
-const FLEXOKI_GREEN_600: CanvasPixel = [102, 128, 11, 255] // Flexoki green-600 #66800B
-const FLEXOKI_BLUE_600: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
+const FLEXOKI_TX_2: CanvasPixel = [111, 110, 105, 255]
+const FLEXOKI_TX_3: CanvasPixel = [183, 181, 172, 255]
+const FLEXOKI_BG: CanvasPixel = [255, 252, 240, 255]
+const FLEXOKI_BG_2: CanvasPixel = [242, 240, 229, 255]
+const FLEXOKI_RED_600: CanvasPixel = [175, 48, 41, 255]
+const FLEXOKI_GREEN_600: CanvasPixel = [102, 128, 11, 255]
+const FLEXOKI_BLUE_600: CanvasPixel = [32, 94, 166, 255]
 
 const STATE_PANEL_HEADER_PROBE: PixelSamplePoint = { name: 'statePanelHeader', x: 500, y: 560 }
-const CIRCUIT_PICKER_TOOLBAR_SHIFT = 98 // default auto-width picker trigger + toolbar gap-2
+const CIRCUIT_PICKER_TOOLBAR_SHIFT = 98
 const TOOLBAR_PROBES: PixelSamplePoint[] = [
   { name: 'undoIcon', x: 24 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 16 },
   { name: 'runIcon', x: 236 + CIRCUIT_PICKER_TOOLBAR_SHIFT, y: 22 },

@@ -6,7 +6,6 @@ type DragPreviewZOrderAssertionOptions = DragPreviewZOrderSamples & {
   dragFillTolerance?: number
 }
 
-// Flexoki purple-600 — drag preview / semantic-intermediate fill.
 const DRAG_PREVIEW_FILL: CanvasPixel = [94, 64, 157, 255]
 
 export const rgbDistance = (left: CanvasPixel | undefined, right: CanvasPixel | undefined): number =>

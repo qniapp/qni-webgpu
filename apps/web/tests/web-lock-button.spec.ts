@@ -30,8 +30,8 @@ const BELL_JSON = '{"cols":[["H"],["•","X"]]}'
 const H_JSON = '{"cols":[["H"]]}'
 const X_JSON = '{"cols":[["X"]]}'
 const EGUI_PANEL_MARGIN = 8
-const CANVAS_BACKGROUND: CanvasPixel = [242, 240, 229, 255] // Flexoki bg-2 #F2F0E5.
-const GATE_HOVER_BORDER: CanvasPixel = [139, 126, 200, 255] // Flexoki purple-400 #8B7EC8.
+const CANVAS_BACKGROUND: CanvasPixel = [242, 240, 229, 255]
+const GATE_HOVER_BORDER: CanvasPixel = [139, 126, 200, 255]
 
 const snapshot = async (page: Page): Promise<CircuitLibrarySnapshot> => {
   const raw = await page.evaluate(() => {

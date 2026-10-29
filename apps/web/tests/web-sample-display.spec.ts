@@ -13,7 +13,6 @@ import {
 
 type Column = (string | number)[]
 const PANEL_MARGIN = 8
-// Flexoki blue-100 (lit tile core), ui-2 (unlit tile fill), bg-2 (circuit background).
 const LIT_CORE: [number, number, number, number] = [198, 221, 232, 255]
 const UNLIT_FILL: [number, number, number, number] = [218, 216, 206, 255]
 const BACKGROUND: [number, number, number, number] = [242, 240, 229, 255]

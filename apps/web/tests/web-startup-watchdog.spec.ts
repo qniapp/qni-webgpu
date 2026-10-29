@@ -1,10 +1,5 @@
 import { expect, test } from '@playwright/test'
 
-// WebGPU の初期化は例外も出さずに固まることがある。実測では 3 並列 / 4 CPU で
-// 60 回の読み込みのうち 2 回が 90 秒たっても描画へ到達せず、残りは 1.4 秒以内に
-// 描画できた。遅いのではなく固まっているので、読み込み直すのが唯一の回復手段。
-// ここでは `navigator.gpu.requestAdapter` を差し替えて固まり方を再現し、監視の
-// 期限は `__qniStartupWatchdogMs` で短縮する。
 const WATCHDOG_MS = 1_000
 
 test('startup that stalls once recovers on the automatic reload', async ({ page }) => {

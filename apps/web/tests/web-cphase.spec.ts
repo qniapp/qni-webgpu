@@ -69,7 +69,6 @@ for (const { name, phases, controlled } of cases) {
 }
 
 test('CPHASE changes only the |101⟩ and |111⟩ amplitudes', async ({ context }) => {
-  // |+++⟩ に CPHASE(π/4) をかけると、q0 と q2 がともに 1 の振幅だけ e^{iπ/4} 倍になる。
   const s = Math.round(1e4 / Math.sqrt(8)) / 1e4
   const r = 0.25
   const expected = [s, 0, s, 0, s, 0, s, 0, s, 0, r, r, s, 0, r, r]

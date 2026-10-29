@@ -14,11 +14,11 @@ import {
   waitForStartupReady,
 } from './support/web-spec-helpers'
 
-const EXEC_MODE_GPU_FILL: CanvasPixel = [32, 94, 166, 255] // Flexoki blue-600 #205EA6
-const DISPLAY_PLACEHOLDER_FILL: CanvasPixel = [236, 225, 243, 255] // Flexoki purple-100 #ECE1F3
-const DISPLAY_PLACEHOLDER_GUIDE: CanvasPixel = [218, 216, 206, 255] // Flexoki ui-2 #DAD8CE
-const CIRCUIT_BACKGROUND: CanvasPixel = [242, 240, 229, 255] // Flexoki bg-2 #F2F0E5
-const SAMPLE_UNLIT_FILL: CanvasPixel = [218, 216, 206, 255] // Flexoki ui-2 #DAD8CE
+const EXEC_MODE_GPU_FILL: CanvasPixel = [32, 94, 166, 255]
+const DISPLAY_PLACEHOLDER_FILL: CanvasPixel = [236, 225, 243, 255]
+const DISPLAY_PLACEHOLDER_GUIDE: CanvasPixel = [218, 216, 206, 255]
+const CIRCUIT_BACKGROUND: CanvasPixel = [242, 240, 229, 255]
+const SAMPLE_UNLIT_FILL: CanvasPixel = [218, 216, 206, 255]
 const RUN_GPU_BUTTON_POINT: Point = { x: 334, y: 22 }
 const circuitHash = (cols: unknown[]): string => encodeURIComponent(JSON.stringify({ cols }))
 
