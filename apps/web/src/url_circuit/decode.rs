@@ -1,4 +1,6 @@
-use crate::app::{CircuitBlocks, CircuitColumnIndex, GateId, GateIdAllocator, PlacedGate};
+use crate::app::{
+    CircuitBlockError, CircuitBlocks, CircuitColumnIndex, GateId, GateIdAllocator, PlacedGate,
+};
 use crate::gates::GateSpan;
 use crate::gates::{GateFlag, GateKind, ParametricAngle, SAMPLE_MAX_SPAN};
 use crate::layout::gate_width_cols;
@@ -69,7 +71,9 @@ pub(crate) fn parse_circuit_json(json: &str) -> DecodedCircuit {
     let Some((mut columns, title)) = parse_circuit_document(json).and_then(split_document) else {
         return DecodedCircuit::default();
     };
-    let (gates, _) = build_gates(&columns.cols, &mut columns.blocks);
+    let Some((gates, _)) = build_gates(&columns.cols, &mut columns.blocks) else {
+        return DecodedCircuit::default();
+    };
     with_gate_ids(gates, columns.blocks, title)
 }
 
@@ -94,7 +98,7 @@ pub(crate) fn summarize_circuit_json(json: &str) -> Option<CircuitJsonSummary> {
             }
         }
     }
-    let (_, columns) = build_gates(cols, &mut parsed.blocks);
+    let (_, columns) = build_gates(cols, &mut parsed.blocks)?;
     Some(CircuitJsonSummary {
         qubits,
         columns,
@@ -134,7 +138,7 @@ fn try_decode(payload: &str) -> Option<DecodedCircuit> {
         return None;
     }
     let (mut columns, title) = split_document(parse_circuit_document(json)?)?;
-    let (gates, _) = build_gates(&columns.cols, &mut columns.blocks);
+    let (gates, _) = build_gates(&columns.cols, &mut columns.blocks)?;
     let has_gate_tokens = columns.cols.iter().flatten().any(Option::is_some);
     if gates.is_empty() && has_gate_tokens {
         None
@@ -174,11 +178,6 @@ fn split_block_markers(raw: Vec<Vec<Option<String>>>) -> Option<SplitColumns> {
     let mut cols = Vec::with_capacity(raw.len());
     let mut blocks = CircuitBlocks::default();
     let mut open: Option<(String, CircuitColumnIndex)> = None;
-    let close = |blocks: &mut CircuitBlocks, (label, start), end| {
-        // Columns are appended in order and empty ranges are skipped, so
-        // `push` can only fail for an empty block.
-        let _ = blocks.push(label, start, end);
-    };
     for col in raw {
         match column_role(&col)? {
             ColumnRole::Gates => cols.push(col),
@@ -189,15 +188,38 @@ fn split_block_markers(raw: Vec<Vec<Option<String>>>) -> Option<SplitColumns> {
                 open = Some((label, CircuitColumnIndex::new(cols.len())));
             }
             ColumnRole::CloseBlock => {
-                let block = open.take()?;
-                close(&mut blocks, block, CircuitColumnIndex::new(cols.len()));
+                let (label, start) = open.take()?;
+                push_omitting_empty(
+                    &mut blocks,
+                    label,
+                    start,
+                    CircuitColumnIndex::new(cols.len()),
+                )?;
             }
         }
     }
-    if let Some(block) = open {
-        close(&mut blocks, block, CircuitColumnIndex::new(cols.len()));
+    if let Some((label, start)) = open {
+        push_omitting_empty(
+            &mut blocks,
+            label,
+            start,
+            CircuitColumnIndex::new(cols.len()),
+        )?;
     }
     Some(SplitColumns { cols, blocks })
+}
+
+fn push_omitting_empty(
+    blocks: &mut CircuitBlocks,
+    label: String,
+    start: CircuitColumnIndex,
+    end: CircuitColumnIndex,
+) -> Option<()> {
+    match blocks.push(label, start, end) {
+        Ok(()) => Some(()),
+        Err(CircuitBlockError::Empty) => Some(()),
+        Err(CircuitBlockError::Overlap | CircuitBlockError::Missing) => None,
+    }
 }
 
 fn column_role(col: &[Option<String>]) -> Option<ColumnRole> {
@@ -231,81 +253,117 @@ fn decode_percent(s: &str) -> Option<String> {
     Some(s.to_string())
 }
 
-/// Walk the parsed columns and place each non-empty entry as a
-/// `PlacedGate`. Preserve URL column spacing except where a column overlaps
-/// an earlier wide display on intersecting wires. Move that entire column and
-/// all later columns together, remapping block boundaries with the same grid.
 fn build_gates(
     cols: &[Vec<Option<String>>],
     blocks: &mut CircuitBlocks,
-) -> (Vec<PlacedGate>, usize) {
+) -> Option<(Vec<PlacedGate>, usize)> {
     let mut gates = Vec::new();
-    let mut wire_ends = Vec::<usize>::new();
-    let mut offset = 0;
-    let mut column_map = Vec::with_capacity(cols.len() + 1);
+    let mut shift = WideDisplayShift::default();
     for (col_idx, col) in cols.iter().enumerate() {
-        let first_gate = gates.len();
-        for (wire_idx, entry) in col.iter().enumerate() {
-            let Some(token) = entry.as_deref() else {
-                continue;
-            };
-            let Some(token) = token_to_gate(token) else {
-                continue;
-            };
-            let Ok(span) = GateSpan::try_new(token.span) else {
-                continue;
-            };
-            let gate = PlacedGate::new(
-                GateId::from_u32(0),
-                token.kind,
-                crate::app::CircuitColumnIndex::new(col_idx),
-                crate::app::WireIndex::new(wire_idx),
-                span,
-                token.angle,
-            );
-            let gate = match token.flag {
-                Some(flag) => {
-                    let Some(gate) = gate.with_flag(flag) else {
-                        continue;
-                    };
-                    gate
-                }
-                None => gate,
-            };
-            gates.push(gate);
-        }
-        let current = &mut gates[first_gate..];
-        let mut column = col_idx + offset;
-        for gate in current.iter() {
+        let mut group = column_gates(col, col_idx);
+        shift.place(col_idx, &mut group);
+        gates.extend(group);
+    }
+    let (column_map, columns) = shift.into_column_map(cols.len());
+    remap_blocks(blocks, &column_map)?;
+    Some((gates, columns))
+}
+
+fn column_gates(col: &[Option<String>], col_idx: usize) -> Vec<PlacedGate> {
+    let mut gates = Vec::new();
+    for (wire_idx, entry) in col.iter().enumerate() {
+        let Some(token) = entry.as_deref() else {
+            continue;
+        };
+        let Some(token) = token_to_gate(token) else {
+            continue;
+        };
+        let Ok(span) = GateSpan::try_new(token.span) else {
+            continue;
+        };
+        let gate = PlacedGate::new(
+            GateId::from_u32(0),
+            token.kind,
+            CircuitColumnIndex::new(col_idx),
+            crate::app::WireIndex::new(wire_idx),
+            span,
+            token.angle.stored(),
+        );
+        let gate = match token.flag {
+            Some(flag) => {
+                let Some(gate) = gate.with_flag(flag) else {
+                    continue;
+                };
+                gate
+            }
+            None => gate,
+        };
+        gates.push(gate);
+    }
+    gates
+}
+
+#[derive(Default)]
+struct WideDisplayShift {
+    wire_ends: Vec<usize>,
+    columns: Vec<usize>,
+    offset: usize,
+}
+
+impl WideDisplayShift {
+    fn place(&mut self, col_idx: usize, gates: &mut [PlacedGate]) {
+        let column = self.column_for(col_idx, gates);
+        self.offset = column - col_idx;
+        self.columns.push(column);
+        self.record(column, gates);
+    }
+
+    fn column_for(&mut self, col_idx: usize, gates: &[PlacedGate]) -> usize {
+        let mut column = col_idx + self.offset;
+        for gate in gates {
             let end_wire = gate.wire.as_usize() + gate.span.get();
-            wire_ends.resize(wire_ends.len().max(end_wire), 0);
-            for &end in &wire_ends[gate.wire.as_usize()..end_wire] {
+            self.wire_ends.resize(self.wire_ends.len().max(end_wire), 0);
+            for &end in &self.wire_ends[gate.wire.as_usize()..end_wire] {
                 column = column.max(end);
             }
         }
-        offset = column - col_idx;
-        column_map.push(column);
-        // Update occupancy only after choosing one column for the whole group.
-        for gate in current {
+        column
+    }
+
+    fn record(&mut self, column: usize, gates: &mut [PlacedGate]) {
+        for gate in gates {
             gate.column = CircuitColumnIndex::new(column);
-            let end = column + gate_width_cols(gate.kind, gate.span.get());
+            let occupied = column + gate_width_cols(gate.kind, gate.span.get());
             let end_wire = gate.wire.as_usize() + gate.span.get();
-            for wire_end in &mut wire_ends[gate.wire.as_usize()..end_wire] {
-                *wire_end = (*wire_end).max(end);
+            for wire_end in &mut self.wire_ends[gate.wire.as_usize()..end_wire] {
+                *wire_end = (*wire_end).max(occupied);
             }
         }
     }
-    column_map.push(cols.len() + offset);
-    let mut remapped_blocks = CircuitBlocks::default();
-    for block in blocks.iter() {
-        let _ = remapped_blocks.push(
-            block.label().to_owned(),
-            CircuitColumnIndex::new(column_map[block.start().as_usize()]),
-            CircuitColumnIndex::new(column_map[block.end().as_usize()]),
-        );
+
+    fn into_column_map(mut self, source_columns: usize) -> (Vec<usize>, usize) {
+        let columns = source_columns + self.offset;
+        self.columns.push(columns);
+        (self.columns, columns)
     }
-    *blocks = remapped_blocks;
-    (gates, cols.len() + offset)
+}
+
+fn remap_blocks(blocks: &mut CircuitBlocks, column_map: &[usize]) -> Option<()> {
+    let mut remapped = CircuitBlocks::default();
+    for block in blocks.iter() {
+        if remapped
+            .push(
+                block.label().to_owned(),
+                CircuitColumnIndex::new(column_map[block.start().as_usize()]),
+                CircuitColumnIndex::new(column_map[block.end().as_usize()]),
+            )
+            .is_err()
+        {
+            return None;
+        }
+    }
+    *blocks = remapped;
+    Some(())
 }
 
 pub(crate) fn palette_token_to_gate(token: &str) -> Option<(GateKind, Option<ParametricAngle>)> {
@@ -315,7 +373,7 @@ pub(crate) fn palette_token_to_gate(token: &str) -> Option<(GateKind, Option<Par
             span: 1,
             angle,
             flag: None,
-        }) => Some((kind, angle)),
+        }) => Some((kind, angle.stored())),
         Some(_) => None,
         None => GateKind::from_url_token(token).map(|kind| (kind, None)),
     }
@@ -325,12 +383,35 @@ pub(crate) fn palette_token_to_gate(token: &str) -> Option<(GateKind, Option<Par
 struct DecodedToken {
     kind: GateKind,
     span: usize,
-    /// The angle value for parametric tokens (`Some(π/2)` etc.); `None` for
-    /// non-parametric gates and for bare parametric tokens (which use the
-    /// editor's default angle).
-    angle: Option<ParametricAngle>,
+    angle: DecodedAngle,
     /// qni measurement variable link (`Measure>a` / `X<a`).
     flag: Option<GateFlag>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DecodedAngle {
+    NotParametric,
+    Bare,
+    Explicit(ParametricAngle),
+}
+
+impl DecodedAngle {
+    fn from_parsed(kind: GateKind, angle: Option<ParametricAngle>) -> Self {
+        match angle {
+            Some(angle) => Self::Explicit(angle),
+            None => match kind {
+                GateKind::Phase | GateKind::Rx | GateKind::Ry | GateKind::Rz => Self::Bare,
+                _ => Self::NotParametric,
+            },
+        }
+    }
+
+    fn stored(self) -> Option<ParametricAngle> {
+        match self {
+            Self::Explicit(angle) => Some(angle),
+            Self::NotParametric | Self::Bare => None,
+        }
+    }
 }
 
 fn token_to_gate(token: &str) -> Option<DecodedToken> {
@@ -339,7 +420,7 @@ fn token_to_gate(token: &str) -> Option<DecodedToken> {
     Some(DecodedToken {
         kind,
         span,
-        angle,
+        angle: DecodedAngle::from_parsed(kind, angle),
         flag,
     })
 }
@@ -587,6 +668,19 @@ mod tests {
                 .map(|gate| gate.column.as_usize())
                 .collect::<Vec<_>>(),
             vec![0, 2, 2, 3]
+        );
+    }
+
+    #[test]
+    fn clear_lower_wire_shifts_with_the_intersecting_gate() {
+        let circuit = parse_circuit_json(r#"{"cols":[[1,"Amps1"],["Amps1","X"],["Z"]]}"#);
+        assert_eq!(
+            circuit
+                .gates
+                .iter()
+                .map(|gate| gate.column.as_usize())
+                .collect::<Vec<_>>(),
+            vec![0, 2, 2, 4]
         );
     }
 
@@ -856,6 +950,54 @@ mod tests {
     }
 
     #[test]
+    fn bare_phase_token_is_bare_not_explicit() {
+        assert_eq!(
+            token_to_gate("P").map(|token| token.angle),
+            Some(DecodedAngle::Bare)
+        );
+    }
+
+    #[test]
+    fn bare_rx_token_is_bare_not_explicit() {
+        assert_eq!(
+            token_to_gate("Rx").map(|token| token.angle),
+            Some(DecodedAngle::Bare)
+        );
+    }
+
+    #[test]
+    fn bare_ry_token_is_bare_not_explicit() {
+        assert_eq!(
+            token_to_gate("Ry").map(|token| token.angle),
+            Some(DecodedAngle::Bare)
+        );
+    }
+
+    #[test]
+    fn bare_rz_token_is_bare_not_explicit() {
+        assert_eq!(
+            token_to_gate("Rz").map(|token| token.angle),
+            Some(DecodedAngle::Bare)
+        );
+    }
+
+    #[test]
+    fn hadamard_token_is_not_parametric() {
+        assert_eq!(
+            token_to_gate("H").map(|token| token.angle),
+            Some(DecodedAngle::NotParametric)
+        );
+    }
+
+    #[test]
+    fn explicit_phase_token_keeps_parsed_angle() {
+        assert_eq!(
+            token_to_gate("P(π/2)").map(|token| token.angle),
+            Some(DecodedAngle::Explicit(ParametricAngle::default()))
+        );
+    }
+
+    #[test]
     fn density_span_eight_decodes() {
         let gates = parse_circuit_json(r#"{"cols":[["Density8"]]}"#).gates;
 
@@ -1113,6 +1255,129 @@ mod tests {
             block_ranges(&parse_circuit_json(r#"{"cols":[["H"],["{a"],["}"]]}"#)),
             vec![]
         );
+    }
+
+    #[test]
+    fn ordered_block_closes_drop_only_empty_ranges() {
+        assert_eq!(first_ordered_block_mismatch(), None);
+    }
+
+    #[test]
+    fn empty_block_range_is_not_a_push_failure() {
+        let mut blocks = CircuitBlocks::default();
+        assert_eq!(
+            push_omitting_empty(
+                &mut blocks,
+                "a".to_owned(),
+                CircuitColumnIndex::new(2),
+                CircuitColumnIndex::new(2),
+            ),
+            Some(())
+        );
+    }
+
+    #[test]
+    fn overlapping_block_range_is_a_push_failure() {
+        let mut blocks = CircuitBlocks::default();
+        accept_block(&mut blocks, "a", 0, 2);
+        assert_eq!(
+            push_omitting_empty(
+                &mut blocks,
+                "b".to_owned(),
+                CircuitColumnIndex::new(1),
+                CircuitColumnIndex::new(3),
+            ),
+            None
+        );
+    }
+
+    fn accept_block(blocks: &mut CircuitBlocks, label: &str, start: usize, end: usize) {
+        push_omitting_empty(
+            blocks,
+            label.to_owned(),
+            CircuitColumnIndex::new(start),
+            CircuitColumnIndex::new(end),
+        )
+        .expect("setup range is accepted");
+    }
+
+    fn first_ordered_block_mismatch() -> Option<String> {
+        let mut checked = 0usize;
+        for len in 0..=7 {
+            let total = 3usize.pow(u32::try_from(len).expect("script length fits u32"));
+            for index in 0..total {
+                let ops = block_script(index, len);
+                let Some(expected) = expected_ordered_blocks(&ops) else {
+                    continue;
+                };
+                checked += 1;
+                let json = block_script_json(&ops);
+                let actual = block_ranges(&parse_circuit_json(&json));
+                if actual != expected {
+                    return Some(format!("{json} => {actual:?} != {expected:?}"));
+                }
+            }
+        }
+        (checked == 0).then(|| "no sequence checked".to_owned())
+    }
+
+    fn block_script(index: usize, len: usize) -> Vec<u8> {
+        let mut index = index;
+        let mut ops = Vec::with_capacity(len);
+        for _ in 0..len {
+            ops.push(b"GOC"[index % 3]);
+            index /= 3;
+        }
+        ops
+    }
+
+    fn block_script_json(ops: &[u8]) -> String {
+        let mut cols = Vec::new();
+        let mut opened = 0usize;
+        for op in ops {
+            match op {
+                b'G' => cols.push(r#"["H"]"#.to_string()),
+                b'O' => {
+                    cols.push(format!(r#"["{{b{opened}"]"#));
+                    opened += 1;
+                }
+                b'C' => cols.push(r#"["}"]"#.to_string()),
+                _ => unreachable!("block script only uses G, O, and C"),
+            }
+        }
+        format!(r#"{{"cols":[{}]}}"#, cols.join(","))
+    }
+
+    fn expected_ordered_blocks(ops: &[u8]) -> Option<Vec<(String, usize, usize)>> {
+        let mut columns = 0usize;
+        let mut open: Option<(String, usize)> = None;
+        let mut blocks = Vec::new();
+        let mut opened = 0usize;
+        for op in ops {
+            match op {
+                b'G' => columns += 1,
+                b'O' => {
+                    if open.is_some() {
+                        return None;
+                    }
+                    open = Some((format!("b{opened}"), columns));
+                    opened += 1;
+                }
+                b'C' => {
+                    let (label, start) = open.take()?;
+                    if start < columns {
+                        blocks.push((label, start, columns));
+                    }
+                }
+                _ => unreachable!("block script only uses G, O, and C"),
+            }
+        }
+        if let Some((label, start)) = open {
+            if start < columns {
+                blocks.push((label, start, columns));
+            }
+        }
+        Some(blocks)
     }
 
     #[test]

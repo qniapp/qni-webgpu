@@ -37,7 +37,7 @@ use std::collections::VecDeque;
 
 pub(crate) use circuit_model::{
     AngleAffordance, AngleEditor, BlockEdges, CircuitBlock, CircuitBlockDrag, CircuitBlockEdge,
-    CircuitBlockEditor, CircuitBlockHover, CircuitBlockLabelSlot, CircuitBlocks,
+    CircuitBlockEditor, CircuitBlockError, CircuitBlockHover, CircuitBlockLabelSlot, CircuitBlocks,
     CircuitColumnIndex, ClickCopy, DragState, GateId, GateIdAllocator, LiveDragSnap, PlacedGate,
     SpanResizeDrag, SpanResizeEdge, SpanResizeHandle, WireIndex,
 };
