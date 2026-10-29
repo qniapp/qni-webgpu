@@ -11,7 +11,6 @@ pub(crate) struct PostselectionCallback {
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) zero_color: [f32; 4],
-    pub(crate) one_color: [f32; 4],
 }
 
 impl egui_wgpu::CallbackTrait for PostselectionCallback {
@@ -33,7 +32,6 @@ impl egui_wgpu::CallbackTrait for PostselectionCallback {
             viewport_min: self.viewport_min,
             viewport_size: self.viewport_size,
             zero_color: self.zero_color,
-            one_color: self.one_color,
         };
         if resources.postselection.last_params != Some(params) {
             queue.write_buffer(

@@ -2,7 +2,6 @@ struct DigitParams {
   viewport_min: vec2<f32>,
   viewport_size: vec2<f32>,
   zero_color: vec4<f32>,
-  one_color: vec4<f32>,
 };
 
 @group(0) @binding(0) var<storage, read> aux_data: array<vec4<f32>>;

@@ -928,7 +928,6 @@ impl QniApp {
                 viewport_min: [callback_rect.min.x, callback_rect.min.y],
                 viewport_size: [callback_rect.width(), callback_rect.height()],
                 zero_color: colors.semantic_off.to_normalized_gamma_f32(),
-                one_color: colors.semantic_off.to_normalized_gamma_f32(),
             };
             painter.add(egui::Shape::Callback(
                 egui_wgpu::Callback::new_paint_callback(

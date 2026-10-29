@@ -12,7 +12,6 @@ struct RenderParams {
   rows: u32,
   qubits: u32,
   hovered_cell: i32,
-  surface: vec4<f32>,
   fill: vec4<f32>,
   disk_border: vec4<f32>,
   outline: vec4<f32>,
