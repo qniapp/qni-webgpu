@@ -363,7 +363,7 @@ def add_mock_probability(response: dict[str, Any], request: RunRequest) -> None:
             probability,
             [1.0]
             + [0.0]
-            * ((1 << (probability.span + len(probability_control_bits(probability, request.qubits)))) - 1),
+            * ((1 << (probability.span + len(display_control_bits(probability, request.qubits)))) - 1),
             request.qubits,
         )
         for probability in request.probability_outputs
@@ -377,7 +377,7 @@ def add_mock_density(response: dict[str, Any], request: RunRequest) -> None:
         density_display_response(
             density,
             ground_density_matrix(
-                density.span + len(density_control_bits(density, request.qubits.value))
+                density.span + len(display_control_bits(density, request.qubits.value))
             ),
             request.qubits.value,
         )
@@ -393,7 +393,7 @@ def controlled_bloch_vector(
     request: BlochOutputRequest, matrix: Sequence[Sequence[complex]], qubits: int | QubitCount
 ) -> list[float]:
     control_bits = bloch_control_bits(request, qubits)
-    row_base = bloch_control_index(request, control_bits) * 2
+    row_base = packed_control_index(request.control_value, control_bits) * 2
     rho_00 = complex(matrix[row_base][row_base]).real
     rho_01 = complex(matrix[row_base][row_base + 1])
     rho_11 = complex(matrix[row_base + 1][row_base + 1]).real
@@ -412,12 +412,12 @@ def probability_display_response(
 ) -> dict[str, Any]:
     qubits = qubit_value(qubits)
     outcomes = 1 << request.span
-    control_bits = probability_control_bits(request, qubits)
-    control_index = probability_control_index(request, control_bits)
+    control_bits = display_control_bits(request, qubits)
+    control_index = packed_control_index(request.control_value, control_bits)
     values: list[float] = []
     unity = 0.0
     for outcome in range(outcomes):
-        if probability_display_controls_match(request, outcome):
+        if display_controls_match(request, outcome):
             value = float(probabilities[control_index * outcomes + outcome])
         else:
             value = 0.0
@@ -439,17 +439,17 @@ def density_display_response(
 ) -> dict[str, Any]:
     qubits = qubit_value(qubits)
     dim = 1 << request.span
-    control_bits = density_control_bits(request, qubits)
-    control_index = density_control_index(request, control_bits)
+    control_bits = display_control_bits(request, qubits)
+    control_index = packed_control_index(request.control_value, control_bits)
     cells: list[list[float]] = []
     unity = 0.0
     for row in range(dim):
-        row_matches = density_display_controls_match(request, row)
+        row_matches = display_controls_match(request, row)
         row_index = control_index * dim + row
         if row_matches:
             unity += complex(matrix[row_index][row_index]).real
         for col in range(dim):
-            col_matches = density_display_controls_match(request, col)
+            col_matches = display_controls_match(request, col)
             col_index = control_index * dim + col
             value = complex(matrix[row_index][col_index]) if row_matches and col_matches else 0j
             cells.append([float(value.real), float(value.imag)])
@@ -479,35 +479,39 @@ def bloch_control_bits(request: BlochOutputRequest, qubits: int | QubitCount) ->
     ]
 
 
-def bloch_control_index(request: BlochOutputRequest, control_bits: Sequence[int]) -> int:
+def packed_control_index(control_value: int, control_bits: Sequence[int]) -> int:
     index = 0
     for offset, bit in enumerate(control_bits):
-        if request.control_value & (1 << bit):
+        if control_value & (1 << bit):
             index |= 1 << offset
     return index
 
 
 def probability_save_qargs(request: ProbabilityOutputRequest, qubits: int | QubitCount) -> list[int]:
     qubits = qubit_value(qubits)
-    return probability_bits(request) + probability_control_bits(request, qubits)
+    return display_bits(request) + display_control_bits(request, qubits)
 
 
-def probability_bits(request: ProbabilityOutputRequest) -> list[int]:
+def display_bits(request: ProbabilityOutputRequest | DensityOutputRequest) -> list[int]:
     return list(range(request.base_bit, request.base_bit + request.span))
 
 
-def probability_control_bits(request: ProbabilityOutputRequest, qubits: int | QubitCount) -> list[int]:
+def display_control_bits(
+    request: ProbabilityOutputRequest | DensityOutputRequest, qubits: int | QubitCount
+) -> list[int]:
     qubits = qubit_value(qubits)
-    display_bits = set(probability_bits(request))
+    displayed_bits = set(display_bits(request))
     return [
         bit
         for bit in range(qubits)
-        if request.control_mask & (1 << bit) and bit not in display_bits
+        if request.control_mask & (1 << bit) and bit not in displayed_bits
     ]
 
 
-def probability_display_controls_match(request: ProbabilityOutputRequest, outcome: int) -> bool:
-    for bit in probability_bits(request):
+def display_controls_match(
+    request: ProbabilityOutputRequest | DensityOutputRequest, outcome: int
+) -> bool:
+    for bit in display_bits(request):
         mask = 1 << bit
         if request.control_mask & mask:
             actual = (outcome >> (bit - request.base_bit)) & 1
@@ -515,54 +519,11 @@ def probability_display_controls_match(request: ProbabilityOutputRequest, outcom
             if actual != expected:
                 return False
     return True
-
-
-def probability_control_index(
-    request: ProbabilityOutputRequest, control_bits: Sequence[int]
-) -> int:
-    index = 0
-    for offset, bit in enumerate(control_bits):
-        if request.control_value & (1 << bit):
-            index |= 1 << offset
-    return index
 
 
 def density_save_qargs(request: DensityOutputRequest, qubits: int | QubitCount) -> list[int]:
     qubits = qubit_value(qubits)
-    return density_bits(request) + density_control_bits(request, qubits)
-
-
-def density_bits(request: DensityOutputRequest) -> list[int]:
-    return list(range(request.base_bit, request.base_bit + request.span))
-
-
-def density_control_bits(request: DensityOutputRequest, qubits: int | QubitCount) -> list[int]:
-    qubits = qubit_value(qubits)
-    display_bits = set(density_bits(request))
-    return [
-        bit
-        for bit in range(qubits)
-        if request.control_mask & (1 << bit) and bit not in display_bits
-    ]
-
-
-def density_display_controls_match(request: DensityOutputRequest, outcome: int) -> bool:
-    for bit in density_bits(request):
-        mask = 1 << bit
-        if request.control_mask & mask:
-            actual = (outcome >> (bit - request.base_bit)) & 1
-            expected = 1 if request.control_value & mask else 0
-            if actual != expected:
-                return False
-    return True
-
-
-def density_control_index(request: DensityOutputRequest, control_bits: Sequence[int]) -> int:
-    index = 0
-    for offset, bit in enumerate(control_bits):
-        if request.control_value & (1 << bit):
-            index |= 1 << offset
-    return index
+    return display_bits(request) + display_control_bits(request, qubits)
 
 
 def saved_float(value: Any) -> float:
