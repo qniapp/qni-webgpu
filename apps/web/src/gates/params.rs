@@ -36,28 +36,27 @@ fn gate_matrix(kind: GateKind) -> GateMatrix {
         },
         GateKind::Write0
         | GateKind::Write1
-        | GateKind::BlochDisplay
-        | GateKind::Measurement
         | GateKind::ZDetectControlReset
         | GateKind::XDetector
         | GateKind::YDetector
-        | GateKind::ProbabilityDisplay
-        | GateKind::SampleDisplay
-        | GateKind::AmplitudeDisplay
-        | GateKind::DensityMatrixDisplay
-        | GateKind::Spacer
-        | GateKind::QftGate
-        | GateKind::QftDaggerGate
-        | GateKind::Increment
-        | GateKind::Decrement => GateMatrix {
-            // Displays, measurement, Write0, QFT, and arithmetic use dedicated
-            // GPU orchestration instead of this matrix helper. Write1 is
-            // mode-driven. Their unused matrices are identity for safety.
+        | GateKind::Spacer => GateMatrix {
+            // Write1 is mode-driven. Write0, detectors, and spacers leave this
+            // unused matrix as identity.
             m00: [1.0, 0.0],
             m01: [0.0, 0.0],
             m10: [0.0, 0.0],
             m11: [1.0, 0.0],
         },
+        GateKind::BlochDisplay
+        | GateKind::ProbabilityDisplay
+        | GateKind::SampleDisplay
+        | GateKind::AmplitudeDisplay
+        | GateKind::DensityMatrixDisplay
+        | GateKind::Measurement
+        | GateKind::QftGate
+        | GateKind::QftDaggerGate
+        | GateKind::Increment
+        | GateKind::Decrement => panic!("{kind:?} has no gate matrix"),
         GateKind::PostSelectOff => GateMatrix {
             m00: [1.0, 0.0],
             m01: [0.0, 0.0],
@@ -184,10 +183,7 @@ pub(crate) struct GateParams {
     _pad: [u32; 2],
 }
 
-/// `GateParams::condition_slot` sentinel (`u32::MAX`): apply the gate
-/// unconditionally. Written as a literal so the GPU kernel contract test can
-/// match it against the WGSL constant.
-pub(crate) const GATE_UNCONDITIONAL: u32 = 4294967295;
+pub(crate) const GATE_UNCONDITIONAL: u32 = u32::MAX;
 
 impl GateParams {
     pub(crate) fn conditioned_on(mut self, slot: SlotIndex<Measurement>) -> Self {
@@ -366,6 +362,66 @@ pub(crate) fn rz_params(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[should_panic(expected = "BlochDisplay has no gate matrix")]
+    fn bloch_display_has_no_gate_matrix() {
+        let _ = gate_matrix(GateKind::BlochDisplay);
+    }
+
+    #[test]
+    #[should_panic(expected = "ProbabilityDisplay has no gate matrix")]
+    fn probability_display_has_no_gate_matrix() {
+        let _ = gate_matrix(GateKind::ProbabilityDisplay);
+    }
+
+    #[test]
+    #[should_panic(expected = "SampleDisplay has no gate matrix")]
+    fn sample_display_has_no_gate_matrix() {
+        let _ = gate_matrix(GateKind::SampleDisplay);
+    }
+
+    #[test]
+    #[should_panic(expected = "AmplitudeDisplay has no gate matrix")]
+    fn amplitude_display_has_no_gate_matrix() {
+        let _ = gate_matrix(GateKind::AmplitudeDisplay);
+    }
+
+    #[test]
+    #[should_panic(expected = "DensityMatrixDisplay has no gate matrix")]
+    fn density_display_has_no_gate_matrix() {
+        let _ = gate_matrix(GateKind::DensityMatrixDisplay);
+    }
+
+    #[test]
+    #[should_panic(expected = "Measurement has no gate matrix")]
+    fn measurement_has_no_gate_matrix() {
+        let _ = gate_matrix(GateKind::Measurement);
+    }
+
+    #[test]
+    #[should_panic(expected = "QftGate has no gate matrix")]
+    fn qft_has_no_gate_matrix() {
+        let _ = gate_matrix(GateKind::QftGate);
+    }
+
+    #[test]
+    #[should_panic(expected = "QftDaggerGate has no gate matrix")]
+    fn qft_dagger_has_no_gate_matrix() {
+        let _ = gate_matrix(GateKind::QftDaggerGate);
+    }
+
+    #[test]
+    #[should_panic(expected = "Increment has no gate matrix")]
+    fn increment_has_no_gate_matrix() {
+        let _ = gate_matrix(GateKind::Increment);
+    }
+
+    #[test]
+    #[should_panic(expected = "Decrement has no gate matrix")]
+    fn decrement_has_no_gate_matrix() {
+        let _ = gate_matrix(GateKind::Decrement);
+    }
+
     #[test]
     fn postselection_off_matrix() {
         let kind = GateKind::from_url_token("|0⟩⟨0|").unwrap();
