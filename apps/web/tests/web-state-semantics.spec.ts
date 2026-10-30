@@ -1,31 +1,11 @@
-import { expect, test } from '@playwright/test'
+import { test } from '@playwright/test'
 import {
-  chromium,
   dragPointer,
   getCircuitOriginY,
-  getDragPreviewAboveStatePanelProbe,
   getPaletteGateCenter,
-  getPlainChromiumLaunchOptions,
-  getWebServerConfig,
-  isDragPreviewFill,
-  isGateBodyFill,
-  isRegularGateFill,
-  pixelRgbDistance,
-  readEguiError,
-  readMeasurementOutcomes,
-  releasePointer,
-  sampleCanvasPixels,
   UI_CONSTANTS,
-  waitForAppReady,
-  waitForBlochVectorsApprox,
-  waitForCanvasContent,
   waitForStartupReady,
   waitForStateVectorApprox,
-  waitForStateVectorLength,
-  type CanvasPixel,
-  type CircularBodySignature,
-  type PixelSamplePoint,
-  type Point,
 } from './support/web-spec-helpers'
 
 test('H on q0 and q1 yields uniform superposition', async ({ page }) => {

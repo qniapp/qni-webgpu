@@ -1,30 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   chromium,
-  dragPointer,
-  getDragPreviewAboveStatePanelProbe,
-  getPaletteGateCenter,
   getPlainChromiumLaunchOptions,
   getWebServerConfig,
-  isDragPreviewFill,
-  isGateBodyFill,
-  isRegularGateFill,
-  pixelRgbDistance,
   readEguiError,
-  readMeasurementOutcomes,
-  readStateVector,
-  releasePointer,
-  sampleCanvasPixels,
   waitForAppReady,
-  waitForBlochVectorsApprox,
-  waitForCanvasContent,
-  waitForStartupReady,
-  waitForStateVectorApprox,
-  waitForStateVectorLength,
-  type CanvasPixel,
-  type CircularBodySignature,
-  type PixelSamplePoint,
-  type Point,
 } from './support/web-spec-helpers'
 
 const denyAdapter = async (page: Page, platform: string): Promise<void> => {

@@ -14,26 +14,26 @@ test('legacy Playwright suite is TypeScript without a compatibility wrapper', as
   }, { tsSuite: true, jsWrapper: false })
 })
 
-test('legacy Playwright suite reuses the shared drag and pixel helpers for the drag-preview lane', async () => {
+test('legacy Playwright suite imports and uses shared drag and canvas-content helpers', async () => {
   const source = await fs.readFile(legacySuitePath, 'utf8')
+  const sharedImports = source.match(/import\s*\{([^}]+)\}\s*from\s*['"]\.\/support\/web-spec-helpers['"]/)?.[1] ?? ''
 
   assert.deepEqual({
-    inlineScreenshotHelper: /\bconst screenshotWithRetry = async\b/.test(source),
-    inlinePixelHelper: /\bconst sampleCanvasPixels = async\b/.test(source),
-    inlineDragHelper: /\bconst dragPointer = async\b/.test(source),
-    importsSharedHelpers: /dragPointer,[\s\S]*sampleCanvasPixels,/.test(source),
-  }, { inlineScreenshotHelper: false, inlinePixelHelper: false, inlineDragHelper: false, importsSharedHelpers: true })
+    hasInlineHelpers: /\b(?:const|let|var|function)\s+(?:screenshotWithRetry|sampleCanvasPixels|dragPointer|waitForCanvasContent)\b/.test(source),
+    importsSharedHelpers: ['dragPointer', 'waitForCanvasContent'].every(name => new RegExp(`\\b${name}\\b`).test(sharedImports)),
+    usesSharedDragHelper: /\bawait\s+dragPointer\(page,/.test(source),
+    usesSharedCanvasHelper: /\bawait\s+waitForCanvasContent\(page,/.test(source),
+  }, { hasInlineHelpers: false, importsSharedHelpers: true, usesSharedDragHelper: true, usesSharedCanvasHelper: true })
 })
 
-test('legacy Playwright plain-chromium lane uses shared launch/server policy modules', async () => {
+test('legacy Playwright suite uses the configured page without inline launch args or server URLs', async () => {
   const source = await fs.readFile(legacySuitePath, 'utf8')
 
   assert.deepEqual({
-    usesSharedBrowserPolicy: /getPlainChromiumLaunchOptions/.test(source),
-    usesSharedServerPolicy: /getWebServerConfig/.test(source),
-    hasInlineGpuDisablingArgs: /args:\s*\['--disable-gpu',\s*'--disable-software-rasterizer'\]/.test(source),
-    hasHardcodedServerUrl: /http:\/\/127\.0\.0\.1:4174\//.test(source),
-  }, { usesSharedBrowserPolicy: true, usesSharedServerPolicy: true, hasInlineGpuDisablingArgs: false, hasHardcodedServerUrl: false })
+    usesRelativeNavigation: /\bpage\.goto\(['"]\/['"]\)/.test(source),
+    hasInlineGpuDisablingArgs: /--disable-(?:gpu|software-rasterizer)\b/.test(source),
+    hasHardcodedServerUrl: /https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?\b/.test(source),
+  }, { usesRelativeNavigation: true, hasInlineGpuDisablingArgs: false, hasHardcodedServerUrl: false })
 })
 
 test('legacy Playwright suite avoids shared fixed screenshot paths that would collide under parallel workers', async () => {

@@ -1,32 +1,13 @@
 import { expect, test } from '@playwright/test'
 import {
-  chromium,
   dragPointer,
   getCircuitOriginY,
-  getDragPreviewAboveStatePanelProbe,
   getPaletteGateCenter,
-  getPlainChromiumLaunchOptions,
-  getWebServerConfig,
-  isDragPreviewFill,
-  isGateBodyFill,
-  isRegularGateFill,
-  pixelRgbDistance,
-  readEguiError,
-  readMeasurementOutcomes,
   readStateVector,
-  releasePointer,
-  sampleCanvasPixels,
   UI_CONSTANTS,
-  waitForAppReady,
-  waitForBlochVectorsApprox,
   waitForCanvasContent,
   waitForStartupReady,
   waitForStateVectorApprox,
-  waitForStateVectorLength,
-  type CanvasPixel,
-  type CircularBodySignature,
-  type PixelSamplePoint,
-  type Point,
 } from './support/web-spec-helpers'
 
 test('web canvas renders content', async ({ page }, testInfo) => {
