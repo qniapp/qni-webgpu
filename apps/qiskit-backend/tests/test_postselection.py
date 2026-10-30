@@ -23,14 +23,13 @@ def project(state, target, token, controls=(), antis=()):
     return ([amp / math.sqrt(norm) for amp in result], norm) if norm > 1e-12 else ([0j] * len(state), 0.0)
 
 
-def write(state, target, value, controls=(), antis=()):
+def write(state, target, controls=(), antis=()):
     result = state[:]
     for i in range(len(state)):
         if i & (1 << target) or not all(i & (1 << c) for c in controls) or any(i & (1 << c) for c in antis):
             continue
         j = i | (1 << target)
-        opposite, desired = (i, j) if value else (j, i)
-        if abs(state[opposite]) ** 2 > abs(state[desired]) ** 2 + 1e-6:
+        if abs(state[i]) ** 2 > abs(state[j]) ** 2 + 1e-6:
             result[i], result[j] = state[j], state[i]
     return result
 
@@ -96,8 +95,8 @@ def exact(columns, qubits=1):
                 state, outcomes[token.split(">", 1)[1]] = measure(state, wire)
             elif token in ("Measure", "XDetector", "YDetector"):
                 state, _ = measure(state, wire, token, controls, antis)
-            elif token in ("|0>", "|1>"):
-                state = write(state, wire, int(token[1]), controls, antis)
+            elif token == "|1>":
+                state = write(state, wire, controls, antis)
             elif isinstance(token, str) and token in ("Ry(π/32)", "Ry(π/16)"):
                 angle = math.pi / (32 if token == "Ry(π/32)" else 16)
                 c, s = math.cos(angle / 2), math.sin(angle / 2)
@@ -238,28 +237,25 @@ class WebGPUParityTests(unittest.TestCase):
         decomposed = exact([["H"], ["S"], ["H"], [TOKENS[1]], ["H"]])[0]
         self.assertLess(max(abs(a-b) for a, b in zip(direct, decomposed)), 1e-12)
 
-    def test_write_basis_values(self):
-        self.assertEqual([exact([[before], [token]])[0] for before, token in
-                          (("X", "|0>"), (1, "|1>"), ("H", "|0>"), ("H", "|1>"))],
-                         [[1, 0], [0, 1], [math.sqrt(0.5)] * 2, [math.sqrt(0.5)] * 2])
+    def test_write1_basis_values(self):
+        self.assertEqual([exact([[before], ["|1>"]])[0] for before in (1, "H")],
+                         [[0, 1], [math.sqrt(0.5)] * 2])
 
-    def test_write_is_pairwise_not_global(self):
-        self.assertEqual([write([0, 1j, 2, 0], 0, value) for value in (0, 1)],
-                         [[1j, 0, 2, 0], [0, 1j, 0, 2]])
+    def test_write1_is_pairwise_not_global(self):
+        self.assertEqual(write([0, 1j, 2, 0], 0), [0, 1j, 0, 2])
 
-    def test_write_compares_squared_magnitudes_with_epsilon(self):
+    def test_write1_compares_squared_magnitudes_with_epsilon(self):
         # Amplitude differences exceed epsilon but squared differences do not.
-        self.assertEqual([write([0, 0.0009j], 0, 0), write([0.0009j, 0], 0, 1),
-                          write([0, 0.0011j], 0, 0), write([0.0011j, 0], 0, 1)],
-                         [[0, 0.0009j], [0.0009j, 0], [0.0011j, 0], [0, 0.0011j]])
+        self.assertEqual([write([0.0009j, 0], 0), write([0.0011j, 0], 0)],
+                         [[0.0009j, 0], [0, 0.0011j]])
 
-    def test_write_control_and_anti_control(self):
-        self.assertEqual([write([0, 1, 0, 2], 0, 0, controls=(1,)),
-                          write([0, 1, 0, 2], 0, 0, antis=(1,))],
-                         [[0, 1, 2, 0], [1, 0, 0, 2]])
+    def test_write1_control_and_anti_control(self):
+        self.assertEqual([write([1, 0, 2, 0], 0, controls=(1,)),
+                          write([1, 0, 2, 0], 0, antis=(1,))],
+                         [[1, 0, 0, 2], [0, 1, 2, 0]])
 
-    def test_write_epsilon_boundary_does_not_swap(self):
-        self.assertEqual(write([0, 0.001], 0, 0), [0, 0.001])
+    def test_write1_epsilon_boundary_does_not_swap(self):
+        self.assertEqual(write([0.001, 0], 0), [0.001, 0])
 
     def test_inactive_detector_keeps_coherent_target(self):
         state = exact([["H"], ["S"]], 2)[0]
@@ -317,7 +313,7 @@ class WebGPUParityTests(unittest.TestCase):
 
     def test_later_operations_cannot_revive_state_or_survival(self):
         self.assertEqual(exact([["X"], [TOKENS[0]], ["|1>"], ["Measure"],
-                                ["|0>"], [TOKENS[2]]])[:2], ([0j, 0j], [0, 0]))
+                                [TOKENS[2]]])[:2], ([0j, 0j], [0, 0]))
 
     def test_undefined_measurement_leaves_classical_control_inactive(self):
         self.assertEqual(exact([["X"], [TOKENS[0]], ["Measure>a"], ["X<a"]])[0], [0j, 0j])
