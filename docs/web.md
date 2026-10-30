@@ -165,7 +165,7 @@ TRUNK_BUILD_FEATURES=pages trunk build --release --public-url /qni-webgpu/
 既定ビルドではこの機能は無効であり、ABCI のビルド・配備手順や Local/GPU 切替は変わらない。
 埋め込み用の `startEmbed` は従来どおり切替を表示せず、ローカル実行のみを使う。
 CI の `web-check` では Pages 版を追加ビルドし、`playwright.pages.config.ts` で専用テストを実行する。
-既定版の切替テストと `web-playwright` ジョブの 4 分割並列実行はそのまま維持する。
+既定版の切替テストと `web-playwright` ジョブの 6 分割並列実行はそのまま維持する。
 
 ## Playwright / Cucumber rollout
 
@@ -220,7 +220,7 @@ legacy Playwright と BDD の両方が同じ shared source of truth を使う。
 repo root の `scripts/check-all.sh` でも staged rollout を維持し、
 `test:preflight` → `test:bdd` → `test:pw-legacy` の順で Web の gate を通す。
 
-GitHub Actions では、`web-build` が開発用の Trunk 成果物とリリース用の埋め込み成果物を一度ずつビルドし、`web-playwright` の 4 並列ジョブで共有する。
+GitHub Actions では、`web-build` が開発用の Trunk 成果物とリリース用の埋め込み成果物を一度ずつビルドし、`web-playwright` の 6 並列ジョブで共有する。
 各ジョブは `scripts/serve-static.ts` による SPA フォールバック付きの静的サーバで開発用の成果物を配信し、`test:pw-legacy` の代わりに `playwright test --shard` で全テストを分割して実行する。
 並行して `web-check` が Rust の検査、リリース用の Trunk ビルド、BDD テストを実行する。
 `web-preflight` は他の Web ジョブに依存せず独立して実行する。
