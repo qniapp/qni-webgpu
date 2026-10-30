@@ -70,11 +70,6 @@ test('mobile embed starts at step zero', async ({ page }) => {
   expect(await MobileEmbed.selectedStep(page)).toBe(0)
 })
 
-test('mobile tap selects a circuit step', async ({ page }) => {
-  await page.touchscreen.tap(144, 335)
-  await expect.poll(() => MobileEmbed.selectedStep(page)).toBe(1)
-})
-
 for (const [name, point, step] of [
   ['step', { x: 144, y: 335 }, 1],
   ['blank space', { x: 330, y: 420 }, 4],

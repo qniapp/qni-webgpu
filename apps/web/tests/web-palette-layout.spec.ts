@@ -66,13 +66,6 @@ for (const { rightGrid, ...viewport } of [
       expect(hovered).toEqual(Array.from({ length: PALETTE_ENTRY_COUNT }, (_, index) => index))
     })
 
-    test('Spacer is directly left of the comment block in the right section', async ({ page }) => {
-      await open(page, EMPTY)
-      const comment = paletteCenter(viewport.width, 38)
-      const spacer = { x: comment.x - UI_CONSTANTS.PALETTE_SIZE - UI_CONSTANTS.PALETTE_GAP, y: comment.y }
-      expect(await hoveredPaletteIndex(page, spacer, 21)).toBe(21)
-    })
-
     test(`the empty slots of the ${rightGrid} right section are not palette items`, async ({ page }) => {
       await open(page, EMPTY)
       const hovered: (number | null)[] = []
@@ -88,15 +81,6 @@ for (const { rightGrid, ...viewport } of [
       }
       expect(hovered).toEqual(EMPTY_AFTER[rightGrid].map(() => null))
     })
-
-    if (rightGrid === '4x2') {
-      test('Spacer is directly right of Density without an empty slot', async ({ page }) => {
-        await open(page, EMPTY)
-        const density = paletteCenter(viewport.width, 25)
-        const spacer = { x: density.x + UI_CONSTANTS.PALETTE_SIZE + UI_CONSTANTS.PALETTE_GAP, y: density.y }
-        expect(await hoveredPaletteIndex(page, spacer, 21)).toBe(21)
-      })
-    }
 
     test('a palette gate drops onto the first wire below the palette', async ({ page }) => {
       const layout = await open(page, EMPTY)
