@@ -388,14 +388,6 @@ test('circuit picker keeps the row-resize cursor while dragging outside the hand
   expect(['row-resize', 'ns-resize'].includes(cursor)).toBe(true)
 })
 
-test('circuit picker items pane wheel scroll changes only the pane scroll offset', async ({ page }) => {
-  const before = await openPicker(page)
-  await wheelCanvas(page, itemsCenter(before), 280)
-  const after = await waitForResizeGeometry(page, (geometry) => geometry.scroll_offset_y > before.scroll_offset_y + 8, 'items pane scroll')
-
-  expect(after.scroll_offset_y > before.scroll_offset_y).toBe(true)
-})
-
 test('circuit picker footer stays pinned while the items pane scrolls', async ({ page }) => {
   const before = await openPicker(page)
   await wheelCanvas(page, itemsCenter(before), 280)

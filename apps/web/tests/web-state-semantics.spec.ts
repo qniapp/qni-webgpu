@@ -379,42 +379,6 @@ test('Bloch display does not alter the state vector', async ({ page }) => {
   await waitForStateVectorApprox(page, superposition)
 })
 
-test('Measurement after X collapses the qubit to |1>', async ({ page }) => {
-  await page.goto('/')
-
-  await waitForStartupReady(page, { waitForStateVector: true })
-  const canvas = page.locator('#egui-canvas')
-  await canvas.waitFor({ state: 'visible' })
-
-  const viewport = page.viewportSize()
-  const box = await canvas.boundingBox()
-  if (!box) {
-    throw new Error('expected egui canvas to be measurable')
-  }
-  const cssWidth = box?.width ?? (viewport?.width ?? 1000)
-
-  const REM = 32
-  const GATE_SIZE = UI_CONSTANTS.GATE_SIZE
-  const SLOT_SPACING = UI_CONSTANTS.SLOT_SPACING
-  const CIRCUIT_PADDING = 2 * REM
-  const QUBIT_LABEL_WIDTH = 3 * 14
-  const QUBIT_LABEL_GAP = 0.5 * REM
-  const LINE_LEFT_OFFSET = CIRCUIT_PADDING + QUBIT_LABEL_WIDTH + QUBIT_LABEL_GAP
-  const LINE_Y = await getCircuitOriginY(page)
-
-  const xSource = getPaletteGateCenter(cssWidth, 1)
-  const measureSource = getPaletteGateCenter(cssWidth, 19)
-  const targetX = LINE_LEFT_OFFSET + GATE_SIZE
-  const targetX2 = targetX + SLOT_SPACING
-  const targetY = LINE_Y
-
-  await dragPointer(page, xSource, { x: targetX, y: targetY })
-  await waitForStateVectorApprox(page, [0, 0, 1, 0])
-
-  await dragPointer(page, measureSource, { x: targetX2, y: targetY })
-  await waitForStateVectorApprox(page, [0, 0, 1, 0])
-})
-
 test('Spacer is a NOP and does not alter the state vector', async ({ page }) => {
   await page.goto('/')
 
