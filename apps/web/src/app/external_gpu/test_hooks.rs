@@ -1,12 +1,12 @@
 #[cfg(any(test, target_arch = "wasm32"))]
 use std::cell::RefCell;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
 use std::time::Duration;
 
 use eframe::egui;
 
 use super::ExternalGpuStatus;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
 use super::GpuFailure;
 
 #[cfg(target_arch = "wasm32")]
@@ -76,7 +76,7 @@ pub(super) fn wire_external_gpu_test_hooks(ctx: &egui::Context) {
 #[cfg(any(not(target_arch = "wasm32"), not(debug_assertions)))]
 pub(super) fn wire_external_gpu_test_hooks(_ctx: &egui::Context) {}
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
 fn parse_external_gpu_status_json(json: &str) -> Option<ExternalGpuStatus> {
     let value = js_sys::JSON::parse(json).ok()?;
     let status = js_string_prop(&value, "status")?;
@@ -94,7 +94,7 @@ fn parse_external_gpu_status_json(json: &str) -> Option<ExternalGpuStatus> {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
 fn parse_gpu_failure(value: &wasm_bindgen::JsValue) -> GpuFailure {
     match js_string_prop(value, "failure").as_deref() {
         Some("backend_offline") | Some("offline") => GpuFailure::BackendOffline {
@@ -111,14 +111,14 @@ fn parse_gpu_failure(value: &wasm_bindgen::JsValue) -> GpuFailure {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
 fn js_string_prop(value: &wasm_bindgen::JsValue, name: &str) -> Option<String> {
     js_sys::Reflect::get(value, &wasm_bindgen::JsValue::from_str(name))
         .ok()
         .and_then(|value| value.as_string())
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", debug_assertions))]
 fn js_f64_prop(value: &wasm_bindgen::JsValue, name: &str) -> Option<f64> {
     js_sys::Reflect::get(value, &wasm_bindgen::JsValue::from_str(name))
         .ok()

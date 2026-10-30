@@ -44,8 +44,6 @@ const GLYPH_PERCENT: u32 = 14u;
 const GLYPH_BLANK: u32 = 0xFFFFu;
 const PROBABILITY_TEXT_CHARS: u32 = 6u;
 const PROBABILITY_TEXT_DIGIT_W: f32 = 7.0;
-// docs/design-system/probability-display.html §06: Geist Mono dot uses the normal 9px cell
-// squeezed by −3px side margins, so it still gets a centre sample column.
 const PROBABILITY_TEXT_DOT_W: f32 = 3.0;
 const PROBABILITY_TEXT_CHAR_H: f32 = 16.0;
 
@@ -92,8 +90,6 @@ fn vs_main(input: VsIn) -> VsOut {
   out.render_mode = input.render_mode;
   out.rect_min = input.rect_min;
   out.seed = input.seed;
-  // Sampling scans all 2^span outcomes, so do it once per vertex rather than
-  // once per fragment. The preview state shows every tile unlit.
   out.sample_outcome = SAMPLE_INVALID;
   if (input.render_mode == SAMPLE_RENDER_MODE) {
     out.sample_outcome = sampled_outcome(input.slot, input.span, input.seed);
@@ -141,8 +137,6 @@ fn probability_text_width(prob_01: f32) -> f32 {
 }
 
 fn probability_text_color(local: vec2<f32>, rect_size: vec2<f32>, row: u32, row_count: u32, row_h: f32, prob: f32, base: vec4<f32>) -> vec4<f32> {
-  // qni-webgpu policy: Probability1..4 only. Probability5 has >8px rows after the
-  // 40px migration, but the 12px label is still too dense for 32 outcomes.
   if (row_count > 16u || row_h <= 8.0) { return base; }
   let text_w = probability_text_width(prob);
   let text_left = rect_size.x - 2.0 - text_w;
@@ -196,12 +190,6 @@ fn pixel_row_top(row: u32, row_h: f32, height: f32) -> f32 {
 }
 
 fn on_log_hint(local_x: f32, local_y: f32, slot: u32, span: u32, row: u32, row_h: f32, prob: f32, width: f32, height: f32) -> bool {
-  // log(0) is undefined: an impossible outcome (prob 0) has no log-scale
-  // position, so draw neither its vertical tick nor any connector that touches
-  // it. The hint only marks rows that actually carry probability — its purpose
-  // is to reveal tiny non-zero differences a linear bar cannot show. Without
-  // this guard a full bar (px = width) joined to the empty rows below (px = 0)
-  // paints a full-width connector right under the bar.
   if (prob <= 0.0) { return false; }
   let hint_x = probability_log_hint_x(prob, span, width);
   if (abs(local_x - hint_x) < 0.5) { return true; }
@@ -230,11 +218,6 @@ fn on_hover_highlight(local: vec2<f32>, rect_size: vec2<f32>, row_h: f32, hovere
   let raw_row_top = f32(hovered_row) * row_h;
   let raw_row_bottom = min(raw_row_top + row_h, rect_size.y);
   if (row_h >= hover_border_px * 2.0) {
-    // Probability5 rows are 8.25px tall: if the row membership is decided from
-    // the interpolated raw row per fragment, one side of the vertical border
-    // can claim the row a pixel earlier than the horizontal border. Snap the
-    // hover chrome to a single pixel-aligned row box so the purple outline is
-    // rectangular even when the probability rows themselves are fractional.
     let row_top = pixel_row_top(hovered_row, row_h, rect_size.y);
     let row_bottom = clamp(floor(raw_row_bottom + 0.5), row_top + 1.0, rect_size.y);
     if (local.y < row_top || local.y >= row_bottom) { return false; }
@@ -246,9 +229,6 @@ fn on_hover_highlight(local: vec2<f32>, rect_size: vec2<f32>, row_h: f32, hovere
       row_y >= pixel_row_h - hover_border_px;
   }
 
-  // Quirk uses strokeRect(..., lineWidth=2) for the hovered row. In dense
-  // displays the top/bottom strokes merge into one visible band; draw that
-  // band explicitly so the selected outcome cannot fall between fragments.
   let half_stroke = hover_border_px * 0.5;
   return local.y >= raw_row_top - half_stroke && local.y <= raw_row_bottom + half_stroke;
 }
@@ -302,7 +282,6 @@ fn sample_coverage(distance: f32) -> f32 {
   return clamp(0.5 - distance, 0.0, 1.0);
 }
 
-// Straight-alpha "over", matching the pipeline's ALPHA_BLENDING.
 fn sample_layer(base: vec4<f32>, top: vec4<f32>, alpha: f32) -> vec4<f32> {
   let a = clamp(alpha * top.a, 0.0, 1.0);
   let out_a = a + base.a * (1.0 - a);
@@ -310,12 +289,6 @@ fn sample_layer(base: vec4<f32>, top: vec4<f32>, alpha: f32) -> vec4<f32> {
   return vec4<f32>((top.rgb * a + base.rgb * base.a * (1.0 - a)) / out_a, out_a);
 }
 
-// One gate-sized rounded-square tile per covered wire; the gaps between tiles
-// stay transparent. The instance rect is the gate rect grown by
-// SAMPLE_GLOW_PAD so a lit tile's halo can spill past the tile edge. A lit
-// tile has a glow-coloured rim and a fill that brightens toward a flat core;
-// an unlit tile is flat grey. The preview state and an unsampleable state show
-// every tile unlit.
 fn sample_color(input: VsOut, local_y: f32) -> vec4<f32> {
   let outcome = input.sample_outcome;
   let half_tile = sample_half_tile(input);
@@ -345,49 +318,17 @@ fn sample_color(input: VsOut, local_y: f32) -> vec4<f32> {
   return color;
 }
 
+fn seam_stable_row_y(clip_y: f32, rect_min_y: f32) -> f32 {
+  let dpr = max(params.pixels_per_point, 1.0e-6);
+  let viewport_top_px = floor(params.viewport_min.y * dpr + 0.5);
+  return params.viewport_min.y - rect_min_y + (clip_y - viewport_top_px) / dpr;
+}
+
 @fragment
 fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
   let row_count = 1u << input.span;
   let row_h = input.rect_size.y / f32(row_count);
-  // Decide the outcome row from the fragment's framebuffer pixel centre rather
-  // than the interpolated `local.y`. `local.y` is interpolated across the unit
-  // quad's two triangles and is not bit-exact at the shared diagonal, so a pixel
-  // centre on a `row_h` boundary can floor to different rows on either side of
-  // the seam — painting a partial-width bar "nub" one pixel below a full-width
-  // bar (e.g. Probability5, row_h = 8.25px). `@builtin(position)` (`input.clip`
-  // in the fragment) is the rasteriser's physical pixel centre, identical on
-  // both triangles. Invert the world→ndc→framebuffer map to recover the logical
-  // row: egui rounds the callback viewport top to whole physical pixels.
-  //
-  // Two assumptions bound the inversion's exactness (both hold for the reported
-  // bug and every reachable circuit; documented so a refactor cannot silently
-  // break them):
-  //   * `params.viewport_min` is `callback_rect.min`, where `callback_rect` is
-  //     the gate rect intersected with the on-screen clip (see circuit_gates.rs).
-  //     So `viewport_min.y ∈ [0, screen]` and egui's viewport-top clamp to the
-  //     framebuffer is always a no-op here — which is why this shader can omit it.
-  //   * `viewport_top_px` reconstructs egui's top via `floor(x + 0.5)` (round half
-  //     up). epaint uses Rust `f32::round` (half away from zero); for the
-  //     non-negative `x = viewport_min.y * dpr` here the two agree everywhere
-  //     except the single tie `x = n.5 − 1 ULP`, reachable only at a fractional
-  //     device pixel ratio. There it shifts every row one physical pixel (a
-  //     smooth, transient offset — never a seam nub) until the scroll moves off
-  //     the tie. `floor(x + 0.5)` is the closest match WGSL offers: native
-  //     `round` is half-to-even and disagrees with epaint at every odd half.
-  //
-  // `row_local_y` then stands in for `local.y` in EVERY vertical row/boundary
-  // test below (outcome row, aggregate sample, separators, the outer border, the
-  // log hint, and the hover band). Snapping a boundary to a whole pixel only
-  // dodges the seam at device-pixel-ratio 1, where pixel centres sit at half
-  // integers; at a fractional ratio a physical centre can land exactly on an
-  // integer boundary (e.g. ratio 1.25 → logical y = 2.0), so the interpolated
-  // `local.y` could still flip across the seam there. Horizontal tests keep the
-  // interpolated `local.x` (a sub-ULP horizontal wobble never crosses a discrete
-  // row index), and glyph rendering keeps `local` for continuous sampling.
-  let dpr = max(params.pixels_per_point, 1.0e-6);
-  let viewport_top_px = floor(params.viewport_min.y * dpr + 0.5);
-  let row_local_y =
-    params.viewport_min.y - input.rect_min.y + (input.clip.y - viewport_top_px) / dpr;
+  let row_local_y = seam_stable_row_y(input.clip.y, input.rect_min.y);
   if (input.render_mode == SAMPLE_RENDER_MODE || input.render_mode == SAMPLE_PREVIEW_MODE) { return sample_color(input, row_local_y); }
   let raw_row = u32(clamp(floor(row_local_y / max(row_h, 1.0e-6)), 0.0, f32(row_count - 1u)));
   let border_px = 1.0;

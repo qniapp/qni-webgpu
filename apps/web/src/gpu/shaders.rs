@@ -1,8 +1,3 @@
-//! WGSL shader source strings split by rendering / compute responsibility.
-//!
-//! Keep the public surface as constants so resource builders can import
-//! shader sources without knowing which file owns each WGSL program.
-
 mod amplitude_display;
 mod amplitude_display_popup_value;
 mod bloch_display;

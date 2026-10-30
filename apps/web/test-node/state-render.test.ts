@@ -14,6 +14,12 @@ test('State vector circles use display-matched anti-alias width', async () => {
   assert.match(renderShader, /let edge = max\(0\.5, length\(fwidth\(input\.panel_local\)\) \* 0\.65\);[\s\S]*cell_contribution\(col, row, input\.panel_local, edge\)/)
 })
 
+test('State panel phase compares probability to the square of the amplitude cutoff', async () => {
+  const renderShader = await readRenderShader()
+
+  assert.match(renderShader, /const AMPLITUDE_CUTOFF: f32 = 0\.000001;[\s\S]*let has_visible_phase = prob > AMPLITUDE_CUTOFF \* AMPLITUDE_CUTOFF;/)
+})
+
 test('State vector disks draw the display blue inset border', async () => {
   const renderShader = await readRenderShader()
 

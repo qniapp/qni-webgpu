@@ -36,7 +36,6 @@ pub(super) fn build(
 }
 
 fn create_collapse_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-    // 4-binding layout: state_in (read), state_out (read_write), aux (read), params (uniform).
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("measure_collapse_layout"),
         entries: &[

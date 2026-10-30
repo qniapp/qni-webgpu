@@ -99,7 +99,6 @@ for (const [code, motif, primary, secondary] of [
 test('all CSS colors are exact Rust or official Flexoki tones', () => {
   const rust = readFileSync(new URL('../src/colors/flexoki.rs', import.meta.url), 'utf8')
   const colors = [...rust.matchAll(/from_rgb\(0x([0-9A-F]{2}), 0x([0-9A-F]{2}), 0x([0-9A-F]{2})\)/g)].map(m => `#${m[1]}${m[2]}${m[3]}`)
-  // kepano/flexoki css/flexoki.css: base-200, orange-400, yellow-400, purple-50.
   colors.push('#CECDC3', '#DA702C', '#D0A215', '#F0EAEC')
   const source = readFileSync(new URL('../qni-embed-error.mjs', import.meta.url), 'utf8')
   assert.deepEqual([...source.matchAll(/#[0-9A-F]{6}\b/g)].map(m => m[0]).filter(color => !colors.includes(color)), [])

@@ -1,17 +1,3 @@
-//! Bloch reduction (compute) + dynamic Bloch arrow overlay (render).
-//!
-//! * `reduce_pipeline` — compute pass that reads the active state
-//!   buffer and writes `(x, y, z, len)` per qubit into
-//!   `output_buffer`. Two bind groups so we can read from either
-//!   ping-pong state buffer.
-//! * `overlay_pipeline` — render pass that samples `output_buffer`
-//!   in the fragment shader and draws the arrow + tip dot directly,
-//!   no CPU readback. Per-frame instance data lives in
-//!   `overlay_instance_buffer`.
-//!
-//! `output_buffer` is the bridge between the two: written by the
-//! compute pipeline, read by the overlay's fragment stage.
-
 mod overlay;
 mod pipeline;
 mod popup;
@@ -23,15 +9,12 @@ use super::super::params::{BlochOverlayParams, BlochPopupValueParams};
 use super::common::Common;
 
 pub(crate) struct BlochResources {
-    // --- reduce (compute) ---
     pub reduce_pipeline: wgpu::ComputePipeline,
     pub reduce_bind_groups: [wgpu::BindGroup; 2],
     pub params_buffer: wgpu::Buffer,
-    /// See `state::gate_params_staging_buffer` — same staging pattern.
     pub params_staging_buffer: wgpu::Buffer,
     pub output_buffer: wgpu::Buffer,
 
-    // --- overlay (render) ---
     pub overlay_pipeline: wgpu::RenderPipeline,
     pub overlay_bind_group: wgpu::BindGroup,
     pub overlay_bind_group_layout: wgpu::BindGroupLayout,
@@ -40,7 +23,6 @@ pub(crate) struct BlochResources {
     pub last_overlay_params: Option<BlochOverlayParams>,
     pub last_external_upload_generation: Option<u64>,
 
-    // --- hover popover values (render) ---
     pub popup_value_pipeline: wgpu::RenderPipeline,
     pub popup_value_bind_group: wgpu::BindGroup,
     pub popup_value_bind_group_layout: wgpu::BindGroupLayout,

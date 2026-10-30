@@ -695,7 +695,6 @@ const waitForRowsBelowProbabilitySpike = async (
 }
 
 test('Probability5 bar leaves no seam nub in the rows below the spike', async ({ page }) => {
-  // q0 = LSB: X on q0 and q2 → outcome 5, probability 1 → one full-width bar in row 5.
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['X', 1, 'X'], ['Probability5']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
   await waitForProbabilityDistributions(page)
@@ -707,9 +706,6 @@ test('Probability5 bar leaves no seam nub in the rows below the spike', async ({
 })
 
 test('Probability5 draws logarithm hints for bar-only rows', async ({ page }) => {
-  // q0 = LSB: H on q0 splits probability equally across outcomes 0 and 1 (rows 0
-  // and 1), each 0.5. Row 1 carries a non-zero probability, so its log-scale tick
-  // is drawn at x = gateLeft + width·(1 + ln(0.5)·s), s = 1/12 for span 5.
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['H', 1, 1, 1, 1], ['Probability5']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
   const LINE_Y = await getCircuitOriginY(page)
@@ -797,8 +793,6 @@ const waitForLogHintBelowFullBar = async (
 }
 
 test('Probability5 draws no log hint for the zero-probability rows below a full bar', async ({ page }) => {
-  // q0 = LSB: X on q0 and q2 → outcome 5, probability 1. Every row below is an
-  // impossible outcome, so no log-hint pixel (tick or connector) may appear there.
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [['X', 1, 'X'], ['Probability5']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
   await waitForProbabilityDistributions(page)
@@ -871,7 +865,6 @@ const waitForSeveredZeroRowLogHint = async (
 }
 
 test('Probability5 severs the log-hint curve at a zero-probability row between non-zero rows', async ({ page }) => {
-  // q1 = LSB bit 1: H on q1 → outcomes 0 and 2 (rows 0 and 2) each 0.5, row 1 empty between them.
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[1, 'H'], ['Probability5']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
   await waitForProbabilityDistributions(page)
@@ -1193,8 +1186,6 @@ test('selected earlier column keeps later readouts populated', async ({ page }) 
 })
 
 test('Probability9 keeps tiny-row bars visible', async ({ page }) => {
-  // q0 = LSB: H on q7 (bit 7) splits probability across outcomes 0 and 128, so the
-  // deep row 128 carries 0.5 — a tiny (sub-pixel) row whose bar must stay visible.
   await page.goto('/#' + encodeURIComponent(JSON.stringify({ cols: [[1, 1, 1, 1, 1, 1, 1, 'H'], ['Probability9']] })))
   await waitForStartupReady(page, { waitForStateVector: true })
   const LINE_Y = await getCircuitOriginY(page)

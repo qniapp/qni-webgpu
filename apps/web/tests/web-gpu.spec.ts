@@ -18,14 +18,6 @@ import {
   UI_CONSTANTS,
 } from './support/web-spec-helpers'
 
-// Bloch tip dot colors follow the z gradient defined in src/colors.rs:
-// z = +1 (|0⟩) = red-300 #E8705F = rgb(232, 112, 95);
-// z =  0 (|+⟩) = purple-400 #8B7EC8 = rgb(139, 126, 200);
-// z = -1 (|1⟩) = blue-300 #66A0C8 = rgb(102, 160, 200).
-// Thresholds are calibrated to the antialias-free tip-dot center pixels measured
-// under SwiftShader; the three are mutually exclusive and all reject the circuit
-// background #F2F0E5. These probes confirm the polarity-correct tip color is
-// painted at a sampled on-sphere pixel and is absent just outside it.
 const isBlochTipRed = ([r, g, b]: CanvasPixel): boolean => r > 200 && g > 90 && g < 135 && b < 120
 const isBlochTipBlue = ([r, g, b]: CanvasPixel): boolean => b > 170 && r < 140 && g > 130 && g < 190
 const isBlochTipPurple = ([r, g, b]: CanvasPixel): boolean =>
@@ -141,12 +133,6 @@ test('GPU capacity error hook clears after a valid recompute', async ({ page }) 
 })
 
 test('GPU compute pipeline applies a unitary chain end-to-end', async ({ page }) => {
-  // Specifically targets the GPU per-gate compute path: a circuit with no
-  // measurements should be simulated entirely by the WGSL `STATE_COMPUTE_SHADER`
-  // dispatched once per linearised GateParams. We assert against the textbook
-  // amplitudes for H q0 → CNOT(q0, q1) → Z q0 → H q0 (Bell-like prep with a
-  // phase flip), which exercises matrix multiply + control mask + sign flip in
-  // a single dispatch chain.
   await page.goto('/')
 
   await waitForStartupReady(page, { waitForStateVector: true })
@@ -181,19 +167,12 @@ test('GPU compute pipeline applies a unitary chain end-to-end', async ({ page })
   const targetY0 = LINE_Y
   const targetY1 = LINE_Y + LINE_GAP
 
-  // H q0
   await dragPointer(page, hSource, { x: targetX, y: targetY0 })
-  // CNOT(q0, q1) — control q0 + X q1 in slot 1
   await dragPointer(page, controlSource, { x: targetX2, y: targetY0 })
   await dragPointer(page, xSource, { x: targetX2, y: targetY1 })
-  // Z q0 in slot 2
   await dragPointer(page, zSource, { x: targetX3, y: targetY0 })
-  // H q0 in slot 3
   await dragPointer(page, hSource, { x: targetX4, y: targetY0 })
 
-  // After H q0: (|00⟩+|10⟩)/√2 → CNOT: (|00⟩+|11⟩)/√2 → Z q0: (|00⟩-|11⟩)/√2
-  // → H q0: (|00⟩+|01⟩-|10⟩+|11⟩)/2 in |q1 q0⟩ order, i.e. amplitudes
-  // (+,+,-,+)/2 on state indices 0..3 (index n = q0 + 2·q1; q0 is LSB).
   const half = 0.5
   await waitForStateVectorApprox(page, [half, 0, half, 0, -half, 0, half, 0])
 })
@@ -230,10 +209,8 @@ test('GPU bloch reduction captures the textbook vectors per qubit', async ({ pag
   const targetY0 = LINE_Y
   const targetY1 = LINE_Y + LINE_GAP
 
-  // q0: H placed first → |+⟩ → bloch should report +x.
   await dragPointer(page, hSource, { x: targetX, y: targetY0 })
   await dragPointer(page, blochSource, { x: targetX2, y: targetY0 })
-  // q1: X placed first → |1⟩ → bloch should report -z.
   await dragPointer(page, xSource, { x: targetX, y: targetY1 })
   await dragPointer(page, blochSource, { x: targetX2, y: targetY1 })
 
@@ -285,7 +262,6 @@ test('GPU bloch reduction follows snapped drag placement before drop', async ({ 
     x: rounded(vector.x),
     y: rounded(vector.y),
     z: rounded(vector.z),
-    // z = +1 (|0⟩) → the snapped live tip is painted red-300.
     liveTipRed: isBlochTipRed(samples.liveTip),
   }).toEqual({ x: 0, y: 0, z: 1, liveTipRed: true })
 })
@@ -499,7 +475,6 @@ test('GPU circuit overlays stay optically anchored to measurement and Bloch bodi
     measurementGapLeft: isCircuitBackground(samples.measurement_gap_left),
     measurementWireLeft: isWireLine(samples.measurement_wire_left),
     measurementDigitCentered: isOutcomeBlue(samples.measurement_digit_centered),
-    // X then Measure leaves q0 in |1⟩ → z = -1, so the south-pole tip is blue-300.
     blochTipOnSphere: isBlochTipBlue(samples.bloch_tip_on_sphere),
     blochTipOutsideSphere: isBlochTipBlue(samples.bloch_tip_outside_sphere),
   }
@@ -569,7 +544,6 @@ test('GPU circuit overlays stay anchored in tall scroll-area viewports', async (
   expect({
     measurementDigitTooHigh: isOutcomeBlue(samples.measurement_digit_too_high),
     measurementDigitOnWire: isOutcomeBlue(samples.measurement_digit_on_wire),
-    // The Bloch on wire 2 has no gate → |0⟩ → z = +1, so the north-pole tip is red-300.
     blochTipOnSphere: isBlochTipRed(samples.bloch_tip_on_sphere),
     blochTipTooHigh: isBlochTipRed(samples.bloch_tip_too_high),
   }).toEqual({
@@ -609,7 +583,6 @@ test('GPU bloch tip is purple at the equator for |+⟩', async ({ page }) => {
   ])
 
   expect({
-    // The equator tip is the gradient midpoint: purple, neither pole color.
     equatorTipPurple: isBlochTipPurple(samples.equator_tip),
     equatorTipRed: isBlochTipRed(samples.equator_tip),
     equatorTipBlue: isBlochTipBlue(samples.equator_tip),
@@ -746,9 +719,6 @@ test('GPU measurement collapses |1> deterministically with outcome 1', async ({ 
   await waitForStateVectorApprox(page, [0, 0, 1, 0])
   await dragPointer(page, measureSource, { x: targetX2, y: targetY })
 
-  // pZero is exactly 0 because q0 = |1⟩, so the GPU sample and collapse must
-  // converge on outcome=1 and a state of |1⟩ (the same amplitude as before
-  // collapse, just normalized).
   await expect
     .poll(async () => {
       const outcomes = await readMeasurementOutcomes(page)

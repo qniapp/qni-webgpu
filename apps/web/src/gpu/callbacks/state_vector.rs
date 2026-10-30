@@ -10,7 +10,7 @@ use super::super::readback::{
     ProbabilityGpuHandle, AMPLITUDE_GPU_HANDLE, BLOCH_GPU_HANDLE, DENSITY_GPU_HANDLE, GPU_READBACK,
     MEASUREMENT_GPU_HANDLE, PROBABILITY_GPU_HANDLE,
 };
-use super::super::recompute::recompute_state_vector;
+use super::super::recompute::{recompute_state_vector, RunnerMeasurementSeed};
 use super::super::resources::StateVectorResources;
 
 pub(crate) struct StateVectorResourceBootstrapCallback {
@@ -50,15 +50,10 @@ impl egui_wgpu::CallbackTrait for StateVectorResourceBootstrapCallback {
 }
 
 pub(crate) struct StateVectorUpdate {
-    /// Linearised simulation ops for the GPU pipeline. Includes gate
-    /// application, readout captures, measurement collapse, and optional
-    /// state-panel snapshots. The GPU dispatches them in order; ping-pong of
-    /// the state buffers happens for any op that mutates state (gates and
-    /// `MeasureCollapse`).
     pub(crate) sim_ops: std::sync::Arc<Vec<SimulationOp>>,
     pub(crate) state_count: usize,
     pub(crate) plan_revision: u64,
-    pub(crate) measurement_seed: u32,
+    pub(crate) measurement_seed: RunnerMeasurementSeed,
     pub(crate) preview_step: Option<usize>,
     pub(crate) snapshot_slot_count: usize,
 }
@@ -66,11 +61,6 @@ pub(crate) struct StateVectorUpdate {
 pub(crate) struct StateVectorCallback {
     pub(crate) update: StateVectorUpdate,
     pub(crate) target_format: wgpu::TextureFormat,
-    /// Pre-built render params describing the panel geometry, cell pitch,
-    /// circle radii, and palette. Built by `render.rs` from
-    /// `StatePanelLayout` and passed straight through to the uniform
-    /// buffer; the fragment shader uses every field to figure out which
-    /// cell each pixel belongs to and how to draw its state circle.
     pub(crate) render_params: RenderParams,
 }
 
@@ -144,7 +134,6 @@ impl StateVectorUpdate {
         Ok(())
     }
 
-    /// Shared GPU-only path for rendered frames and explicit runner reads.
     pub(crate) fn prepare(
         &self,
         device: &wgpu::Device,
@@ -219,7 +208,6 @@ impl StateVectorUpdate {
             let byte_len =
                 (self.state_count * std::mem::size_of::<[f32; 2]>()) as wgpu::BufferAddress;
             if step == crate::app::CircuitColumnIndex::INITIAL.as_usize() {
-                // GPU-only |0…0⟩ preview, independent of snapshot capacity.
                 encoder.clear_buffer(&resources.common.state_preview_buffer, 0, Some(byte_len));
                 encoder.copy_buffer_to_buffer(
                     &resources.common.state_seed_buffer,
@@ -243,8 +231,6 @@ impl StateVectorUpdate {
     }
 }
 
-// Keep the legacy module-level test hooks coherent with the latest prepared
-// runner, including compute-only frames. Runner reads use their own resources.
 #[cfg(target_arch = "wasm32")]
 fn publish_readback_handles(
     device: &wgpu::Device,
@@ -371,10 +357,6 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
             resources.common.unit_quad_index_buffer.slice(..),
             wgpu::IndexFormat::Uint16,
         );
-        // One instanced draw of the panel quad — the fragment shader splits
-        // it into per-cell circles. Replaces the previous N-instance loop
-        // (one quad per cell). See gpu/shaders/state_render.wgsl
-        // (STATE_RENDER_SHADER).
         render_pass.draw_indexed(0..resources.common.unit_quad_index_count, 0, 0..1);
     }
 }

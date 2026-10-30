@@ -562,7 +562,7 @@ impl QniApp {
             let callback = ProbabilityDisplayCallback {
                 instances: probability_instances.into(),
                 use_drag_preview_buffer: false,
-                viewport_min: [callback_rect.min.x, callback_rect.min.y],
+                viewport_min: ProbabilityDisplayCallback::clipped_callback_origin(callback_rect),
                 viewport_size: [callback_rect.width(), callback_rect.height()],
                 background: colors.surface.to_normalized_gamma_f32(),
                 placeholder_background: colors.display_placeholder_fill.to_normalized_gamma_f32(),
@@ -928,7 +928,6 @@ impl QniApp {
                 viewport_min: [callback_rect.min.x, callback_rect.min.y],
                 viewport_size: [callback_rect.width(), callback_rect.height()],
                 zero_color: colors.semantic_off.to_normalized_gamma_f32(),
-                one_color: colors.semantic_off.to_normalized_gamma_f32(),
             };
             painter.add(egui::Shape::Callback(
                 egui_wgpu::Callback::new_paint_callback(

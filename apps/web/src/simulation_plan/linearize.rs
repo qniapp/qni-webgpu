@@ -60,13 +60,15 @@ pub(crate) fn linearize_ops(
         let mut amplitude_targets: Vec<&PlacedGate> = Vec::new();
         let mut density_targets: Vec<&PlacedGate> = Vec::new();
         let mut swap_targets: Vec<&PlacedGate> = Vec::new();
-        let mut parity_targets: Vec<&PlacedGate> = Vec::new();
 
         let mut register_gates: Vec<&PlacedGate> = Vec::new();
         for gate in column_gates {
             match gate.kind {
-                GateKind::Control | GateKind::AntiControl | GateKind::ZDetectControlReset => {}
-                GateKind::ZParityControl | GateKind::XParityControl => parity_targets.push(gate),
+                GateKind::Control
+                | GateKind::AntiControl
+                | GateKind::ZDetectControlReset
+                | GateKind::ZParityControl
+                | GateKind::XParityControl => {}
                 GateKind::Swap => swap_targets.push(gate),
                 GateKind::Spacer => {}
                 GateKind::Measurement | GateKind::XDetector | GateKind::YDetector => {
@@ -86,19 +88,7 @@ pub(crate) fn linearize_ops(
             }
         }
 
-        parity_targets.retain(|parity| {
-            !column_gates.iter().any(|gate| {
-                gate.kind.is_resizable_span()
-                    && gate.wire.as_usize() <= parity.wire.as_usize()
-                    && parity.wire.as_usize()
-                        < gate.wire.as_usize()
-                            + gate
-                                .span
-                                .clamped_for(gate.kind, n - gate.wire.as_usize())
-                                .get()
-            })
-        });
-        parity_targets.sort_by_key(|gate| gate.wire);
+        let parity_targets = super::column_analysis::external_parity_controls(column_gates, qubits);
         let mut parity_setup = Vec::new();
         for gate in &parity_targets {
             if gate.kind == GateKind::XParityControl {
@@ -315,9 +305,6 @@ pub(crate) fn linearize_ops(
 
         probability_targets.sort_by_key(|a| a.id);
         for display in &probability_targets {
-            if !display.wire.is_within(qubits) {
-                continue;
-            }
             let span = display
                 .span
                 .clamped_for(display.kind, n - display.wire.as_usize());
@@ -338,9 +325,6 @@ pub(crate) fn linearize_ops(
 
         amplitude_targets.sort_by_key(|a| a.id);
         for display in &amplitude_targets {
-            if !display.wire.is_within(qubits) {
-                continue;
-            }
             let span = display
                 .span
                 .clamped_for(display.kind, n - display.wire.as_usize());
@@ -361,9 +345,6 @@ pub(crate) fn linearize_ops(
 
         density_targets.sort_by_key(|a| a.id);
         for display in &density_targets {
-            if !display.wire.is_within(qubits) {
-                continue;
-            }
             let span = display
                 .span
                 .clamped_for(display.kind, n - display.wire.as_usize());
@@ -531,9 +512,6 @@ fn register_external_controls(
     qubits: QubitCount,
     controls: ColumnControls,
 ) -> ColumnControls {
-    if !gate.wire.is_within(qubits) {
-        return controls;
-    }
     let span = gate
         .span
         .clamped_for(gate.kind, qubits.get() - gate.wire.as_usize())
@@ -576,9 +554,6 @@ fn linearize_qft(
     dagger: bool,
     controls: ColumnControls,
 ) -> Vec<SimulationOp> {
-    if !gate.wire.is_within(qubits) {
-        return Vec::new();
-    }
     // Clamp the span so the QFT never reaches past the qubit register;
     // a user-resized QFT can momentarily extend beyond the placed
     // bottom wire before `update_qubit_count` catches up.
@@ -586,9 +561,6 @@ fn linearize_qft(
         .span
         .clamped_for(gate.kind, qubits.get() - gate.wire.as_usize())
         .get();
-    if span == 0 {
-        return Vec::new();
-    }
     let bit_of = |idx: usize| {
         gate.wire
             .offset(idx)
@@ -749,6 +721,76 @@ mod tests {
             SimulationOp::ApplyGate(params) => *params,
             _ => panic!("expected apply-gate op"),
         }
+    }
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum QftExpandedKind {
+        Hadamard,
+        Phase,
+        PauliX,
+    }
+
+    fn reference_matrix(kind: GateKind) -> [[f32; 2]; 4] {
+        gate_params(kind, QubitBit::new(0), 0).matrix()
+    }
+
+    fn qft_expanded_kind(params: crate::gates::GateParams) -> Option<QftExpandedKind> {
+        let matrix = params.matrix();
+        if matrix == reference_matrix(GateKind::H) {
+            Some(QftExpandedKind::Hadamard)
+        } else if matrix == reference_matrix(GateKind::X) {
+            Some(QftExpandedKind::PauliX)
+        } else if matrix[0] == [1.0, 0.0]
+            && matrix[1] == [0.0, 0.0]
+            && matrix[2] == [0.0, 0.0]
+            && matrix[3][1] != 0.0
+        {
+            Some(QftExpandedKind::Phase)
+        } else {
+            None
+        }
+    }
+
+    fn apply_qft_expanded(
+        ops: &[SimulationOp],
+        kind: QftExpandedKind,
+        bit: u32,
+    ) -> crate::gates::GateParams {
+        ops.iter()
+            .find_map(|op| match op {
+                SimulationOp::ApplyGate(params)
+                    if qft_expanded_kind(*params) == Some(kind) && params.bit() == bit =>
+                {
+                    Some(*params)
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("missing {kind:?} on bit {bit}"))
+    }
+
+    fn apply_trailing_qft_swap(ops: &[SimulationOp], bit: u32) -> crate::gates::GateParams {
+        let ladder_end = ops
+            .iter()
+            .rposition(|op| match op {
+                SimulationOp::ApplyGate(params) => matches!(
+                    qft_expanded_kind(*params),
+                    Some(QftExpandedKind::Hadamard | QftExpandedKind::Phase)
+                ),
+                _ => false,
+            })
+            .expect("QFT ladder");
+        ops.iter()
+            .skip(ladder_end + 1)
+            .find_map(|op| match op {
+                SimulationOp::ApplyGate(params)
+                    if qft_expanded_kind(*params) == Some(QftExpandedKind::PauliX)
+                        && params.bit() == bit =>
+                {
+                    Some(*params)
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("missing trailing swap CNOT on bit {bit}"))
     }
 
     fn detector_column(kind: GateKind) -> Vec<SimulationOp> {
@@ -1423,9 +1465,11 @@ mod tests {
             ),
         ];
 
-        // The forward QFT now leads with the bit-reversal swaps (op[0..3]);
-        // the first Hadamard is op[3]. The external control rides along on it.
-        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(3), 0), 3);
+        let params = apply_qft_expanded(
+            &linearize_ops(&gates, qubit_count(3), 0),
+            QftExpandedKind::Hadamard,
+            1,
+        );
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
@@ -1454,10 +1498,11 @@ mod tests {
             ),
         ];
 
-        // op[0..3] are the leading bit-reversal swaps, op[3] the first
-        // Hadamard, op[4] the first controlled-phase. Its control mask combines
-        // the external control (bit 0) with the internal phase control (bit 2).
-        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(3), 0), 4);
+        let params = apply_qft_expanded(
+            &linearize_ops(&gates, qubit_count(3), 0),
+            QftExpandedKind::Phase,
+            1,
+        );
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
@@ -1486,9 +1531,11 @@ mod tests {
             ),
         ];
 
-        // First Hadamard at op[3] (after the leading bit-reversal swaps); the
-        // external anti-control (bit 0, value 0) rides along on it.
-        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(3), 0), 3);
+        let params = apply_qft_expanded(
+            &linearize_ops(&gates, qubit_count(3), 0),
+            QftExpandedKind::Hadamard,
+            1,
+        );
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
@@ -1517,9 +1564,11 @@ mod tests {
             ),
         ];
 
-        // First Hadamard at op[3] (after the leading bit-reversal swaps). The
-        // control sits inside the QFT span, so it is ignored: no control mask.
-        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(2), 0), 3);
+        let params = apply_qft_expanded(
+            &linearize_ops(&gates, qubit_count(2), 0),
+            QftExpandedKind::Hadamard,
+            0,
+        );
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),
@@ -1548,10 +1597,6 @@ mod tests {
 
     #[test]
     fn qft_dagger_emits_trailing_bit_reversal_swap() {
-        // QFT† is the adjoint of "swaps then ladder" = "inverse ladder then
-        // swaps", so its bit-reversal SWAP network comes last. span-2 QFT† on
-        // wires 0,1: the inverse ladder H, P, H is op[0..3]; op[3] is the first
-        // CNOT of the trailing swap(bit0, bit1): X on bit 1 controlled by bit 0.
         let gates = [PlacedGate::new(
             crate::app::GateId::from_u32(1),
             GateKind::QftDaggerGate,
@@ -1561,7 +1606,7 @@ mod tests {
             None,
         )];
 
-        let params = apply_gate_params(&linearize_ops(&gates, qubit_count(2), 0), 3);
+        let params = apply_trailing_qft_swap(&linearize_ops(&gates, qubit_count(2), 0), 1);
 
         assert_eq!(
             (params.bit(), params.control_mask(), params.control_value()),

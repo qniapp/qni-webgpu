@@ -1,12 +1,3 @@
-//! Test-only on-demand readback APIs.
-//!
-//! Production rendering never touches CPU readback — render shaders sample
-//! storage buffers directly. These async functions exist solely so
-//! the JS test harness (`read_state_vector` etc. in `lib.rs`) can verify
-//! GPU outputs after a recompute. Each issues a fresh staging buffer +
-//! `map_async` against the latest GPU handle that `StateVectorCallback::
-//! prepare` parked in the thread-local slots below.
-
 use std::cell::RefCell;
 
 #[cfg(target_arch = "wasm32")]
@@ -83,37 +74,22 @@ thread_local! {
     pub(crate) static SAMPLE_DISPLAY_SPANS: RefCell<Vec<(u32, u32)>> = const { RefCell::new(Vec::new()) };
     #[cfg(target_arch = "wasm32")]
     pub(crate) static GPU_READBACK: RefCell<Option<GpuReadbackState>> = const { RefCell::new(None) };
-    /// Latest GPU buffer + queue handle for the bloch overlay output. Set in
-    /// `prepare()`; consumed by the test-only async API
-    /// `read_bloch_vectors_impl`. No production code touches it — production
-    /// rendering reads `bloch_output_buffer` directly inside the GPU shader.
     #[cfg(target_arch = "wasm32")]
     pub(crate) static BLOCH_GPU_HANDLE: RefCell<Option<BlochGpuHandle>> =
         const { RefCell::new(None) };
-    /// gate_id list ordered by output_slot. Parallel to the contents of
-    /// `bloch_output_buffer`; the test API joins this with the read-back
-    /// floats to produce `[gate_id, x, y, z, …]`.
     pub(crate) static BLOCH_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
-    /// Same as `BLOCH_GPU_HANDLE` for the measurement aux buffer.
     #[cfg(target_arch = "wasm32")]
     pub(crate) static MEASUREMENT_GPU_HANDLE: RefCell<Option<MeasurementGpuHandle>> =
         const { RefCell::new(None) };
     pub(crate) static MEASUREMENT_SLOT_MAP: RefCell<Vec<Option<u32>>> = const { RefCell::new(Vec::new()) };
-    /// Same pattern for Probability displays. Test-only APIs may read this on
-    /// demand; production rendering samples `probability_output` in a
-    /// fragment shader.
     #[cfg(target_arch = "wasm32")]
     pub(crate) static PROBABILITY_GPU_HANDLE: RefCell<Option<ProbabilityGpuHandle>> =
         const { RefCell::new(None) };
     pub(crate) static PROBABILITY_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
-    /// Same pattern for Amplitude displays. Production shaders sample
-    /// `amplitude_output` + `amplitude_meta`; tests can ask for one cell.
     #[cfg(target_arch = "wasm32")]
     pub(crate) static AMPLITUDE_GPU_HANDLE: RefCell<Option<AmplitudeGpuHandle>> =
         const { RefCell::new(None) };
     pub(crate) static AMPLITUDE_SLOT_MAP: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
-    /// Same pattern for Density Matrix displays. Production shaders sample
-    /// `density_output` + `density_meta`; tests can ask for one cell.
     #[cfg(target_arch = "wasm32")]
     pub(crate) static DENSITY_GPU_HANDLE: RefCell<Option<DensityGpuHandle>> =
         const { RefCell::new(None) };
@@ -301,7 +277,6 @@ pub(crate) async fn read_measurement_outcomes_impl() -> Result<js_sys::Float32Ar
         .filter_map(|(slot, gate_id)| gate_id.map(|id| (slot, id)))
         .enumerate()
     {
-        // aux layout (.x, .y, .z, .w) = (pZero, r, outcome, sqrt_p_kept).
         let outcome_idx = slot * 4 + 2;
         if outcome_idx >= floats.len() {
             break;

@@ -4,14 +4,9 @@ use eframe::{egui_wgpu, wgpu};
 use super::super::params::ProbabilityPopupValueParams;
 use super::super::resources::StateVectorResources;
 
-/// Renders the raw/log value rows of the Probability hover popup straight from
-/// `probability_output`. The popup chrome and static labels are painted
-/// by egui; only the dynamic probability-derived text is GPU-rendered.
 pub(crate) struct ProbabilityPopupValueCallback {
-    /// Egui callback viewport — see `BlochOverlayCallback::viewport_min`.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
-    /// Top-left of the row-0 (`raw`) value text in egui pixels.
     pub(crate) value_anchor: [f32; 2],
     pub(crate) row_pitch: f32,
     pub(crate) char_size: [f32; 2],
@@ -67,7 +62,6 @@ impl egui_wgpu::CallbackTrait for ProbabilityPopupValueCallback {
         };
         render_pass.set_pipeline(&resources.probability.popup_value_pipeline);
         render_pass.set_bind_group(0, &resources.probability.popup_value_bind_group, &[]);
-        // 6 verts × 2 instances: raw row and log row.
         render_pass.draw(0..6, 0..2);
     }
 }

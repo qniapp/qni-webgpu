@@ -61,16 +61,6 @@ impl ParametricAngle {
     pub(crate) fn radians_f32(&self) -> f32 {
         (self.numerator as f32) * std::f32::consts::PI / (self.denominator.get() as f32)
     }
-
-    #[allow(dead_code)]
-    pub(crate) fn numerator(&self) -> i32 {
-        self.numerator
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn denominator(&self) -> u32 {
-        self.denominator.get()
-    }
 }
 
 impl Default for ParametricAngle {

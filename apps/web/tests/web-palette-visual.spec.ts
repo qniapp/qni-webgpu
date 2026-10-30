@@ -17,7 +17,7 @@ import {
 
 type HoverSnapshot = { hoveredPaletteIndex: number | null }
 
-const POPOVER_OUTLINE: CanvasPixel = [183, 181, 172, 255] // Flexoki tx-3 #B7B5AC
+const POPOVER_OUTLINE: CanvasPixel = [183, 181, 172, 255]
 
 const readCircuitColsFromHash = (url: string): unknown[] => {
   const hash = new URL(url).hash.slice(1)
@@ -245,8 +245,6 @@ test('same-angle phase connector is centered as an even-width vertical stroke', 
   })
 })
 
-// 角度エディタは長押し判定を挟んで開くため、固定時間で待つと CPU 飽和時に
-// 入力が空振りする。エディタが対象ゲートに紐づいたことを状態で待つ。
 const waitForAngleEditor = async (page: Page, gateId: number): Promise<void> => {
   await waitForValue(
     () => page.evaluate(() => {
@@ -303,7 +301,6 @@ test('invalid active angle editor restores the previous angle', async ({ page })
   await waitForAngleEditor(page, label.gate_id)
   await page.keyboard.type('hoge')
   await page.keyboard.press('Enter')
-  // Enter の反映もフレームをまたぐ。閉じたことを状態で待ってから読む。
   const restoredJson = await waitForValue(
     () => page.evaluate(() => {
       const raw = Reflect.get(window, '__qniAngleInputGeometryJson')

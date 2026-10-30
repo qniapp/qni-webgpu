@@ -18,29 +18,6 @@ use super::circuit_connectors::phase::{
 
 const ANGLE_AFFORDANCE_DELAY_SECS: f64 = 0.680;
 const ANGLE_UNDERLINE_FADE_SECS: f64 = 0.120;
-#[derive(Clone, Debug)]
-struct OwnedAngleLabel {
-    gate_id: GateId,
-    text: String,
-    pos: egui::Pos2,
-    align: egui::Align2,
-    above_gate: bool,
-    outline_with_background: bool,
-}
-
-impl OwnedAngleLabel {
-    fn as_info(&self) -> AngleLabelInfo {
-        AngleLabelInfo {
-            gate_id: self.gate_id,
-            text: self.text.clone(),
-            pos: self.pos,
-            align: self.align,
-            above_gate: self.above_gate,
-            outline_with_background: self.outline_with_background,
-        }
-    }
-}
-
 impl QniApp {
     pub(crate) fn angle_label_at_local_pos(
         &self,
@@ -53,7 +30,7 @@ impl QniApp {
         self.collect_angle_labels(metrics, frame, dragging_gate_id)
             .iter()
             .rev()
-            .find(|label| angle_label_interaction_rect(&label.as_info()).contains(pos))
+            .find(|label| angle_label_interaction_rect(label).contains(pos))
             .map(|label| label.gate_id)
     }
 
@@ -112,9 +89,8 @@ impl QniApp {
 
         let mut hovered_gate_id = None;
         for label in &labels {
-            let info = label.as_info();
             let response = ui.interact(
-                angle_label_interaction_rect(&info),
+                angle_label_interaction_rect(label),
                 ui.make_persistent_id(("angle-label", label.gate_id)),
                 egui::Sense::click(),
             );
@@ -125,7 +101,7 @@ impl QniApp {
             if response.clicked() {
                 self.handle_angle_label_click(label.gate_id, now, ui.ctx());
             }
-            self.paint_angle_affordance(ui.painter(), &info, colors, now, ui.ctx());
+            self.paint_angle_affordance(ui.painter(), label, colors, now, ui.ctx());
         }
 
         self.clear_stale_angle_hover(hovered_gate_id);
@@ -136,7 +112,7 @@ impl QniApp {
         metrics: &LayoutMetrics,
         projection: CircuitProjection,
         dragging_gate_id: Option<GateId>,
-    ) -> Vec<OwnedAngleLabel> {
+    ) -> Vec<AngleLabelInfo> {
         let render_columns = ColumnAnalysis::from_gates(&self.placed_gates, |gate| {
             gate_slot_index_for_render(
                 gate,
@@ -156,14 +132,6 @@ impl QniApp {
                     self.dragging
                         .filter(|drag| Some(drag.id) == dragging_gate_id),
                 )
-            })
-            .map(|label| OwnedAngleLabel {
-                gate_id: label.gate_id,
-                text: label.text,
-                pos: label.pos,
-                align: label.align,
-                above_gate: label.above_gate,
-                outline_with_background: label.outline_with_background,
             })
             .collect()
     }
@@ -265,12 +233,11 @@ impl QniApp {
     fn show_active_angle_editor(
         &mut self,
         ui: &mut egui::Ui,
-        label: &OwnedAngleLabel,
+        label: &AngleLabelInfo,
         colors: &Colors,
         now: f64,
     ) {
-        let info = label.as_info();
-        let edit_rect = angle_label_interaction_rect(&info);
+        let edit_rect = angle_label_interaction_rect(label);
         let Some(mut editor) = self.angle_editor.take() else {
             return;
         };
@@ -280,7 +247,7 @@ impl QniApp {
         editor.select_all_pending = false;
         editor.commit_after_frame = false;
 
-        let outline_slots = reserve_angle_label_outline(ui.painter(), &info);
+        let outline_slots = reserve_angle_label_outline(ui.painter(), label);
         let text_id = ui.make_persistent_id(("angle-editor", editor.gate_id));
         let mut edit_ui = ui.new_child(
             egui::UiBuilder::new()
@@ -322,7 +289,7 @@ impl QniApp {
         }
 
         let alpha = editor_underline_alpha(editor.reveal_started_at, now);
-        self.paint_underline(ui.painter(), &info, colors, alpha);
+        self.paint_underline(ui.painter(), label, colors, alpha);
 
         let (enter, escape) = ui.input(|input| {
             input
@@ -456,15 +423,14 @@ fn editor_underline_alpha(reveal_started_at: f64, now: f64) -> f32 {
 
 #[cfg(all(target_arch = "wasm32", debug_assertions))]
 fn publish_angle_input_geometry_json(
-    labels: &[OwnedAngleLabel],
+    labels: &[AngleLabelInfo],
     affordance: Option<AngleAffordance>,
     editor: Option<&AngleEditor>,
 ) {
     let labels_json = labels
         .iter()
         .map(|label| {
-            let info = label.as_info();
-            let rect = angle_label_interaction_rect(&info);
+            let rect = angle_label_interaction_rect(label);
             format!(
                 "{{\"gate_id\":{},\"text\":\"{}\",\"left\":{:.3},\"top\":{:.3},\"right\":{:.3},\"bottom\":{:.3}}}",
                 label.gate_id.as_u32(),
@@ -494,7 +460,7 @@ fn publish_angle_input_geometry_json(
 
 #[cfg(any(not(target_arch = "wasm32"), not(debug_assertions)))]
 fn publish_angle_input_geometry_json(
-    _labels: &[OwnedAngleLabel],
+    _labels: &[AngleLabelInfo],
     _affordance: Option<AngleAffordance>,
     _editor: Option<&AngleEditor>,
 ) {

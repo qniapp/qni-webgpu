@@ -4,12 +4,12 @@ use super::super::super::popup_glyph_atlas::{
     rasterize_popup_glyph_atlas, POPUP_GLYPH_ATLAS_HEIGHT, POPUP_GLYPH_ATLAS_WIDTH,
 };
 
-pub(super) struct PopupGlyphAtlas {
-    pub(super) view: wgpu::TextureView,
-    pub(super) sampler: wgpu::Sampler,
+pub(in crate::gpu::resources) struct PopupGlyphAtlas {
+    pub(in crate::gpu::resources) view: wgpu::TextureView,
+    pub(in crate::gpu::resources) sampler: wgpu::Sampler,
 }
 
-pub(super) fn create_popup_glyph_atlas(
+pub(in crate::gpu::resources) fn create_popup_glyph_atlas(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
 ) -> PopupGlyphAtlas {

@@ -18,7 +18,6 @@ var<workgroup> shared_pzero: array<f32, 64>;
 var<workgroup> shared_norm: array<f32, 64>;
 
 fn rand_unit(seed: u32) -> f32 {
-  // Deterministic xorshift-mix used for GPU-side measurement sampling.
   var s: u32 = seed * 0x9E3779B9u + 0x85EBCA6Bu;
   s = s ^ (s >> 13u);
   s = s * 0xC2B2AE35u;

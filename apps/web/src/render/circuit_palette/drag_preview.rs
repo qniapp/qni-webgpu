@@ -105,7 +105,7 @@ fn draw_sample_drag_preview(
         }]
         .into(),
         use_drag_preview_buffer: true,
-        viewport_min: [callback_rect.min.x, callback_rect.min.y],
+        viewport_min: ProbabilityDisplayCallback::clipped_callback_origin(callback_rect),
         viewport_size: [callback_rect.width(), callback_rect.height()],
         background: colors.surface.to_normalized_gamma_f32(),
         placeholder_background: colors.display_placeholder_fill.to_normalized_gamma_f32(),

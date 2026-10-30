@@ -6,8 +6,6 @@ import type { BrowserSupport, EguiHelpers, EguiWorld, WindowWithEguiError } from
 const { PLAIN_BROWSER_MODE, openPageForMode } = require('../support/browser.ts') as BrowserSupport
 const { openEguiApp, waitForAppReady, readEguiError } = require('../support/egui-helpers.ts') as EguiHelpers
 
-// 起動が固まると `bootstrap.ts` の監視が 15 秒後に一度だけ自動で読み込み直す。
-// その分の余裕を含めた待ち時間にする。
 const CUCUMBER_STEP_TIMEOUT_MS = 30_000
 
 const requirePage = (world: EguiWorld): Page => {

@@ -1,5 +1,6 @@
 use eframe::wgpu;
 
+use crate::app::GateId;
 use crate::gates::GateParams;
 use crate::simulation_plan::SimulationOp;
 
@@ -9,9 +10,35 @@ use super::super::params::{
 };
 use super::super::resources::StateVectorResources;
 
-/// Per-variant params packed in the same order each op variant appears in the
-/// linear op stream. The dispatch encoder later copies each packed slot into
-/// the tiny uniform buffer immediately before its dispatch.
+/// ランナーがこの実行のあいだ保持する測定シード。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(transparent)]
+pub(crate) struct RunnerMeasurementSeed(u32);
+
+impl RunnerMeasurementSeed {
+    pub(crate) const fn new(seed: u32) -> Self {
+        Self(seed)
+    }
+
+    const fn bits(self) -> u32 {
+        self.0
+    }
+}
+
+/// 1 回の標本測定に渡すシード。ランナーシード、ゲート id、非表示フラグだけを取る。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct MeasurementSampleSeed(u32);
+
+impl MeasurementSampleSeed {
+    fn new(runner_seed: RunnerMeasurementSeed, gate_id: GateId, hidden: bool) -> Self {
+        Self(gate_id.as_u32() ^ runner_seed.bits() ^ if hidden { 0x8000_0000 } else { 0 })
+    }
+
+    fn as_u32(self) -> u32 {
+        self.0
+    }
+}
+
 pub(super) struct PackedRecomputeParams {
     gate: Vec<GateParams>,
     arithmetic: Vec<super::super::params::ArithmeticParams>,
@@ -29,7 +56,7 @@ impl PackedRecomputeParams {
         sim_ops: &[SimulationOp],
         state_count: usize,
         pair_count: u32,
-        measurement_seed: u32,
+        runner_seed: RunnerMeasurementSeed,
     ) -> Self {
         let mut packed = Self {
             gate: Vec::with_capacity(sim_ops.len()),
@@ -80,13 +107,7 @@ impl PackedRecomputeParams {
                     qubit_bit: qubit_bit.as_u32(),
                     state_count: state_count as u32,
                     output_slot: output_slot.as_u32(),
-                    // Standalone keeps seed zero; embeds mix in a seed owned by
-                    // the runner, never by the current step or rendered frame.
-                    // Hidden reset samples use a separate stream, including
-                    // when a detector samples the same gate twice.
-                    seed: gate_id.as_u32()
-                        ^ measurement_seed
-                        ^ if *visible { 0 } else { 0x8000_0000 },
+                    seed: MeasurementSampleSeed::new(runner_seed, *gate_id, !*visible).as_u32(),
                     control_mask: controls.mask(),
                     control_value: controls.value(),
                     _pad: [0; 2],
@@ -169,10 +190,6 @@ impl PackedRecomputeParams {
         packed
     }
 
-    /// Issue A pre-pass: upload all per-op params in at most one
-    /// `queue.write_buffer` per variant. The recompute encoder then sources
-    /// these staging slots via `copy_buffer_to_buffer`, so all dispatches can
-    /// stay in one encoder + one submit.
     pub(super) fn upload(&self, queue: &wgpu::Queue, resources: &StateVectorResources) {
         if !self.postselection.is_empty() {
             queue.write_buffer(
@@ -243,7 +260,6 @@ impl PackedRecomputeParams {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::GateId;
     use crate::gates::ColumnControls;
     use crate::gpu::SlotIndex;
     use crate::qubit_bit::QubitBit;
@@ -268,7 +284,7 @@ mod tests {
             ],
             8,
             4,
-            measurement_seed,
+            RunnerMeasurementSeed::new(measurement_seed),
         )
     }
 
@@ -281,7 +297,7 @@ mod tests {
             crate::qubit_count::QubitCount::try_new(1).unwrap(),
             0,
         );
-        let runner_seed = 0x12345678;
+        let runner_seed = RunnerMeasurementSeed::new(0x12345678);
         let packed = PackedRecomputeParams::from_ops(&ops, 2, 1, runner_seed);
         assert_eq!(
             packed
@@ -290,8 +306,8 @@ mod tests {
                 .map(|params| params.seed)
                 .collect::<Vec<_>>(),
             vec![
-                gates[0].id.as_u32() ^ runner_seed,
-                gates[0].id.as_u32() ^ runner_seed ^ 0x8000_0000,
+                gates[0].id.as_u32() ^ 0x12345678,
+                gates[0].id.as_u32() ^ 0x12345678 ^ 0x8000_0000,
             ]
         );
     }
@@ -306,7 +322,9 @@ mod tests {
                 output_slot: SlotIndex::new(slot),
                 controls: ColumnControls::NONE,
             }];
-            PackedRecomputeParams::from_ops(&ops, 2, 1, 0).measure_reduce[0].seed
+            PackedRecomputeParams::from_ops(&ops, 2, 1, RunnerMeasurementSeed::new(0))
+                .measure_reduce[0]
+                .seed
         });
         assert_eq!(seeds, [7 ^ 0x8000_0000; 2]);
     }

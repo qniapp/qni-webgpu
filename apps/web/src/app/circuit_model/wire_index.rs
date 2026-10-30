@@ -11,30 +11,11 @@ pub(crate) struct WireIndex {
     value: usize,
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum WireIndexError {
-    Negative,
-    Overflow,
-}
-
 impl WireIndex {
     pub(crate) const ZERO: Self = Self { value: 0 };
 
     pub(crate) const fn new(value: usize) -> Self {
         Self { value }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn try_from_i64(value: i64) -> Result<Self, WireIndexError> {
-        let value = usize::try_from(value).map_err(|_| {
-            if value < 0 {
-                WireIndexError::Negative
-            } else {
-                WireIndexError::Overflow
-            }
-        })?;
-        Ok(Self::new(value))
     }
 
     pub(crate) const fn as_usize(self) -> usize {
@@ -61,7 +42,7 @@ impl WireIndex {
 
 #[cfg(test)]
 mod tests {
-    use super::{WireIndex, WireIndexError};
+    use super::WireIndex;
     use crate::qubit_bit::QubitBit;
     use crate::qubit_count::QubitCount;
 
@@ -77,11 +58,6 @@ mod tests {
     #[test]
     fn new_keeps_value() {
         assert_eq!(WireIndex::new(2).as_usize(), 2);
-    }
-
-    #[test]
-    fn try_from_i64_rejects_negative() {
-        assert_eq!(WireIndex::try_from_i64(-1), Err(WireIndexError::Negative));
     }
 
     #[test]

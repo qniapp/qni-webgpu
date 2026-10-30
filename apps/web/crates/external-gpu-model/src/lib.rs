@@ -87,10 +87,6 @@ impl GpuFailure {
     }
 }
 
-pub fn qiskit_run_payload(qubits: usize, columns_json: &str, shots: Shots) -> String {
-    qiskit_run_payload_with_display_outputs(qubits, columns_json, shots, "[]", "[]", "[]", "[]")
-}
-
 pub fn qiskit_run_payload_with_display_outputs(
     qubits: usize,
     columns_json: &str,
@@ -128,18 +124,8 @@ pub fn format_gpu_duration(duration: Duration) -> String {
 }
 
 pub fn unsupported_gate_from_message(message: &str) -> Option<String> {
-    let lower = message.to_ascii_lowercase();
     if let Some((_, token)) = message.split_once("unsupported gate token:") {
         return Some(normalize_gate_name(token.trim()));
-    }
-    if lower.contains("anti-control") {
-        return Some("Anti-control".to_owned());
-    }
-    if lower.contains("qft") {
-        return Some("QFT".to_owned());
-    }
-    if lower.contains("controlled non-x") {
-        return Some("controlled gate".to_owned());
     }
     None
 }
@@ -172,7 +158,7 @@ mod tests {
     use std::time::Duration;
 
     use super::{
-        format_gpu_duration, qiskit_run_payload, qiskit_run_payload_with_display_outputs,
+        format_gpu_duration, qiskit_run_payload_with_display_outputs,
         unsupported_gate_from_message, Shots, ShotsError,
     };
 
@@ -214,12 +200,29 @@ mod tests {
 
     #[test]
     fn payload_embeds_default_shots() {
-        assert!(qiskit_run_payload(2, r#"[["H",1]]"#, Shots::DEFAULT).contains(r#""shots":1024"#));
+        assert!(qiskit_run_payload_with_display_outputs(
+            2,
+            r#"[["H",1]]"#,
+            Shots::DEFAULT,
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+        )
+        .contains(r#""shots":1024"#));
     }
 
     #[test]
     fn payload_requests_histogram() {
-        let payload = qiskit_run_payload(2, r#"[["H",1]]"#, Shots::try_new(256).unwrap());
+        let payload = qiskit_run_payload_with_display_outputs(
+            2,
+            r#"[["H",1]]"#,
+            Shots::try_new(256).unwrap(),
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+        );
         assert_eq!(
             payload.as_str(),
             r#"{"qubits":2,"columns":[["H",1]],"shots":256,"outputs":{"histogram":true}}"#,
@@ -228,7 +231,15 @@ mod tests {
 
     #[test]
     fn payload_omits_full_vector_outputs() {
-        let payload = qiskit_run_payload(2, r#"[["H",1]]"#, Shots::try_new(256).unwrap());
+        let payload = qiskit_run_payload_with_display_outputs(
+            2,
+            r#"[["H",1]]"#,
+            Shots::try_new(256).unwrap(),
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+        );
         assert!(!(payload.contains("statevector") || payload.contains("probabilities")));
     }
 
@@ -319,12 +330,10 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_gate_text_message_maps_qft() {
+    fn qft_validation_error_is_not_an_unsupported_gate() {
         assert_eq!(
-            unsupported_gate_from_message(
-                "QFT tokens are not supported by the dev Qiskit runner yet"
-            ),
-            Some("QFT".to_owned()),
+            unsupported_gate_from_message("QFT span references a wire beyond qubits"),
+            None,
         );
     }
 

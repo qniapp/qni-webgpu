@@ -27,9 +27,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
   var rho_01_re: f32 = 0.0;
   var rho_01_im: f32 = 0.0;
 
-  // Each thread handles state indices striding by workgroup size. Only loop
-  // over indices whose `qubit_bit` is 0 — the matching index_with_one is
-  // looked up directly so we accumulate ρ_01 in the same iteration.
   var i: u32 = tid;
   loop {
     if (i >= total) { break; }
@@ -42,8 +39,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
         let j: u32 = i | qubit_mask;
         if ((j & params.control_mask) == params.control_value) {
           let amp_j = state[j];
-          // ρ_01 = Σ_rest amp_i · conj(amp_j)
-          //   amp_i · conj(amp_j) = (a + bi)(c - di) = (ac + bd) + (bc - ad)i.
           rho_01_re = rho_01_re + (amp.x * amp_j.x + amp.y * amp_j.y);
           rho_01_im = rho_01_im + (amp.y * amp_j.x - amp.x * amp_j.y);
         }
@@ -60,7 +55,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
   shared_rho01_im[tid] = rho_01_im;
   workgroupBarrier();
 
-  // Tree reduction: 64 → 32 → 16 → 8 → 4 → 2 → 1.
   for (var step: u32 = 32u; step > 0u; step = step >> 1u) {
     if (tid < step) {
       shared_rho00[tid] = shared_rho00[tid] + shared_rho00[tid + step];
@@ -72,10 +66,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
   }
 
   if (tid == 0u) {
-    // qni convention (`packages/simulator/src/matrix.ts`):
-    //   x = 2·Re(ρ_01), y = -2·Im(ρ_01), z = ρ_00 - ρ_11.
-    // Quirk-style controlled displays first project onto the control slice,
-    // then normalize that conditional density matrix.
     let unity = shared_rho00[0] + shared_rho11[0];
     var x: f32 = 0.0;
     var y: f32 = 0.0;

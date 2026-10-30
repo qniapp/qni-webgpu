@@ -1,16 +1,8 @@
-//! Popup value render pipeline.
-//!
-//! Three-instance draw painting the amplitude / probability / phase
-//! numeric rows of the state-cell hover popup. The fragment shader
-//! reads the active `Common::state_buffers` directly and looks up
-//! glyphs in the baked popup atlas. No CPU readback.
-//!
-//! Three bind groups so we can pick the active ping-pong index or the
-//! state-panel preview snapshot when the popup paints.
-
 mod atlas;
 mod bindings;
 mod pipeline;
+
+pub(super) use atlas::{create_popup_glyph_atlas, PopupGlyphAtlas};
 
 use eframe::wgpu;
 

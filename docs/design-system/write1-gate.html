@@ -12,7 +12,6 @@
       document.documentElement.classList.add('preview-mode');
     }
   </script>
-  <!-- |1⟩ オペレーション本体は <write1-gate> カスタム要素で描画する。 -->
   <script src="components/write1-gate.js"></script>
   <style>
     /* ページ固有スタイル。共通スタイルは design-system.css にある。 */
@@ -253,10 +252,7 @@
     <h3 style="margin-top: 16px;">ピクセル内訳 (1× 図解)</h3>
     <div class="geo-diagram">
       <svg viewBox="-12 -12 80 80" width="240" height="240" aria-hidden="true">
-        <!-- Flexoki ui-2 = #DAD8CE / tx-2 = #6F6E69 / blue-600 = #205EA6 / tx-3 = #B7B5AC -->
-        <!-- slot 56 px (rest of the diagram is the same convention as write0-gate.html) -->
         <rect x="-8" y="-8" width="56" height="56" fill="none" stroke="#DAD8CE" stroke-dasharray="2,2"/>
-        <!-- body 40 px (透明、点線で領域だけ示す) -->
         <rect x="0" y="0" width="40" height="40" fill="none" stroke="#DAD8CE" stroke-dasharray="3,3" opacity="0.6"/>
         <!-- ケット括弧: viewBox 48 → 40 へ × 40/48 = 0.8333 リスケール
              縦:    (6, 5)..(6, 43)             → (5, 4.167)..(5, 35.833)
@@ -268,11 +264,9 @@
           <line x1="31.21" y1="4.167" x2="36.25" y2="20"/>
           <line x1="36.25" y1="20" x2="31.21" y2="35.833"/>
         </g>
-        <!-- ディジット "1" -->
         <g transform="translate(13.04 28.236) scale(0.02320 -0.02320)" fill="#205EA6">
           <path d="M60 0V84H284V526H98V600H194Q251 600 275.5 625.0Q300 650 300 710H370V84H540V0Z"/>
         </g>
-        <!-- 寸法ラベル -->
         <g font-family="Geist Mono, monospace" font-size="4" fill="#6F6E69">
           <text x="20" y="-9.5" text-anchor="middle">56 px slot</text>
           <text x="20" y="50.5" text-anchor="middle">40 px hit area</text>
@@ -338,7 +332,6 @@
   </div>
 </section>
 
-<!-- ─────── § 05 状態バリアント (常時表示モック) ─────── -->
 <section class="block">
   <h2><span class="num">§ 05</span>状態バリアント (常時表示モック)</h2>
   <div class="card">
@@ -369,7 +362,6 @@
   </div>
 </section>
 
-<!-- ─────── § 06 回路グリッド上の配置 ─────── -->
 <section class="block">
   <h2><span class="num">§ 06</span>回路グリッド上の配置</h2>
   <div class="card">
@@ -397,7 +389,6 @@
   </div>
 </section>
 
-<!-- ─────── § 07 意味論と設計判断 ─────── -->
 <section class="block">
   <h2><span class="num">§ 07</span>意味論と設計判断</h2>
   <div class="card">
@@ -408,10 +399,7 @@
       </div>
       <div class="mini">
         <strong>ユニタリ性</strong><br />
-        <strong>非ユニタリ</strong>。Kraus 表現では
-        <code>K<sub>0</sub> = |1⟩⟨0|</code> +
-        <code>K<sub>1</sub> = |1⟩⟨1|</code> の和で表される
-        (∑ K<sub>i</sub><sup>†</sup>K<sub>i</sub> = I を満たす)。
+        <strong>非ユニタリ</strong>。
         測定 + 条件付き X として分解される。
       </div>
       <div class="mini">
@@ -438,7 +426,6 @@
   </div>
 </section>
 
-<!-- ─────── § 08 関連仕様 ─────── -->
 <section class="block">
   <h2><span class="num">§ 08</span>関連仕様</h2>
   <div class="card">

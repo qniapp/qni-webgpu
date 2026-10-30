@@ -1,9 +1,7 @@
 
 struct BlochPopupParams {
-  // Egui callback viewport in CSS pixels.
   viewport_min: vec2<f32>,
   viewport_size: vec2<f32>,
-  // Top-left of the first value cell (`r`), in egui pixels.
   value_anchor: vec2<f32>,
   col_pitch: f32,
   row_pitch: f32,
@@ -52,7 +50,6 @@ fn sign_glyph(value: f32) -> u32 {
 }
 
 fn glyph_signed_fixed4(idx: u32, value: f32) -> u32 {
-  // forceSign · toFixed(4): +0.0000 through +1.0000 / −1.0000.
   let scaled = rounded_abs_scaled(value, 10000.0);
   if (idx == 0u) { return sign_glyph(value); }
   if (idx == 1u) { return (scaled / 10000u) % 10u; }
@@ -71,7 +68,6 @@ fn angle_digit_count(whole_degrees: u32) -> u32 {
 }
 
 fn glyph_signed_degrees(idx: u32, degrees: f32) -> u32 {
-  // forceSign · toFixed(2) + "°". Left-aligned inside an 8-cell value box.
   let scaled = rounded_abs_scaled(degrees, 100.0);
   let whole = scaled / 100u;
   let frac = scaled - whole * 100u;

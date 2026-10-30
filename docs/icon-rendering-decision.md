@@ -43,7 +43,7 @@
 ## 採用実装
 
 - `scripts/extract-gate-svg.py`
-  - Geist から `h.svg`, `x.svg`, `y.svg`, `z.svg`, `plus.svg`, `sqrtx.svg`, `s.svg`, `sdagger.svg`, `t.svg`, `tdagger.svg`, `rx.svg`, `ry.svg`, `rz.svg`, `qft.svg`, `qftdagger.svg`, `digit0.svg`, `digit1.svg` を生成し、`p.svg` は Qni と同じ Phase (Φ) アイコンとして生成する。
+  - Geist から `h.svg`, `y.svg`, `z.svg`, `plus.svg`, `sqrtx.svg`, `s.svg`, `sdagger.svg`, `t.svg`, `tdagger.svg`, `rx.svg`, `ry.svg`, `rz.svg`, `qft.svg`, `qftdagger.svg`, `digit0.svg`, `digit1.svg` を生成し、`p.svg` は Qni と同じ Phase (Φ) アイコンとして生成する。
   - 同じ SVG から `rsvg-convert`（無ければ `magick`）で 256×256 px PNG も生成。
 - `apps/web/build.rs`
   - `assets/icons/*.png` をビルド時に読み、256×256 px RGBA であることと可視画素があることを検査。

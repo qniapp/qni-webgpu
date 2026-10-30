@@ -1,18 +1,8 @@
-//! Plain-old-data types and capacity constants.
-//!
-//! All `#[repr(C)]` structs the GPU pipelines read (uniforms, instance
-//! buffers, vertex layouts) and the per-feature capacity constants live
-//! here. No shader strings, no buffer creation, no render logic — just
-//! the data shapes shared across `resources.rs` and `callbacks.rs`.
-
 use std::sync::Arc;
 
 use super::probability_distribution::ProbabilityDistribution;
 use crate::colors::Colors;
 
-/// Modular addition over a contiguous little-endian field. `amount` is a
-/// wrapping u32 (−1 = u32::MAX); target_mask is unshifted. The two reserved
-/// words leave room for a future input-register amount source, not implemented.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct ArithmeticParams {
@@ -28,34 +18,18 @@ pub(crate) struct ArithmeticParams {
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct RenderParams {
-    /// See `BlochOverlayParams::viewport_min`. NDC -1..1 maps to the egui
-    /// callback viewport, not the full canvas.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
-    /// Top-left of the state-circle grid in egui pixels — the unit quad
-    /// gets stretched from here over `panel_size`.
     pub(crate) panel_origin: [f32; 2],
-    /// Total grid extent (`cols * cell_pitch`, `rows * cell_pitch`).
     pub(crate) panel_size: [f32; 2],
-    /// Distance between adjacent cell origins (`size + gap`). Used in the
-    /// fragment shader to map a panel-local pixel to its `(col, row)` cell.
     pub(crate) cell_pitch: f32,
     pub(crate) radius: f32,
     pub(crate) inner_radius: f32,
     pub(crate) stroke: f32,
     pub(crate) cols: u32,
     pub(crate) rows: u32,
-    /// Number of qubits. With the q0=LSB (little-endian) convention the cell
-    /// display index `row * cols + col` is already the state-vector index, so
-    /// the fragment shader reads `state[display_index]` directly (no bit-reverse).
     pub(crate) qubits: u32,
-    /// Cell display-index (= `row * cols + col`) the pointer is currently
-    /// hovering over, or `-1` for "no hover". The fragment shader
-    /// multiplies fill / disk border / needle / outline RGB by 0.9 on the
-    /// matching cell — qni's `:host(:hover) #border { filter: brightness(0.9) }`
-    /// style extended to all four state-circle layers.
     pub(crate) hovered_cell: i32,
-    pub(crate) surface: [f32; 4],
     pub(crate) fill: [f32; 4],
     pub(crate) disk_border: [f32; 4],
     pub(crate) outline: [f32; 4],
@@ -65,7 +39,6 @@ pub(crate) struct RenderParams {
 
 #[derive(Clone, Copy)]
 pub(crate) struct RenderColors {
-    pub(crate) surface: [f32; 4],
     pub(crate) fill: [f32; 4],
     pub(crate) disk_border: [f32; 4],
     pub(crate) outline: [f32; 4],
@@ -81,7 +54,6 @@ impl RenderColors {
         // convert to linear and the GPU-rendered circles would come out
         // visibly darker than the egui-painted handle / palette colours.
         Self {
-            surface: colors.surface.to_normalized_gamma_f32(),
             fill: colors.state_fill.to_normalized_gamma_f32(),
             disk_border: colors.amplitude_disk_border.to_normalized_gamma_f32(),
             outline: colors.state_outline.to_normalized_gamma_f32(),
@@ -93,13 +65,6 @@ impl RenderColors {
 
 pub(crate) const STATE_WORKGROUP_SIZE: u32 = 64;
 
-/// Upper bound on the number of `SimulationOp`s of any single variant we can
-/// batch into one recompute encoder. Issue A's fix packs all per-op params
-/// into staging buffers up-front, then issues `copy_buffer_to_buffer` from
-/// staging slots into the existing small uniform buffers between dispatches
-/// inside a single encoder. Each variant has its own staging buffer sized to
-/// `MAX_OPS_PER_RECOMPUTE` slots; capacity is validated before packing so
-/// release builds fail explicitly instead of truncating the plan.
 pub(crate) const MAX_OPS_PER_RECOMPUTE: usize = 256;
 /// Maximum number of semantic step snapshots cached on the GPU for hover /
 /// breakpoint preview. `+ 1` lets the existing 257-gate capacity test report
@@ -107,24 +72,12 @@ pub(crate) const MAX_OPS_PER_RECOMPUTE: usize = 256;
 /// snapshot buffer allocation.
 pub(crate) const MAX_STEP_SNAPSHOT_SLOTS: usize = MAX_OPS_PER_RECOMPUTE + 1;
 
-/// Maximum number of Bloch displays whose vectors can be captured in a single
-/// recompute. Each placed `BlochDisplay` occupies one slot in the GPU's
-/// `bloch_output_buffer` (a vec4 per slot, .xyz used).
 pub(crate) const MAX_BLOCH_SLOTS: usize = 64;
 
-/// Maximum number of measurement gates whose outcomes can be captured in a
-/// single recompute. Each placed `Measurement` occupies one slot in the GPU's
-/// `measurement_aux_buffer` (a vec4 per slot — pZero, r, outcome, √p_kept).
 pub(crate) const MAX_MEASUREMENT_SLOTS: usize = 64;
 
-/// Maximum Probability display slots whose probability distributions can be
-/// captured in a single recompute. Each slot reserves `2^16` f32 values so a
-/// Probability16 can render every outcome without reallocating GPU buffers.
 pub(crate) const MAX_PROBABILITY_SLOTS: usize = 32;
 pub(crate) const MAX_PROBABILITY_OUTCOMES: usize = 1 << 16;
-/// Maximum CSS-pixel height of a Probability display body. Probability16 is currently
-/// `(16 - 1) * LINE_GAP + GATE_SIZE = 880px`; 1024 leaves room for style
-/// tweaks while keeping the aggregate buffer small.
 pub(crate) const MAX_PROBABILITY_AGGREGATE_ROWS: usize = 1024;
 pub(crate) const PROBABILITY_AGGREGATE_MIN_SPAN: u32 = 13;
 pub(crate) const PROBABILITY_RENDER_MODE_SAMPLE: u32 = 0;
@@ -152,16 +105,10 @@ impl ExternalProbabilityUploadBatch {
     }
 }
 
-/// Maximum Amplitude display slots whose complex matrices can be captured in
-/// a single recompute. Each slot reserves coherent (re/im) and incoherent
-/// magnitude values for `2^16` outcomes.
 pub(crate) const MAX_AMPLITUDE_SLOTS: usize = 32;
 pub(crate) const MAX_AMPLITUDE_OUTCOMES: usize = 1 << 16;
 pub(crate) const AMPLITUDE_VALUES_PER_SLOT: usize = MAX_AMPLITUDE_OUTCOMES * 3;
 
-/// Maximum Density Matrix displays captured in one recompute. Quirk's
-/// DensityMatrixDisplay family is 1..=8 qubits, so each slot reserves
-/// `(2^8 × 2^8)` complex cells.
 pub(crate) const MAX_DENSITY_SLOTS: usize = 16;
 pub(crate) const MAX_DENSITY_SPAN: usize = 8;
 pub(crate) const MAX_DENSITY_DIM: usize = 1 << MAX_DENSITY_SPAN;
@@ -274,7 +221,6 @@ pub(crate) struct MeasureCollapseParams {
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct ProbabilityReduceParams {
-    /// Lowest state-vector bit covered by the contiguous Probability span.
     pub(crate) base_bit: u32,
     pub(crate) span: u32,
     pub(crate) rest_count: u32,
@@ -338,23 +284,19 @@ pub(crate) struct DensityInstance {
     pub(crate) span: u32,
     pub(crate) hovered_cell: i32,
     pub(crate) use_drag_background: u32,
-    /// 0 = sample captured density buffer, 1 = pre-run placeholder.
     pub(crate) render_mode: u32,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct AmplitudeRenderParams {
-    /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) background: [f32; 4],
     pub(crate) drag_background: [f32; 4],
-    /// Grid / outer border.
     pub(crate) border: [f32; 4],
     pub(crate) disk: [f32; 4],
     pub(crate) disk_border: [f32; 4],
-    /// Coherent non-zero outline.
     pub(crate) outline: [f32; 4],
     pub(crate) outline_zero: [f32; 4],
     pub(crate) needle: [f32; 4],
@@ -375,32 +317,21 @@ pub(crate) struct AmplitudeInstance {
     pub(crate) span: u32,
     pub(crate) hovered_outcome: i32,
     pub(crate) use_drag_background: u32,
-    /// Amplitude render mode. 0 = sample captured slot, 1 = force zero
-    /// amplitudes for the Amps1 drag preview, 2 = pre-run placeholder.
     pub(crate) force_zero_amplitude: u32,
 }
 
-/// Uniform for the Amplitude hover popup value text shader. The shader reads
-/// coherent/incoherent values directly from the Amplitude storage buffers.
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct AmplitudePopupValueParams {
-    /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
-    /// Top-left of the row-0 value text in egui pixels.
     pub(crate) value_anchor: [f32; 2],
-    /// Vertical pitch between value rows.
     pub(crate) row_pitch: f32,
     pub(crate) _pad_row: f32,
-    /// Size of one atlas character cell on screen (egui pixels).
     pub(crate) char_size: [f32; 2],
     pub(crate) _pad_char: [f32; 2],
-    /// RGBA value text colour (premultiplied at sample time).
     pub(crate) text_color: [f32; 4],
-    /// RGBA muted value colour for incoherent amplitude / phase rows.
     pub(crate) muted_text_color: [f32; 4],
-    /// Amplitude output slot and hovered outcome cell.
     pub(crate) slot: u32,
     pub(crate) outcome: u32,
     pub(crate) _pad: [u32; 2],
@@ -409,21 +340,13 @@ pub(crate) struct AmplitudePopupValueParams {
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct ProbabilityRenderParams {
-    /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
-    /// Device pixels per logical point. The fragment shader maps its framebuffer
-    /// `@builtin(position)` back to a logical row so the outcome row is decided
-    /// from the (seam-stable) physical pixel centre rather than the interpolated
-    /// `local.y`, which is not bit-exact across the unit quad's triangle seam.
     pub(crate) pixels_per_point: f32,
-    /// Pad to keep the following `vec4` colours 16-byte aligned (WGSL std layout).
     pub(crate) _pad_ppp: [f32; 3],
     pub(crate) background: [f32; 4],
     pub(crate) placeholder_background: [f32; 4],
-    /// Outer border / row separators.
     pub(crate) border: [f32; 4],
-    /// Logarithm hints for Probability5..16.
     pub(crate) log_hint: [f32; 4],
     pub(crate) bar: [f32; 4],
     pub(crate) sample_on_core: [f32; 4],
@@ -452,33 +375,20 @@ pub(crate) struct ProbabilityInstance {
 impl ProbabilityInstance {
     pub(crate) const SAMPLED_BITSTRING: u32 = 2;
     pub(crate) const SAMPLE_PREVIEW: u32 = 3;
-    /// A lit Sample tile's halo spills past the gate edge, so Sample quads are
-    /// the gate rect grown by this much on every side (`SAMPLE_GLOW_PAD` in
-    /// `probability_render.wgsl`). Hit testing keeps using the gate rect.
     pub(crate) const SAMPLE_GLOW_PAD: f32 = crate::tailwind::SPACING_2;
 }
 
-/// Uniform for the Probability hover popup value text shader. The shader reads
-/// raw / log probability values directly from `probability_output`.
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct ProbabilityPopupValueParams {
-    /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
-    /// Top-left of the row-0 (`raw`) value text in egui pixels.
     pub(crate) value_anchor: [f32; 2],
-    /// Vertical pitch between `raw` and `log` rows.
     pub(crate) row_pitch: f32,
-    /// Pad to vec2 alignment.
     pub(crate) _pad_row: f32,
-    /// Size of one atlas character cell on screen (egui pixels).
     pub(crate) char_size: [f32; 2],
-    /// Padding before the next vec4-aligned field (`text_color`).
     pub(crate) _pad_char: [f32; 2],
-    /// RGBA text colour (premultiplied at sample time).
     pub(crate) text_color: [f32; 4],
-    /// Probability output slot and hovered outcome row.
     pub(crate) slot: u32,
     pub(crate) outcome: u32,
     pub(crate) _pad: [u32; 2],
@@ -510,32 +420,17 @@ pub(crate) struct BlochOverlayInstance {
     pub(crate) slot: u32,
 }
 
-/// Uniform for the Bloch hover popover value shader.
-///
-/// The static popover chrome and labels are painted by egui, while the
-/// r / φ / θ / x / y / z values are formatted from `bloch_output_buffer`
-/// in WGSL so production rendering never reads Bloch values back to the CPU.
-///
-/// Total size: 80 bytes (multiple of 16 for uniform-buffer alignment).
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct BlochPopupValueParams {
-    /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
-    /// Top-left of the first value cell (`r`) in egui pixels.
     pub(crate) value_anchor: [f32; 2],
-    /// Horizontal pitch between the r / φ / θ columns.
     pub(crate) col_pitch: f32,
-    /// Vertical pitch between the spherical and Cartesian rows.
     pub(crate) row_pitch: f32,
-    /// Size of one atlas character cell on screen (egui pixels).
     pub(crate) char_size: [f32; 2],
-    /// Padding before the next vec4-aligned field (`text_color`).
     pub(crate) _pad_char: [f32; 2],
-    /// RGBA text colour (premultiplied at sample time).
     pub(crate) text_color: [f32; 4],
-    /// Which slot in `bloch_output_buffer` to display.
     pub(crate) slot: u32,
     pub(crate) _pad: [u32; 3],
 }
@@ -543,7 +438,6 @@ pub(crate) struct BlochPopupValueParams {
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct MeasurementDigitParams {
-    /// See `BlochOverlayParams::viewport_min` — same NDC story.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) zero_color: [f32; 4],
@@ -563,11 +457,9 @@ pub(crate) struct MeasurementDigitInstance {
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct SurvivalLabelParams {
-    /// See `BlochOverlayParams::viewport_min` — same NDC story.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) zero_color: [f32; 4],
-    pub(crate) one_color: [f32; 4],
 }
 
 #[repr(C)]
@@ -580,66 +472,55 @@ pub(crate) struct SurvivalLabelInstance {
     pub(crate) mode: u32,
 }
 
-/// Uniform for `CONDITIONAL_GATE_BODY_SHADER`.
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct ConditionalGateBodyParams {
-    /// See `BlochOverlayParams::viewport_min`: same NDC story.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
-    /// Body fill when the measurement sampled 1 (the gate applied).
     pub(crate) enabled_color: [f32; 4],
-    /// Body fill when the measurement sampled 0 (the gate was skipped).
     pub(crate) disabled_color: [f32; 4],
 }
 
-/// One conditional gate body. `corner_radius == half_size` draws a circle.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct ConditionalGateBodyInstance {
     pub(crate) center: [f32; 2],
     pub(crate) half_size: f32,
     pub(crate) corner_radius: f32,
-    /// Measurement aux slot holding the outcome that decides the fill.
     pub(crate) slot: u32,
 }
 
-/// Conditional gate bodies drawn per frame. Each one is an `ApplyGate` op, so
-/// the recompute op budget already bounds them.
 pub(crate) const MAX_CONDITIONAL_GATE_BODIES: usize = MAX_OPS_PER_RECOMPUTE;
 
-/// Uniform for the state-cell hover popup value text shader
-/// (`POPUP_VALUE_SHADER`). Layout matches the WGSL `PopupParams` struct
-/// byte-for-byte — implicit WGSL alignment padding is made explicit
-/// here via `_pad_*` fields so `bytemuck::cast_slice` writes the exact
-/// shape the shader expects.
-///
-/// Total size: 80 bytes (multiple of 16 for uniform-buffer alignment).
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct PopupValueParams {
-    /// Egui callback viewport — see `BlochOverlayParams::viewport_min`.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
-    /// Top-left of the row-0 (amplitude) value text in egui pixels.
     pub(crate) value_anchor: [f32; 2],
-    /// Vertical pitch between value rows (= ROW_H from popup geometry).
     pub(crate) row_pitch: f32,
-    /// Pad to vec2 alignment.
     pub(crate) _pad_row: f32,
-    /// Size of one atlas character cell on screen (egui pixels).
     pub(crate) char_size: [f32; 2],
-    /// Padding before the next vec4-aligned field (`text_color`).
     pub(crate) _pad_char: [f32; 2],
-    /// RGBA text colour (premultiplied at sample time).
     pub(crate) text_color: [f32; 4],
-    /// Which state-vector cell the user is hovering — display-space index.
-    /// With q0=LSB this equals the state-space index, so the shader reads
-    /// `state[hovered_display_index]` directly (same convention as
-    /// `STATE_RENDER_SHADER`).
     pub(crate) hovered_display_index: u32,
     pub(crate) qubits: u32,
     pub(crate) _pad: [u32; 2],
+}
+
+#[cfg(test)]
+mod uniform_layout_tests {
+    use super::{RenderParams, SurvivalLabelParams};
+
+    #[test]
+    fn render_params_matches_uniform_size() {
+        assert_eq!(std::mem::size_of::<RenderParams>(), 144);
+    }
+
+    #[test]
+    fn survival_label_params_matches_uniform_size() {
+        assert_eq!(std::mem::size_of::<SurvivalLabelParams>(), 32);
+    }
 }
 
 #[cfg(test)]

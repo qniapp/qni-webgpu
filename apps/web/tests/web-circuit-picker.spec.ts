@@ -41,7 +41,7 @@ const ROW_4: Point = { x: 80, y: 208 }
 const KEBAB_X = 226
 const SUBMENU_X = 320
 const MOVE_UP_SUBMENU_Y = 244
-const FLEXOKI_BG: CanvasPixel = [255, 252, 240, 255] // Flexoki bg #FFFCF0
+const FLEXOKI_BG: CanvasPixel = [255, 252, 240, 255]
 
 const readCircuitColsFromHash = (url: string): unknown[] => {
   const hash = new URL(url).hash.slice(1)
@@ -63,7 +63,6 @@ const waitForSnapshot = async (
   predicate: (state: CircuitLibrarySnapshot) => boolean,
   description: string,
 ): Promise<CircuitLibrarySnapshot> => {
-  // 反映はフレーム描画をまたぐため、回数で切ると CPU 飽和時に取りこぼす。
   const state = await waitForValue(
     async () => {
       try {
@@ -447,7 +446,11 @@ test('Rename action accepts Japanese circuit names', async ({ page }) => {
   await clickCanvas(page, { x: KEBAB_X, y: ROW_1.y })
   await page.waitForTimeout(300)
   await clickCanvas(page, { x: SUBMENU_X, y: 100 })
-  await page.waitForTimeout(300)
+  await page.waitForFunction(() => {
+    const geometry = Reflect.get(window, '__qniCircuitPickerRenameGeometryJson')
+    return typeof geometry === 'string' && geometry.length > 0
+      && document.activeElement?.tagName === 'INPUT'
+  })
   await page.keyboard.type('量子回路')
   await page.keyboard.press('Enter')
 

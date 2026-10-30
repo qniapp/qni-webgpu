@@ -9,16 +9,8 @@ use super::super::readback::BLOCH_SLOT_MAP;
 use super::super::readback::{BlochGpuHandle, BLOCH_GPU_HANDLE};
 use super::super::resources::StateVectorResources;
 
-/// Renders the dynamic Bloch arrow + tip dot for every placed Bloch display
-/// directly from `bloch_output_buffer`. No CPU readback in production —
-/// `BlochOverlayInstance` carries (screen center, radius, output_slot) and
-/// the fragment shader reads (x, y, z) straight from the GPU buffer the
-/// reduction shader just wrote.
 pub(crate) struct BlochOverlayCallback {
     pub(crate) instances: Arc<[BlochOverlayInstance]>,
-    /// CSS-pixel rect of the egui callback viewport (= the rect we passed
-    /// to `Callback::new_paint_callback`). NDC -1..1 maps to this, not the
-    /// full canvas, so the shader needs both `min` and `size`.
     pub(crate) viewport_min: [f32; 2],
     pub(crate) viewport_size: [f32; 2],
     pub(crate) line_color: [f32; 4],

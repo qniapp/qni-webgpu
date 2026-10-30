@@ -35,7 +35,6 @@ struct VertexOut {
 @group(0) @binding(1) var<storage, read> amplitude_meta: array<vec4<f32>>;
 @group(0) @binding(2) var<uniform> params: PopupParams;
 @group(0) @binding(3) var glyph_tex: texture_2d<f32>;
-@group(0) @binding(4) var glyph_sampler: sampler;
 
 fn glyph_digit(value: u32) -> u32 { return min(value, 9u); }
 fn glyph_dot() -> u32 { return 10u; }
@@ -199,8 +198,6 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let atlas_row = min(u32(floor(cell_local.y * f32(GLYPH_CELL_H))), GLYPH_CELL_H - 1u);
     let atlas_x = glyph * GLYPH_CELL_W + atlas_col;
     let sampled_alpha = textureLoad(glyph_tex, vec2<i32>(i32(atlas_x), i32(atlas_row)), 0).r;
-    // The atlas already contains glyph-edge antialiasing. Tighten that alpha
-    // ramp slightly so small popup numbers stay crisp without becoming jagged.
     let alpha = smoothstep(0.14, 0.86, sampled_alpha);
     if (alpha <= 0.001) {
         discard;

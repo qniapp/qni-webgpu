@@ -60,8 +60,10 @@ export function pack(name: string, values: Record<string, number | number[]>): A
 }
 const constSources = ['gpu/params.rs', 'gates/params.rs', 'constants.rs']
 function evaluate(expr: string, name: string, resolve: (id: string) => number): number {
-  const tokens = expr.match(/<<|\d+u?|[A-Za-z_]\w*|[()*+]/g) ?? []
-  if (!tokens.length || tokens.join('') !== expr.replace(/\s/g, '')) drift(`unrecognized const ${name}: ${expr}`)
+  const compact = expr.replace(/\s/g, '')
+  if (compact === 'u32::MAX') return 2 ** 32 - 1
+  const tokens = expr.match(/<<|0x[0-9a-fA-F]+u?|\d+u?|[A-Za-z_]\w*|[()*+]/g) ?? []
+  if (!tokens.length || tokens.join('') !== compact) drift(`unrecognized const ${name}: ${expr}`)
   let i = 0
   const atom = (): number => {
     const t = tokens[i++]
@@ -70,7 +72,8 @@ function evaluate(expr: string, name: string, resolve: (id: string) => number): 
       if (tokens[i++] !== ')') drift(`const ${name}: unmatched paren`)
       return n
     }
-    if (!t || !/^(?:\d+u?|[A-Za-z_]\w*)$/.test(t)) return drift(`const ${name}: ${t}`)
+    if (!t || !/^(?:0x[0-9a-fA-F]+u?|\d+u?|[A-Za-z_]\w*)$/.test(t)) return drift(`const ${name}: ${t}`)
+    if (/^0x/i.test(t)) return Number(t.replace(/u$/, ''))
     return /^\d+u?$/.test(t) ? Number(t.replace(/u$/, '')) : resolve(t)
   }
   const product = (): number => {
