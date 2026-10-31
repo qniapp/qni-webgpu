@@ -90,22 +90,6 @@
     pointer-events: none;
     z-index: 1;
   }
-  .cd .row .bar-clip {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    overflow: hidden;
-    pointer-events: none;
-  }
-  .cd .row .bar-clip .row-extent {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 40px;
-  }
-  .cd .row .bar-clip .label { color: var(--tx); }
   .cd:hover,
   :host([state="hover"]) .cd {
     box-shadow:
@@ -338,23 +322,10 @@
         row.appendChild(bar);
 
         if (showText) {
-          const labelHtml = this.#buildLabel(p);
           const label = document.createElement('div');
           label.className = 'label';
-          label.innerHTML = labelHtml;
+          label.innerHTML = this.#buildLabel(p);
           row.appendChild(label);
-
-          const clip = document.createElement('div');
-          clip.className = 'bar-clip';
-          clip.style.width = `${p}%`;
-          const extent = document.createElement('div');
-          extent.className = 'row-extent';
-          const clippedLabel = document.createElement('div');
-          clippedLabel.className = 'label';
-          clippedLabel.innerHTML = labelHtml;
-          extent.appendChild(clippedLabel);
-          clip.appendChild(extent);
-          row.appendChild(clip);
         }
         cd.appendChild(row);
       });
