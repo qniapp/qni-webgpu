@@ -7,7 +7,7 @@ mod session;
 mod test_hooks;
 mod transport;
 
-pub(crate) use session::{ExternalGpuSession, Invalidation};
+pub(crate) use session::ExternalGpuSession;
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod parser_fixtures;

@@ -91,8 +91,7 @@ impl QniApp {
         self.library.update_active_unchecked(json.clone());
         self.persist_library();
         self.write_circuit_to_url(&json);
-        self.external_gpu
-            .invalidate(super::external_gpu::Invalidation::CircuitChanged);
+        self.external_gpu.invalidate();
         ctx.request_repaint();
         true
     }
@@ -203,8 +202,7 @@ impl QniApp {
         self.drag_cursor_pos = None;
         self.drag_repaint_deadline = None;
         self.drag_repaint_pending = false;
-        self.external_gpu
-            .invalidate(super::external_gpu::Invalidation::CircuitChanged);
+        self.external_gpu.invalidate();
         self.gpu_plan.mark_dirty();
         self.clear_gpu_plan_capacity_error();
         ctx.request_repaint();

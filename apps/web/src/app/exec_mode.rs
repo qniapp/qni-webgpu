@@ -101,8 +101,7 @@ impl QniApp {
             self.write_exec_mode_to_url();
             self.update_qubit_count();
             if self.exec_mode == ExecMode::Local {
-                self.external_gpu
-                    .invalidate(super::external_gpu::Invalidation::EnteredLocal);
+                self.external_gpu.invalidate();
             }
             self.gpu_plan.mark_dirty();
         }
