@@ -79,19 +79,8 @@ pub(super) fn probability_slot_to_gate_id(requests: &[ExternalProbabilityRequest
     requests.iter().map(|request| request.gate_id).collect()
 }
 
-pub(super) fn parse_probability_upload_batch(
-    message: &str,
-    generation: u64,
-    slot_to_gate_id: &[u32],
-) -> Option<ExternalProbabilityUploadBatch> {
-    if slot_to_gate_id.is_empty() {
-        return None;
-    }
-    parse_probability_upload_batch_impl(message, generation, slot_to_gate_id)
-}
-
 #[cfg(target_arch = "wasm32")]
-fn parse_probability_upload_batch_impl(
+pub(super) fn parse_probability_upload_batch(
     message: &str,
     generation: u64,
     slot_to_gate_id: &[u32],
@@ -111,7 +100,7 @@ fn parse_probability_upload_batch_impl(
     for value in probability.iter() {
         let gate_id = js_u32_prop(&value, "gate_id")?;
         let slot_index = slot_to_gate_id.iter().position(|id| *id == gate_id)?;
-        if slot_index >= crate::gpu::MAX_PROBABILITY_SLOTS || seen_slots[slot_index] {
+        if seen_slots[slot_index] {
             return None;
         }
         seen_slots[slot_index] = true;
@@ -135,7 +124,7 @@ fn parse_probability_upload_batch_impl(
             probabilities: distribution,
         });
     }
-    if uploads.len() != slot_to_gate_id.len() || seen_slots.iter().any(|seen| !*seen) {
+    if seen_slots.iter().any(|seen| !*seen) {
         return None;
     }
     Some(ExternalProbabilityUploadBatch {
@@ -146,7 +135,7 @@ fn parse_probability_upload_batch_impl(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn parse_probability_upload_batch_impl(
+pub(super) fn parse_probability_upload_batch(
     _message: &str,
     _generation: u64,
     _slot_to_gate_id: &[u32],

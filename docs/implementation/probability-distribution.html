@@ -29,7 +29,7 @@
   <h2>§ 01 背景と目的</h2>
   <div class="card">
     <p>
-      外部 GPU 実行では、Qiskit が算出した測定確率分布が JSON で返り、<code>parse_probability_upload_batch_impl</code>（<code>apps/web/src/app/external_gpu/probability.rs</code>）が各測定結果の確率を <code>f64</code> から <code>f32</code> へ変換して <code>Arc&lt;[f32]&gt;</code> に詰める。
+      外部 GPU 実行では、Qiskit が算出した測定確率分布が JSON で返り、<code>parse_probability_upload_batch</code>（<code>apps/web/src/app/external_gpu/probability.rs</code>）が各測定結果の確率を <code>f64</code> から <code>f32</code> へ変換して <code>Arc&lt;[f32]&gt;</code> に詰める。
       この配列は <code>ExternalProbabilityUpload</code> に保持され、<code>probability_display.rs</code> で <code>bytemuck::cast_slice</code> により GPU の確率バッファへ転送される。
     </p>
     <p>
@@ -154,7 +154,7 @@ impl ProbabilityDistribution {
   <div class="card">
     <h3>生成点（JSON 取り込み）</h3>
     <p>
-      <code>parse_probability_upload_batch_impl</code> は、<code>2^span</code> 個の確率を <code>Vec&lt;f32&gt;</code> に集めたあと <code>ProbabilityDistribution::try_new(Arc::from(..))</code> で構築する。
+      <code>parse_probability_upload_batch</code> は、<code>2^span</code> 個の確率を <code>Vec&lt;f32&gt;</code> に集めたあと <code>ProbabilityDistribution::try_new(Arc::from(..))</code> で構築する。
       検証に失敗した場合は <code>.ok()?</code> でバッチ全体を <code>None</code> にし、不正な確率分布を 1 スロットでも含む応答は取り込まない（この関数のほかの検証失敗と同じ扱い）。
     </p>
 
@@ -232,7 +232,7 @@ impl ProbabilityDistribution {
       <tbody>
         <tr><th>値オブジェクト本体</th><td><code>apps/web/src/gpu/probability_distribution.rs</code></td></tr>
         <tr><th>運搬する型</th><td><code>apps/web/src/gpu/params.rs</code>（<code>ExternalProbabilityUpload</code>）</td></tr>
-        <tr><th>生成点</th><td><code>apps/web/src/app/external_gpu/probability.rs</code>（<code>parse_probability_upload_batch_impl</code>）</td></tr>
+        <tr><th>生成点</th><td><code>apps/web/src/app/external_gpu/probability.rs</code>（<code>parse_probability_upload_batch</code>）</td></tr>
         <tr><th>消費点</th><td><code>apps/web/src/gpu/callbacks/probability_display.rs</code></td></tr>
         <tr><th>長さの上限</th><td><code>apps/web/src/gpu/params.rs</code>（<code>MAX_PROBABILITY_OUTCOMES</code>）</td></tr>
         <tr><th>関連する値オブジェクト</th><td><a href="shots.html">Shots 実装仕様</a> / <a href="slot-index.html">SlotIndex 実装仕様</a></td></tr>
