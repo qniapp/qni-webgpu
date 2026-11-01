@@ -74,19 +74,8 @@ pub(super) fn density_slot_to_gate_id(requests: &[ExternalDensityRequest]) -> Ve
     requests.iter().map(|request| request.gate_id).collect()
 }
 
-pub(super) fn parse_density_upload_batch(
-    message: &str,
-    generation: u64,
-    slot_to_gate_id: &[u32],
-) -> Option<ExternalDensityUploadBatch> {
-    if slot_to_gate_id.is_empty() {
-        return None;
-    }
-    parse_density_upload_batch_impl(message, generation, slot_to_gate_id)
-}
-
 #[cfg(target_arch = "wasm32")]
-fn parse_density_upload_batch_impl(
+pub(super) fn parse_density_upload_batch(
     message: &str,
     generation: u64,
     slot_to_gate_id: &[u32],
@@ -106,7 +95,7 @@ fn parse_density_upload_batch_impl(
     for value in densities.iter() {
         let gate_id = js_u32_prop(&value, "gate_id")?;
         let slot_index = slot_to_gate_id.iter().position(|id| *id == gate_id)?;
-        if slot_index >= crate::gpu::MAX_DENSITY_SLOTS || seen_slots[slot_index] {
+        if seen_slots[slot_index] {
             return None;
         }
         seen_slots[slot_index] = true;
@@ -133,7 +122,7 @@ fn parse_density_upload_batch_impl(
             meta: [unity, span as f32, 0.0, 0.0],
         });
     }
-    if uploads.len() != slot_to_gate_id.len() || seen_slots.iter().any(|seen| !*seen) {
+    if seen_slots.iter().any(|seen| !*seen) {
         return None;
     }
     Some(ExternalDensityUploadBatch {
@@ -144,7 +133,7 @@ fn parse_density_upload_batch_impl(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn parse_density_upload_batch_impl(
+pub(super) fn parse_density_upload_batch(
     _message: &str,
     _generation: u64,
     _slot_to_gate_id: &[u32],
