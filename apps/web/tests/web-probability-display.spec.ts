@@ -644,54 +644,50 @@ const waitForRowsBelowProbabilitySpike = async (
   const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   const gateHeight = (5 - 1) * LINE_GAP + GATE_SIZE
   const rowH = gateHeight / 32
-  try {
-    const evidence = await waitForValue(
-      async () => {
-        const screenshot = await canvas.screenshot({ type: 'png' })
-        const box = await canvas.boundingBox()
-        if (!box) throw new Error('expected egui canvas to be measurable')
-        return await page.evaluate(
-          async ({ base64, cssWidth, cssHeight, gateLeft, gateTop, rowH, gateHeight, gateSize }) => {
-            const img = new Image()
-            img.src = `data:image/png;base64,${base64}`
-            await new Promise((resolve, reject) => {
-              img.onload = () => resolve(null)
-              img.onerror = () => reject(new Error('Failed to decode screenshot'))
-            })
-            const c = document.createElement('canvas')
-            c.width = img.width
-            c.height = img.height
-            const ctx = c.getContext('2d', { willReadFrequently: true })
-            if (!ctx) return { spikeBarPixels: 0, belowSpikeBarPixels: 0 }
-            ctx.drawImage(img, 0, 0)
-            const scaleX = img.width / cssWidth
-            const scaleY = img.height / cssHeight
-            const isBarBlue = (x: number, y: number): boolean => {
-              const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
-              return Math.abs(r - 146) + Math.abs(g - 191) + Math.abs(b - 219) < 24
-            }
-            const xLo = Math.floor((gateLeft + 1) * scaleX)
-            const xHi = Math.floor((gateLeft + gateSize - 1) * scaleX)
-            let spikeBarPixels = 0
-            const spikeYLo = Math.floor((gateTop + 5 * rowH + 1) * scaleY)
-            const spikeYHi = Math.floor((gateTop + 6 * rowH - 1) * scaleY)
-            for (let y = spikeYLo; y <= spikeYHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isBarBlue(x, y)) spikeBarPixels += 1
-            let belowSpikeBarPixels = 0
-            const belowYLo = Math.floor((gateTop + 6 * rowH) * scaleY)
-            const belowYHi = Math.floor((gateTop + gateHeight - 1) * scaleY)
-            for (let y = belowYLo; y <= belowYHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isBarBlue(x, y)) belowSpikeBarPixels += 1
-            return { spikeBarPixels, belowSpikeBarPixels }
-          },
-          { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, gateTop, rowH, gateHeight, gateSize: GATE_SIZE },
-        )
-      },
-      (evidence) => evidence.spikeBarPixels > 40,
-      'Probability5 value-5 bar never rendered; cannot evaluate rows below the spike',
-    )
-    return { belowSpikeBarPixels: evidence.belowSpikeBarPixels }
-  } catch (err) {
-    throw new Error('Probability5 value-5 bar never rendered; cannot evaluate rows below the spike')
-  }
+  const evidence = await waitForValue(
+    async () => {
+      const screenshot = await canvas.screenshot({ type: 'png' })
+      const box = await canvas.boundingBox()
+      if (!box) throw new Error('expected egui canvas to be measurable')
+      return await page.evaluate(
+        async ({ base64, cssWidth, cssHeight, gateLeft, gateTop, rowH, gateHeight, gateSize }) => {
+          const img = new Image()
+          img.src = `data:image/png;base64,${base64}`
+          await new Promise((resolve, reject) => {
+            img.onload = () => resolve(null)
+            img.onerror = () => reject(new Error('Failed to decode screenshot'))
+          })
+          const c = document.createElement('canvas')
+          c.width = img.width
+          c.height = img.height
+          const ctx = c.getContext('2d', { willReadFrequently: true })
+          if (!ctx) return { spikeBarPixels: 0, belowSpikeBarPixels: 0 }
+          ctx.drawImage(img, 0, 0)
+          const scaleX = img.width / cssWidth
+          const scaleY = img.height / cssHeight
+          const isBarBlue = (x: number, y: number): boolean => {
+            const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+            return Math.abs(r - 146) + Math.abs(g - 191) + Math.abs(b - 219) < 24
+          }
+          const xLo = Math.floor((gateLeft + 1) * scaleX)
+          const xHi = Math.floor((gateLeft + gateSize - 1) * scaleX)
+          let spikeBarPixels = 0
+          const spikeYLo = Math.floor((gateTop + 5 * rowH + 1) * scaleY)
+          const spikeYHi = Math.floor((gateTop + 6 * rowH - 1) * scaleY)
+          for (let y = spikeYLo; y <= spikeYHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isBarBlue(x, y)) spikeBarPixels += 1
+          let belowSpikeBarPixels = 0
+          const belowYLo = Math.floor((gateTop + 6 * rowH) * scaleY)
+          const belowYHi = Math.floor((gateTop + gateHeight - 1) * scaleY)
+          for (let y = belowYLo; y <= belowYHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isBarBlue(x, y)) belowSpikeBarPixels += 1
+          return { spikeBarPixels, belowSpikeBarPixels }
+        },
+        { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, gateTop, rowH, gateHeight, gateSize: GATE_SIZE },
+      )
+    },
+    (evidence) => evidence.spikeBarPixels > 40,
+    'Probability5 value-5 bar never rendered; cannot evaluate rows below the spike',
+  )
+  return { belowSpikeBarPixels: evidence.belowSpikeBarPixels }
 }
 
 test('Probability5 bar leaves no seam nub in the rows below the spike', async ({ page }) => {
@@ -734,62 +730,58 @@ const waitForLogHintBelowFullBar = async (
   const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   const rowH = ((5 - 1) * LINE_GAP + GATE_SIZE) / 32
   const gateHeight = (5 - 1) * LINE_GAP + GATE_SIZE
-  try {
-    const evidence = await waitForValue(
-      async () => {
-        const screenshot = await canvas.screenshot({ type: 'png' })
-        const box = await canvas.boundingBox()
-        if (!box) throw new Error('expected egui canvas to be measurable')
-        return await page.evaluate(
-          async ({ base64, cssWidth, cssHeight, gateLeft, gateTop, rowH, gateHeight, gateSize, logHint }) => {
-            const img = new Image()
-            img.src = `data:image/png;base64,${base64}`
-            await new Promise((resolve, reject) => {
-              img.onload = () => resolve(null)
-              img.onerror = () => reject(new Error('Failed to decode screenshot'))
-            })
-            const c = document.createElement('canvas')
-            c.width = img.width
-            c.height = img.height
-            const ctx = c.getContext('2d', { willReadFrequently: true })
-            if (!ctx) return { barPixels: 0, logHintPixelsBelowBar: 0 }
-            ctx.drawImage(img, 0, 0)
-            const scaleX = img.width / cssWidth
-            const scaleY = img.height / cssHeight
-            const px = (x: number, y: number): [number, number, number] => {
-              const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
-              return [r, g, b]
-            }
-            const isBar = (x: number, y: number): boolean => {
-              const [r, g, b] = px(x, y)
-              return Math.abs(r - 146) + Math.abs(g - 191) + Math.abs(b - 219) < 24
-            }
-            const isLogHint = (x: number, y: number): boolean => {
-              const [r, g, b] = px(x, y)
-              return Math.abs(r - logHint[0]) + Math.abs(g - logHint[1]) + Math.abs(b - logHint[2]) < 24
-            }
-            const xLo = Math.floor((gateLeft + 1) * scaleX)
-            const xHi = Math.floor((gateLeft + gateSize - 1) * scaleX)
-            let barPixels = 0
-            const spikeYLo = Math.floor((gateTop + 5 * rowH + 1) * scaleY)
-            const spikeYHi = Math.floor((gateTop + 6 * rowH - 1) * scaleY)
-            for (let y = spikeYLo; y <= spikeYHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isBar(x, y)) barPixels += 1
-            let logHintPixelsBelowBar = 0
-            const belowYLo = Math.floor((gateTop + 6 * rowH) * scaleY)
-            const belowYHi = Math.floor((gateTop + gateHeight - 1) * scaleY)
-            for (let y = belowYLo; y <= belowYHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isLogHint(x, y)) logHintPixelsBelowBar += 1
-            return { barPixels, logHintPixelsBelowBar }
-          },
-          { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, gateTop, rowH, gateHeight, gateSize: GATE_SIZE, logHint: FLEXOKI_TX_3 },
-        )
-      },
-      (evidence) => evidence.barPixels > 40,
-      'Probability5 value-5 bar never rendered; cannot evaluate log hints below the bar',
-    )
-    return { logHintPixelsBelowBar: evidence.logHintPixelsBelowBar }
-  } catch (err) {
-    throw new Error('Probability5 value-5 bar never rendered; cannot evaluate log hints below the bar')
-  }
+  const evidence = await waitForValue(
+    async () => {
+      const screenshot = await canvas.screenshot({ type: 'png' })
+      const box = await canvas.boundingBox()
+      if (!box) throw new Error('expected egui canvas to be measurable')
+      return await page.evaluate(
+        async ({ base64, cssWidth, cssHeight, gateLeft, gateTop, rowH, gateHeight, gateSize, logHint }) => {
+          const img = new Image()
+          img.src = `data:image/png;base64,${base64}`
+          await new Promise((resolve, reject) => {
+            img.onload = () => resolve(null)
+            img.onerror = () => reject(new Error('Failed to decode screenshot'))
+          })
+          const c = document.createElement('canvas')
+          c.width = img.width
+          c.height = img.height
+          const ctx = c.getContext('2d', { willReadFrequently: true })
+          if (!ctx) return { barPixels: 0, logHintPixelsBelowBar: 0 }
+          ctx.drawImage(img, 0, 0)
+          const scaleX = img.width / cssWidth
+          const scaleY = img.height / cssHeight
+          const px = (x: number, y: number): [number, number, number] => {
+            const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+            return [r, g, b]
+          }
+          const isBar = (x: number, y: number): boolean => {
+            const [r, g, b] = px(x, y)
+            return Math.abs(r - 146) + Math.abs(g - 191) + Math.abs(b - 219) < 24
+          }
+          const isLogHint = (x: number, y: number): boolean => {
+            const [r, g, b] = px(x, y)
+            return Math.abs(r - logHint[0]) + Math.abs(g - logHint[1]) + Math.abs(b - logHint[2]) < 24
+          }
+          const xLo = Math.floor((gateLeft + 1) * scaleX)
+          const xHi = Math.floor((gateLeft + gateSize - 1) * scaleX)
+          let barPixels = 0
+          const spikeYLo = Math.floor((gateTop + 5 * rowH + 1) * scaleY)
+          const spikeYHi = Math.floor((gateTop + 6 * rowH - 1) * scaleY)
+          for (let y = spikeYLo; y <= spikeYHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isBar(x, y)) barPixels += 1
+          let logHintPixelsBelowBar = 0
+          const belowYLo = Math.floor((gateTop + 6 * rowH) * scaleY)
+          const belowYHi = Math.floor((gateTop + gateHeight - 1) * scaleY)
+          for (let y = belowYLo; y <= belowYHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isLogHint(x, y)) logHintPixelsBelowBar += 1
+          return { barPixels, logHintPixelsBelowBar }
+        },
+        { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, gateTop, rowH, gateHeight, gateSize: GATE_SIZE, logHint: FLEXOKI_TX_3 },
+      )
+    },
+    (evidence) => evidence.barPixels > 40,
+    'Probability5 value-5 bar never rendered; cannot evaluate log hints below the bar',
+  )
+  return { logHintPixelsBelowBar: evidence.logHintPixelsBelowBar }
 }
 
 test('Probability5 draws no log hint for the zero-probability rows below a full bar', async ({ page }) => {
@@ -815,53 +807,49 @@ const waitForSeveredZeroRowLogHint = async (
   const gateLeft = EGUI_PANEL_MARGIN + LINE_LEFT_OFFSET + GATE_SIZE + SLOT_SPACING - GATE_SIZE / 2
   const gateTop = EGUI_PANEL_MARGIN + LINE_Y - GATE_SIZE / 2
   const rowH = ((5 - 1) * LINE_GAP + GATE_SIZE) / 32
-  try {
-    const evidence = await waitForValue(
-      async () => {
-        const screenshot = await canvas.screenshot({ type: 'png' })
-        const box = await canvas.boundingBox()
-        if (!box) throw new Error('expected egui canvas to be measurable')
-        return await page.evaluate(
-          async ({ base64, cssWidth, cssHeight, gateLeft, gateTop, rowH, gateSize, logHint }) => {
-            const img = new Image()
-            img.src = `data:image/png;base64,${base64}`
-            await new Promise((resolve, reject) => {
-              img.onload = () => resolve(null)
-              img.onerror = () => reject(new Error('Failed to decode screenshot'))
-            })
-            const c = document.createElement('canvas')
-            c.width = img.width
-            c.height = img.height
-            const ctx = c.getContext('2d', { willReadFrequently: true })
-            if (!ctx) return { tickPixels: 0, zeroRowLogHintPixels: 0 }
-            ctx.drawImage(img, 0, 0)
-            const scaleX = img.width / cssWidth
-            const scaleY = img.height / cssHeight
-            const isLogHint = (x: number, y: number): boolean => {
-              const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
-              return Math.abs(r - logHint[0]) + Math.abs(g - logHint[1]) + Math.abs(b - logHint[2]) < 24
-            }
-            const xLo = Math.floor((gateLeft + 1) * scaleX)
-            const xHi = Math.floor((gateLeft + gateSize - 1) * scaleX)
-            const countRow = (row: number, includeTop: boolean): number => {
-              const yLo = Math.floor((gateTop + row * rowH + (includeTop ? 0 : 1)) * scaleY)
-              const yHi = Math.floor((gateTop + (row + 1) * rowH - 1) * scaleY)
-              let n = 0
-              for (let y = yLo; y <= yHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isLogHint(x, y)) n += 1
-              return n
-            }
-            return { tickPixels: countRow(0, false) + countRow(2, false), zeroRowLogHintPixels: countRow(1, true) }
-          },
-          { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, gateTop, rowH, gateSize: GATE_SIZE, logHint: FLEXOKI_TX_3 },
-        )
-      },
-      (evidence) => evidence.tickPixels > 0,
-      'Probability5 log-hint ticks for the non-zero rows never rendered',
-    )
-    return { zeroRowLogHintPixels: evidence.zeroRowLogHintPixels }
-  } catch (err) {
-    throw new Error('Probability5 log-hint ticks for the non-zero rows never rendered')
-  }
+  const evidence = await waitForValue(
+    async () => {
+      const screenshot = await canvas.screenshot({ type: 'png' })
+      const box = await canvas.boundingBox()
+      if (!box) throw new Error('expected egui canvas to be measurable')
+      return await page.evaluate(
+        async ({ base64, cssWidth, cssHeight, gateLeft, gateTop, rowH, gateSize, logHint }) => {
+          const img = new Image()
+          img.src = `data:image/png;base64,${base64}`
+          await new Promise((resolve, reject) => {
+            img.onload = () => resolve(null)
+            img.onerror = () => reject(new Error('Failed to decode screenshot'))
+          })
+          const c = document.createElement('canvas')
+          c.width = img.width
+          c.height = img.height
+          const ctx = c.getContext('2d', { willReadFrequently: true })
+          if (!ctx) return { tickPixels: 0, zeroRowLogHintPixels: 0 }
+          ctx.drawImage(img, 0, 0)
+          const scaleX = img.width / cssWidth
+          const scaleY = img.height / cssHeight
+          const isLogHint = (x: number, y: number): boolean => {
+            const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+            return Math.abs(r - logHint[0]) + Math.abs(g - logHint[1]) + Math.abs(b - logHint[2]) < 24
+          }
+          const xLo = Math.floor((gateLeft + 1) * scaleX)
+          const xHi = Math.floor((gateLeft + gateSize - 1) * scaleX)
+          const countRow = (row: number, includeTop: boolean): number => {
+            const yLo = Math.floor((gateTop + row * rowH + (includeTop ? 0 : 1)) * scaleY)
+            const yHi = Math.floor((gateTop + (row + 1) * rowH - 1) * scaleY)
+            let n = 0
+            for (let y = yLo; y <= yHi; y += 1) for (let x = xLo; x <= xHi; x += 1) if (isLogHint(x, y)) n += 1
+            return n
+          }
+          return { tickPixels: countRow(0, false) + countRow(2, false), zeroRowLogHintPixels: countRow(1, true) }
+        },
+        { base64: screenshot.toString('base64'), cssWidth: box.width, cssHeight: box.height, gateLeft, gateTop, rowH, gateSize: GATE_SIZE, logHint: FLEXOKI_TX_3 },
+      )
+    },
+    (evidence) => evidence.tickPixels > 0,
+    'Probability5 log-hint ticks for the non-zero rows never rendered',
+  )
+  return { zeroRowLogHintPixels: evidence.zeroRowLogHintPixels }
 }
 
 test('Probability5 severs the log-hint curve at a zero-probability row between non-zero rows', async ({ page }) => {
