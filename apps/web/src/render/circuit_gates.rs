@@ -994,7 +994,14 @@ impl QniApp {
         let title_h = title_galley.size().y.max(20.0);
         let height =
             pad_y + title_h + divider_gap + 1.0 + divider_gap + value_pitch + value_h + pad_y;
-        let placement = bloch_hover_popup_placement(gate_rect, width, height, screen_rect);
+        let placement = side_hover_popup_placement(
+            gate_rect,
+            gate_rect.top(),
+            gate_rect.center().y,
+            width,
+            height,
+            screen_rect,
+        );
         let rect = placement.rect;
         popover::paint_popover(painter, colors, placement);
 
@@ -1214,10 +1221,11 @@ impl QniApp {
             + value_h
             + 4.0
             + value_h;
-        let placement = probability_hover_popup_placement(
+        let row_center_y = row_top + row_h * 0.5;
+        let placement = side_hover_popup_placement(
             gate_rect,
-            row_top,
-            row_h,
+            row_center_y - height * 0.5,
+            row_center_y,
             width,
             height,
             screen_rect,
@@ -1332,8 +1340,10 @@ fn amplitude_hover_popup_placement(
     PopoverPlacement { rect, tail }
 }
 
-fn bloch_hover_popup_placement(
+fn side_hover_popup_placement(
     gate_rect: egui::Rect,
+    top: f32,
+    anchor_y: f32,
     width: f32,
     height: f32,
     screen_rect: egui::Rect,
@@ -1347,55 +1357,6 @@ fn bloch_hover_popup_placement(
     } else {
         gate_rect.left() - side_gap - width
     };
-    let mut rect = egui::Rect::from_min_size(egui::pos2(left, gate_rect.top()), size);
-
-    let min_left = screen_rect.left() + popover::VIEWPORT_PAD;
-    let max_left = screen_rect.right() - popover::VIEWPORT_PAD - rect.width();
-    let target_left = if max_left >= min_left {
-        rect.left().clamp(min_left, max_left)
-    } else {
-        min_left
-    };
-    let min_top = screen_rect.top() + popover::VIEWPORT_PAD;
-    let max_top = screen_rect.bottom() - popover::VIEWPORT_PAD - rect.height();
-    let target_top = if max_top >= min_top {
-        rect.top().clamp(min_top, max_top)
-    } else {
-        min_top
-    };
-    rect = rect.translate(egui::vec2(
-        target_left - rect.left(),
-        target_top - rect.top(),
-    ));
-
-    let anchor_y = gate_rect.center().y;
-    let tail = if rect.center().x >= gate_rect.center().x {
-        PopoverTail::on_left_edge(rect, anchor_y)
-    } else {
-        PopoverTail::on_right_edge(rect, anchor_y)
-    };
-    PopoverPlacement { rect, tail }
-}
-
-fn probability_hover_popup_placement(
-    gate_rect: egui::Rect,
-    row_top: f32,
-    row_h: f32,
-    width: f32,
-    height: f32,
-    screen_rect: egui::Rect,
-) -> PopoverPlacement {
-    let side_gap = popover::ANCHOR_GAP + popover::TAIL_H;
-    let size = egui::vec2(width, height);
-    let row_center_y = row_top + row_h * 0.5;
-    let prefer_right =
-        gate_rect.right() + side_gap + width <= screen_rect.right() - popover::VIEWPORT_PAD;
-    let left = if prefer_right {
-        gate_rect.right() + side_gap
-    } else {
-        gate_rect.left() - side_gap - width
-    };
-    let top = row_center_y - height * 0.5;
     let mut rect = egui::Rect::from_min_size(egui::pos2(left, top), size);
 
     let min_left = screen_rect.left() + popover::VIEWPORT_PAD;
@@ -1418,9 +1379,9 @@ fn probability_hover_popup_placement(
     ));
 
     let tail = if rect.center().x >= gate_rect.center().x {
-        PopoverTail::on_left_edge(rect, row_center_y)
+        PopoverTail::on_left_edge(rect, anchor_y)
     } else {
-        PopoverTail::on_right_edge(rect, row_center_y)
+        PopoverTail::on_right_edge(rect, anchor_y)
     };
     PopoverPlacement { rect, tail }
 }
@@ -1636,7 +1597,14 @@ mod tests {
     fn bloch_hover_popup_prefers_right_side_when_space_allows() {
         let gate_rect = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(40.0, 40.0));
         let screen_rect = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(800.0, 600.0));
-        let placement = super::bloch_hover_popup_placement(gate_rect, 320.0, 104.0, screen_rect);
+        let placement = super::side_hover_popup_placement(
+            gate_rect,
+            gate_rect.top(),
+            gate_rect.center().y,
+            320.0,
+            104.0,
+            screen_rect,
+        );
 
         assert_eq!(placement.rect.left(), 52.0);
     }
@@ -1645,7 +1613,14 @@ mod tests {
     fn bloch_hover_popup_tail_points_to_gate_vertical_center() {
         let gate_rect = egui::Rect::from_min_size(egui::pos2(20.0, 40.0), egui::vec2(40.0, 40.0));
         let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0));
-        let placement = super::bloch_hover_popup_placement(gate_rect, 320.0, 104.0, screen_rect);
+        let placement = super::side_hover_popup_placement(
+            gate_rect,
+            gate_rect.top(),
+            gate_rect.center().y,
+            320.0,
+            104.0,
+            screen_rect,
+        );
 
         assert_eq!(placement.tail.apex_y(), 60.0);
     }
@@ -1654,7 +1629,14 @@ mod tests {
     fn bloch_hover_popup_flips_left_near_viewport_right_edge() {
         let gate_rect = egui::Rect::from_min_size(egui::pos2(600.0, 40.0), egui::vec2(40.0, 40.0));
         let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0));
-        let placement = super::bloch_hover_popup_placement(gate_rect, 320.0, 104.0, screen_rect);
+        let placement = super::side_hover_popup_placement(
+            gate_rect,
+            gate_rect.top(),
+            gate_rect.center().y,
+            320.0,
+            104.0,
+            screen_rect,
+        );
 
         assert_eq!(placement.rect.left(), 268.0);
     }
@@ -1663,7 +1645,14 @@ mod tests {
     fn bloch_hover_popup_clamps_inside_viewport_left_edge() {
         let gate_rect = egui::Rect::from_min_size(egui::pos2(20.0, 40.0), egui::vec2(40.0, 40.0));
         let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(280.0, 180.0));
-        let placement = super::bloch_hover_popup_placement(gate_rect, 320.0, 104.0, screen_rect);
+        let placement = super::side_hover_popup_placement(
+            gate_rect,
+            gate_rect.top(),
+            gate_rect.center().y,
+            320.0,
+            104.0,
+            screen_rect,
+        );
 
         assert_eq!(placement.rect.left(), 4.0);
     }
@@ -1687,10 +1676,11 @@ mod tests {
         let gate_rect = egui::Rect::from_min_size(egui::pos2(200.0, 40.0), egui::vec2(40.0, 96.0));
         let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(260.0, 180.0));
 
-        let placement = super::probability_hover_popup_placement(
+        let row_center_y = 64.0 + 24.0 * 0.5;
+        let placement = super::side_hover_popup_placement(
             gate_rect,
-            64.0,
-            24.0,
+            row_center_y - 60.0 * 0.5,
+            row_center_y,
             80.0,
             60.0,
             screen_rect,
@@ -1707,10 +1697,11 @@ mod tests {
         let gate_rect = egui::Rect::from_min_size(egui::pos2(64.0, 40.0), egui::vec2(40.0, 96.0));
         let screen_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(120.0, 180.0));
 
-        let placement = super::probability_hover_popup_placement(
+        let row_center_y = 64.0 + 24.0 * 0.5;
+        let placement = super::side_hover_popup_placement(
             gate_rect,
-            64.0,
-            24.0,
+            row_center_y - 60.0 * 0.5,
+            row_center_y,
             140.0,
             60.0,
             screen_rect,
