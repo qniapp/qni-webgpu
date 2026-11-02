@@ -333,7 +333,6 @@ impl GateKind {
                 paragraphs: &[
                     "Applies the column when an odd number of parity controls are satisfied.",
                     "Zpar uses the Z basis; Xpar uses the X basis. Ordinary controls are combined by AND.",
-                    "Available in local WebGPU mode only; the external Qiskit API does not support parity controls.",
                 ],
                 transitions: &[],
             },
@@ -342,7 +341,6 @@ impl GateKind {
                 paragraphs: &[
                     "Shows one sampled bit string without changing or collapsing the state.",
                     "Use controls to see conditional samples. Resize to cover one to eight wires.",
-                    "Available in local WebGPU mode only; the external Qiskit API does not support sampling displays.",
                 ],
                 transitions: &[],
             },
