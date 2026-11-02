@@ -24,7 +24,7 @@ find_browser() {
 }
 
 wait_for_server() {
-  python - "$URL" <<'PY'
+  python3 - "$URL" <<'PY'
 import sys, urllib.request
 url = sys.argv[1]
 with urllib.request.urlopen(url, timeout=2) as response:
