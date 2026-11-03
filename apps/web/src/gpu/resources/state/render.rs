@@ -7,7 +7,6 @@ use super::pipeline::build_render_pipeline;
 pub(super) struct RenderResources {
     pub(super) pipeline: wgpu::RenderPipeline,
     pub(super) bind_groups: [wgpu::BindGroup; 3],
-    pub(super) bind_group_layout: wgpu::BindGroupLayout,
     pub(super) params_buffer: wgpu::Buffer,
 }
 
@@ -24,7 +23,6 @@ pub(super) fn build(
     RenderResources {
         pipeline,
         bind_groups,
-        bind_group_layout,
         params_buffer,
     }
 }

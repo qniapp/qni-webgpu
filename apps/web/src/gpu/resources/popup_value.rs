@@ -12,7 +12,6 @@ use super::common::Common;
 pub(crate) struct PopupValueResources {
     pub pipeline: wgpu::RenderPipeline,
     pub bind_groups: [wgpu::BindGroup; 3],
-    pub bind_group_layout: wgpu::BindGroupLayout,
     pub params_buffer: wgpu::Buffer,
     pub last_params: Option<PopupValueParams>,
 }
@@ -39,17 +38,8 @@ impl PopupValueResources {
         Self {
             pipeline,
             bind_groups,
-            bind_group_layout,
             params_buffer,
             last_params: None,
         }
-    }
-
-    pub(super) fn update_target_format(
-        &mut self,
-        device: &wgpu::Device,
-        target_format: wgpu::TextureFormat,
-    ) {
-        self.pipeline = pipeline::build_pipeline(device, target_format, &self.bind_group_layout);
     }
 }

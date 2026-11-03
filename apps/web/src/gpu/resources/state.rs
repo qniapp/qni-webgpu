@@ -13,7 +13,6 @@ pub(crate) struct StateResources {
 
     pub render_pipeline: wgpu::RenderPipeline,
     pub render_bind_groups: [wgpu::BindGroup; 3],
-    pub render_bind_group_layout: wgpu::BindGroupLayout,
     pub render_params_buffer: wgpu::Buffer,
     pub last_render_params: Option<RenderParams>,
 
@@ -36,20 +35,10 @@ impl StateResources {
             compute_bind_groups: compute.bind_groups,
             render_pipeline: render.pipeline,
             render_bind_groups: render.bind_groups,
-            render_bind_group_layout: render.bind_group_layout,
             render_params_buffer: render.params_buffer,
             last_render_params: None,
             gate_params_buffer: compute.gate_params_buffer,
             gate_params_staging_buffer: compute.gate_params_staging_buffer,
         }
-    }
-
-    pub(super) fn update_target_format(
-        &mut self,
-        device: &wgpu::Device,
-        target_format: wgpu::TextureFormat,
-    ) {
-        self.render_pipeline =
-            pipeline::build_render_pipeline(device, target_format, &self.render_bind_group_layout);
     }
 }

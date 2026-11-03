@@ -26,17 +26,9 @@ impl egui_wgpu::CallbackTrait for StateVectorResourceBootstrapCallback {
         _egui_encoder: &mut wgpu::CommandEncoder,
         callback_resources: &mut egui_wgpu::CallbackResources,
     ) -> Vec<wgpu::CommandBuffer> {
-        let resources = if callback_resources.contains::<StateVectorResources>() {
-            callback_resources
-                .get_mut::<StateVectorResources>()
-                .expect("StateVectorResources missing")
-        } else {
+        if !callback_resources.contains::<StateVectorResources>() {
             callback_resources.insert(StateVectorResources::new(device, queue, self.target_format));
-            callback_resources
-                .get_mut::<StateVectorResources>()
-                .expect("StateVectorResources just inserted")
-        };
-        resources.update_target_format(device, self.target_format);
+        }
         Vec::new()
     }
 
@@ -315,8 +307,6 @@ impl egui_wgpu::CallbackTrait for StateVectorCallback {
                 .get_mut::<StateVectorResources>()
                 .expect("StateVectorResources just inserted")
         };
-
-        resources.update_target_format(device, self.target_format);
 
         if resources.state.last_render_params != Some(self.render_params) {
             queue.write_buffer(

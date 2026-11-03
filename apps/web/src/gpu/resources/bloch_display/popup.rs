@@ -7,7 +7,6 @@ use super::super::popup_value::{create_popup_glyph_atlas, PopupGlyphAtlas};
 pub(super) struct PopupResources {
     pub(super) pipeline: wgpu::RenderPipeline,
     pub(super) bind_group: wgpu::BindGroup,
-    pub(super) bind_group_layout: wgpu::BindGroupLayout,
     pub(super) params_buffer: wgpu::Buffer,
 }
 
@@ -32,7 +31,6 @@ pub(super) fn build(
     PopupResources {
         pipeline,
         bind_group,
-        bind_group_layout,
         params_buffer,
     }
 }
