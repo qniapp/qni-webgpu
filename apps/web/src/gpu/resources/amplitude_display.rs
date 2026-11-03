@@ -28,7 +28,6 @@ pub(crate) struct AmplitudeResources {
     pub render_pipeline: wgpu::RenderPipeline,
     pub render_bind_group: wgpu::BindGroup,
     pub render_drag_bind_group: wgpu::BindGroup,
-    pub render_bind_group_layout: wgpu::BindGroupLayout,
     pub render_params_buffer: wgpu::Buffer,
     pub render_drag_params_buffer: wgpu::Buffer,
     pub render_instance_buffer: wgpu::Buffer,
@@ -37,7 +36,6 @@ pub(crate) struct AmplitudeResources {
 
     pub popup_value_pipeline: wgpu::RenderPipeline,
     pub popup_value_bind_group: wgpu::BindGroup,
-    pub popup_value_bind_group_layout: wgpu::BindGroupLayout,
     pub popup_value_params_buffer: wgpu::Buffer,
     pub last_popup_value_params: Option<AmplitudePopupValueParams>,
     pub last_external_upload_generation: Option<u64>,
@@ -131,7 +129,6 @@ impl AmplitudeResources {
             render_pipeline,
             render_bind_group,
             render_drag_bind_group,
-            render_bind_group_layout,
             render_params_buffer,
             render_drag_params_buffer,
             render_instance_buffer,
@@ -139,38 +136,10 @@ impl AmplitudeResources {
             last_render_params: None,
             popup_value_pipeline,
             popup_value_bind_group,
-            popup_value_bind_group_layout,
             popup_value_params_buffer,
             last_popup_value_params: None,
             last_external_upload_generation: None,
         }
-    }
-
-    pub(super) fn update_target_format(
-        &mut self,
-        device: &wgpu::Device,
-        target_format: wgpu::TextureFormat,
-    ) {
-        let render_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("amplitude_render"),
-            source: wgpu::ShaderSource::Wgsl(AMPLITUDE_RENDER_SHADER.into()),
-        });
-        self.render_pipeline = create_render_pipeline(
-            device,
-            target_format,
-            &render_shader,
-            &self.render_bind_group_layout,
-        );
-        let popup_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("amplitude_popup_value"),
-            source: wgpu::ShaderSource::Wgsl(AMPLITUDE_POPUP_VALUE_SHADER.into()),
-        });
-        self.popup_value_pipeline = create_popup_value_pipeline(
-            device,
-            target_format,
-            &popup_shader,
-            &self.popup_value_bind_group_layout,
-        );
     }
 }
 

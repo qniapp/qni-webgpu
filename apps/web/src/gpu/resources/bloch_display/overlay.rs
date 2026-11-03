@@ -6,7 +6,6 @@ use super::pipeline::build_overlay_pipeline;
 pub(super) struct OverlayResources {
     pub(super) pipeline: wgpu::RenderPipeline,
     pub(super) bind_group: wgpu::BindGroup,
-    pub(super) bind_group_layout: wgpu::BindGroupLayout,
     pub(super) params_buffer: wgpu::Buffer,
     pub(super) instance_buffer: wgpu::Buffer,
 }
@@ -26,7 +25,6 @@ pub(super) fn build(
     OverlayResources {
         pipeline,
         bind_group,
-        bind_group_layout,
         params_buffer,
         instance_buffer,
     }

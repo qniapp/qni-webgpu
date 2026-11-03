@@ -10,7 +10,6 @@ use super::measure::MeasureResources;
 pub(crate) struct DigitResources {
     pub pipeline: wgpu::RenderPipeline,
     pub bind_group: wgpu::BindGroup,
-    pub bind_group_layout: wgpu::BindGroupLayout,
     pub params_buffer: wgpu::Buffer,
     pub instance_buffer: wgpu::Buffer,
     pub last_params: Option<MeasurementDigitParams>,
@@ -39,18 +38,9 @@ impl DigitResources {
         Self {
             pipeline,
             bind_group,
-            bind_group_layout,
             params_buffer,
             instance_buffer,
             last_params: None,
         }
-    }
-
-    pub(super) fn update_target_format(
-        &mut self,
-        device: &wgpu::Device,
-        target_format: wgpu::TextureFormat,
-    ) {
-        self.pipeline = pipeline::build_pipeline(device, target_format, &self.bind_group_layout);
     }
 }

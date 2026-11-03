@@ -17,7 +17,6 @@ pub(crate) struct BlochResources {
 
     pub overlay_pipeline: wgpu::RenderPipeline,
     pub overlay_bind_group: wgpu::BindGroup,
-    pub overlay_bind_group_layout: wgpu::BindGroupLayout,
     pub overlay_params_buffer: wgpu::Buffer,
     pub overlay_instance_buffer: wgpu::Buffer,
     pub last_overlay_params: Option<BlochOverlayParams>,
@@ -25,7 +24,6 @@ pub(crate) struct BlochResources {
 
     pub popup_value_pipeline: wgpu::RenderPipeline,
     pub popup_value_bind_group: wgpu::BindGroup,
-    pub popup_value_bind_group_layout: wgpu::BindGroupLayout,
     pub popup_value_params_buffer: wgpu::Buffer,
     pub last_popup_value_params: Option<BlochPopupValueParams>,
 }
@@ -49,33 +47,14 @@ impl BlochResources {
             output_buffer: reduce.output_buffer,
             overlay_pipeline: overlay.pipeline,
             overlay_bind_group: overlay.bind_group,
-            overlay_bind_group_layout: overlay.bind_group_layout,
             overlay_params_buffer: overlay.params_buffer,
             overlay_instance_buffer: overlay.instance_buffer,
             last_overlay_params: None,
             last_external_upload_generation: None,
             popup_value_pipeline: popup.pipeline,
             popup_value_bind_group: popup.bind_group,
-            popup_value_bind_group_layout: popup.bind_group_layout,
             popup_value_params_buffer: popup.params_buffer,
             last_popup_value_params: None,
         }
-    }
-
-    pub(super) fn update_target_format(
-        &mut self,
-        device: &wgpu::Device,
-        target_format: wgpu::TextureFormat,
-    ) {
-        self.overlay_pipeline = pipeline::build_overlay_pipeline(
-            device,
-            target_format,
-            &self.overlay_bind_group_layout,
-        );
-        self.popup_value_pipeline = popup::build_popup_value_pipeline(
-            device,
-            target_format,
-            &self.popup_value_bind_group_layout,
-        );
     }
 }

@@ -40,7 +40,6 @@ pub(crate) struct StateVectorResources {
     pub(crate) conditional_gate_body: ConditionalGateBodyResources,
     pub(crate) popup_value: PopupValueResources,
 
-    pub(crate) target_format: wgpu::TextureFormat,
     pub(crate) state_count: usize,
     pub(crate) final_state: usize,
     pub(crate) active_state: usize,
@@ -84,34 +83,11 @@ impl StateVectorResources {
             digit,
             conditional_gate_body,
             popup_value,
-            target_format,
             state_count: 0,
             final_state: 0,
             active_state: 0,
             last_preview_step: None,
             plan_revision: None,
         }
-    }
-
-    pub(crate) fn update_target_format(
-        &mut self,
-        device: &wgpu::Device,
-        target_format: wgpu::TextureFormat,
-    ) {
-        if self.target_format == target_format {
-            return;
-        }
-        self.state.update_target_format(device, target_format);
-        self.postselection
-            .update_target_format(device, target_format);
-        self.bloch.update_target_format(device, target_format);
-        self.probability.update_target_format(device, target_format);
-        self.amplitude.update_target_format(device, target_format);
-        self.density.update_target_format(device, target_format);
-        self.digit.update_target_format(device, target_format);
-        self.conditional_gate_body
-            .update_target_format(device, target_format);
-        self.popup_value.update_target_format(device, target_format);
-        self.target_format = target_format;
     }
 }

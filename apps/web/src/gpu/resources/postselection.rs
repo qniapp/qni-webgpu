@@ -21,7 +21,6 @@ pub(crate) struct PostselectionResources {
     pub(crate) survival_buffer: wgpu::Buffer,
     pub(crate) pipeline: wgpu::RenderPipeline,
     pub(crate) bind_group: wgpu::BindGroup,
-    pub(crate) bind_group_layout: wgpu::BindGroupLayout,
     pub(crate) render_params_buffer: wgpu::Buffer,
     pub(crate) instance_buffer: wgpu::Buffer,
     pub(crate) last_params: Option<SurvivalLabelParams>,
@@ -262,18 +261,9 @@ impl PostselectionResources {
             survival_buffer,
             pipeline,
             bind_group,
-            bind_group_layout,
             render_params_buffer,
             instance_buffer,
             last_params: None,
         }
-    }
-
-    pub(super) fn update_target_format(
-        &mut self,
-        device: &wgpu::Device,
-        target_format: wgpu::TextureFormat,
-    ) {
-        self.pipeline = pipeline::build_pipeline(device, target_format, &self.bind_group_layout);
     }
 }

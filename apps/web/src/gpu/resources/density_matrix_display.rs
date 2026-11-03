@@ -17,7 +17,6 @@ pub(crate) struct DensityResources {
 
     pub render_pipeline: wgpu::RenderPipeline,
     pub render_bind_group: wgpu::BindGroup,
-    pub render_bind_group_layout: wgpu::BindGroupLayout,
     pub render_params_buffer: wgpu::Buffer,
     pub render_instance_buffer: wgpu::Buffer,
     pub last_render_params: Option<DensityRenderParams>,
@@ -80,29 +79,11 @@ impl DensityResources {
             meta_buffer,
             render_pipeline,
             render_bind_group,
-            render_bind_group_layout,
             render_params_buffer,
             render_instance_buffer,
             last_render_params: None,
             last_external_upload_generation: None,
         }
-    }
-
-    pub(super) fn update_target_format(
-        &mut self,
-        device: &wgpu::Device,
-        target_format: wgpu::TextureFormat,
-    ) {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("density_render"),
-            source: wgpu::ShaderSource::Wgsl(DENSITY_RENDER_SHADER.into()),
-        });
-        self.render_pipeline = create_render_pipeline(
-            device,
-            target_format,
-            &shader,
-            &self.render_bind_group_layout,
-        );
     }
 }
 
