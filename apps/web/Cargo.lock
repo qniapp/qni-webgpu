@@ -2012,7 +2012,6 @@ dependencies = [
  "png",
  "qni-web-circuit-library-model",
  "qni-web-external-gpu-model",
- "serde",
  "syn 3.0.9",
  "tracing",
  "wasm-bindgen",
