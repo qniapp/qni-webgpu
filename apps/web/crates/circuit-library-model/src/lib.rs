@@ -453,17 +453,6 @@ impl CircuitLibrary {
         self.move_section_entry_to_slot(index, slot + 1, kind);
     }
 
-    #[allow(dead_code)]
-    pub fn reorder(&mut self, src: usize, target: usize) {
-        if src >= self.entries.len() || target == src || target == src + 1 {
-            return;
-        }
-        let entry = self.entries.remove(src);
-        let adjusted = if target > src { target - 1 } else { target };
-        self.entries.insert(adjusted.min(self.entries.len()), entry);
-        self.bump_updated_at();
-    }
-
     pub fn move_to_slot(&mut self, src: usize, slot: usize) {
         let Some((kind, source_slot)) = self.section_slot_for_index(src) else {
             return;
