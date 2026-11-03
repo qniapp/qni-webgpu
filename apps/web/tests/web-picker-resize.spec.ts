@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   pixelRgbDistance,
+  pollForValue,
   sampleCanvasPixels,
   waitForStartupReady,
   waitForValue,
@@ -94,16 +95,12 @@ const tryResizeGeometry = async (
   predicate: (geometry: ResizeGeometry) => boolean,
   timeout?: number,
 ): Promise<ResizeGeometry | null> => {
-  let last: ResizeGeometry | null = null
-  try {
-    await waitForCondition(page, async () => {
-      last = await resizeGeometry(page)
-      return last !== null && predicate(last)
-    }, 'picker resize geometry', timeout)
-  } catch {
-    return null
-  }
-  return last
+  const last = await pollForValue(
+    () => resizeGeometry(page),
+    (geometry) => geometry !== null && predicate(geometry),
+    { timeout },
+  )
+  return last !== null && predicate(last) ? last : null
 }
 
 const waitForResizeGeometry = async (

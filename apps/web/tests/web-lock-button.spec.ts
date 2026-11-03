@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import {
   getPaletteGateCenter,
   pixelRgbDistance,
+  pollForValue,
   sampleCanvasPixels,
   UI_CONSTANTS,
   waitForStartupReady,
@@ -94,23 +95,19 @@ const waitForCanvasBackgroundPixel = async (page: Page, point: { x: number; y: n
   const canvas = page.locator('#egui-canvas')
   let lastPixel: CanvasPixel | null = null
 
-  try {
-    return await waitForValue(
-      async () => {
-        const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'probe', x: point.x, y: point.y }])
-        const p = pixels.probe
-        if (p[3] > 0) {
-          lastPixel = p
-        }
-        return p
-      },
-      (p) => p[3] > 0 && pixelRgbDistance(p, CANVAS_BACKGROUND) < 16,
-      'canvas probe did not match background color',
-    )
-  } catch (error) {
-    if (lastPixel) return lastPixel
-    throw new Error('canvas probe did not produce an opaque pixel')
-  }
+  await pollForValue(
+    async () => {
+      const pixels = await sampleCanvasPixels(page, canvas, [{ name: 'probe', x: point.x, y: point.y }])
+      const p = pixels.probe
+      if (p[3] > 0) {
+        lastPixel = p
+      }
+      return p
+    },
+    (p) => p[3] > 0 && pixelRgbDistance(p, CANVAS_BACKGROUND) < 16,
+  )
+  if (lastPixel) return lastPixel
+  throw new Error('canvas probe did not produce an opaque pixel')
 }
 
 const clickToolbarButton = async (page: Page, key: string): Promise<void> => {
