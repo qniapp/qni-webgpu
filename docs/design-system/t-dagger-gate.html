@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>T† ゲート (位相 −π/4) — 仕様</title>
   <link rel="stylesheet" href="design-system.css" />
+  <link rel="stylesheet" href="gate-spec.css" />
   <script>
     // design-system.html のサムネ iframe (?preview) から読まれたときは
     // #preview だけ見せるモードに切り替える (CSS は design-system.css 側)。
@@ -13,122 +14,6 @@
     }
   </script>
   <script src="components/t-dagger-gate.js"></script>
-  <style>
-    /* ページ固有スタイル。共通スタイル (body / .page / section.block / .card / table.spec /
-       pre.code / nav.breadcrumb / footer.doc-foot) は design-system.css にある。
-       ゲート本体の共通クロムは gate-chrome.html と各 Web Component に委譲し、
-       本ファイルでは stage / zoom / slot-mock など説明用の配置だけを定義する。 */
-
-    .stage {
-      display: flex;
-      gap: 32px;                         /* spacing-8 */
-      align-items: flex-start;
-      flex-wrap: wrap;
-      margin-top: 16px;                  /* spacing-4 */
-      padding: 16px 0;                   /* spacing-4 */
-    }
-    .stage .col {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;                          /* spacing-2 */
-      align-items: center;
-      max-width: 184px;
-      text-align: center;
-    }
-    .stage .col.wide { max-width: 220px; }
-    .caption {
-      font-family: var(--font-mono);
-      font-size: 12px;                   /* text-xs */
-      line-height: 16px;                 /* text-xs default */
-      color: var(--tx-2);                /* Flexoki tx-2 */
-    }
-    .actual {
-      width: 56px;                       /* 説明用スロット幅 */
-      height: 56px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .zoom {
-      width: 160px;                      /* spacing-40 */
-      height: 160px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
-      border-radius: 12px;
-      background: var(--bg-2);           /* Flexoki bg-2 */
-    }
-    .zoom :is(x-gate, y-gate, z-gate, sqrtx-gate, s-gate, s-dagger-gate, t-gate, t-dagger-gate, p-gate, rx-gate, ry-gate, rz-gate) {
-      transform: scale(3);
-      transform-origin: center;
-    }
-
-    .responsibility-grid,
-    .decision-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 12px;                         /* spacing-3 */
-      margin-top: 16px;                  /* spacing-4 */
-    }
-    .responsibility-grid .item,
-    .decision-grid .item {
-      background: var(--bg-2);           /* Flexoki bg-2 */
-      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
-      border-radius: 10px;
-      padding: 12px 16px;                /* spacing-3 / spacing-4 */
-    }
-    .responsibility-grid strong,
-    .decision-grid strong {
-      display: block;
-      color: var(--tx);                  /* Flexoki tx */
-      font-size: 14px;                   /* text-sm */
-      line-height: 20px;                 /* text-sm default */
-      margin-bottom: 4px;                /* spacing-1 */
-    }
-    .responsibility-grid span,
-    .decision-grid span {
-      display: block;
-      color: var(--tx-2);                /* Flexoki tx-2 */
-      font-size: 14px;                   /* text-sm */
-      line-height: 20px;
-    }
-
-    .slot-mock {
-      display: flex;
-      align-items: center;
-      gap: 0;
-      padding: 24px 32px;                /* spacing-6 / spacing-8 */
-      background: var(--bg);             /* Flexoki bg */
-      border: 1px solid var(--ui-2);     /* Flexoki ui-2 */
-      border-radius: 10px;
-      overflow-x: auto;
-    }
-    .slot-mock .wire {
-      position: relative;
-      height: 56px;                      /* 説明用スロット高 */
-      width: 280px;                      /* 説明用に 5 スロット分 */
-      display: flex;
-      align-items: center;
-      justify-content: space-around;
-      flex-shrink: 0;
-      background:
-        linear-gradient(var(--ui-2), var(--ui-2)) center/100% 1px no-repeat; /* Flexoki ui-2 = wire */
-    }
-    .slot-mock .slot {
-      width: 56px;                       /* 説明用スロット幅 */
-      height: 56px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    .slot-mock.with-grid .slot {
-      box-shadow: inset -1px 0 0 var(--ui); /* Flexoki ui / 説明用スロット境界 */
-    }
-    .slot-mock.with-grid .slot:last-child { box-shadow: none; }
-
-  </style>
 </head>
 <body>
 
