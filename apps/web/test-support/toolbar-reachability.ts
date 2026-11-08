@@ -138,7 +138,7 @@ const toolbarGeometry = async (page: Page, gpu: boolean, pages: boolean) => {
   }
 }
 export function registerToolbarReachability({ pages }: { pages: boolean }) {
-  for (const width of WIDTHS) for (const resized of [false, true]) {
+  for (const width of WIDTHS) for (const resized of width === 1440 ? [false] : [false, true]) {
     test.describe(`toolbar ${pages ? 'Pages' : 'ABCI'} ${width}px ${resized ? 'from 1440' : 'fresh'}`, () => {
       test.beforeEach(async ({ page }) => prepare(page, width, resized))
       test('Local controls are inside the viewport', async ({ page }) => {
