@@ -10,7 +10,7 @@
     "lint": "pnpm run lint:textlint && pnpm run lint:html && pnpm run lint:md"
   },
   "devDependencies": {
-    "html-validate": "^11.17.0",
+    "html-validate": "^11.18.0",
     "markdownlint-cli2": "^0.24.0",
     "textlint": "^15.8.0",
     "textlint-plugin-html": "^1.0.1",

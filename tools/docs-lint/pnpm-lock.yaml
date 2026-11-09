@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       html-validate:
-        specifier: ^11.17.0
-        version: 11.17.0
+        specifier: ^11.18.0
+        version: 11.18.0
       markdownlint-cli2:
         specifier: ^0.24.0
         version: 0.24.0
@@ -405,8 +405,8 @@ packages:
     resolution: {integrity: sha512-puUZAUKT5m8Zzvs72XWy3HtvVbTWljRE66cP60bxJzAqf2DgICo7lYTY2IHUmLnNpjYvw5bvmoHvPc0QO2a62w==}
     engines: {node: ^16.14.0 || >=18.0.0}
 
-  html-validate@11.17.0:
-    resolution: {integrity: sha512-DTUTxSFbiYnFOMsjsMaW5X4tT4a/k/bG3P7W9vdyxGC6L1LGtXCnL1e3pc9QMIEVkD9kk9AQIMjyJTs+2Yu0Kw==}
+  html-validate@11.18.0:
+    resolution: {integrity: sha512-9+cP5LyLG2blk1W8pYACmgTuFnqOuMZS8rt7G0q72wH7xqdduKE0qyV1qhwsKr/tjqmqscq81yyE6mNUuUex3Q==}
     engines: {node: ^22.22.0 || >= 24.8.0}
     hasBin: true
     peerDependencies:
@@ -1452,7 +1452,7 @@ snapshots:
     dependencies:
       lru-cache: 10.4.3
 
-  html-validate@11.17.0:
+  html-validate@11.18.0:
     dependencies:
       '@html-validate/stylish': 6.0.0
       '@sidvind/better-ajv-errors': 7.0.0(ajv@8.20.0)
