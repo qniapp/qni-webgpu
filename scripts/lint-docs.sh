@@ -5,10 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LINT_DIR="$ROOT_DIR/tools/docs-lint"
 
-if [ ! -d "$LINT_DIR/node_modules" ]; then
-  echo "==> Installing docs-lint dependencies"
-  (cd "$LINT_DIR" && pnpm install --frozen-lockfile=false)
-fi
+(cd "$LINT_DIR" && pnpm install --frozen-lockfile)
 
 cd "$LINT_DIR"
 
