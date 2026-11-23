@@ -12,7 +12,7 @@
   "devDependencies": {
     "html-validate": "^11.21.1",
     "markdownlint-cli2": "^0.24.2",
-    "textlint": "^15.8.0",
+    "textlint": "^16.1.1",
     "textlint-plugin-html": "^1.0.1",
     "textlint-rule-prh": "^6.1.1"
   }
